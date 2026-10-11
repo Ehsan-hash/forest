@@ -243,6 +243,13 @@ def test_arm_public_context_is_exactly_paged_and_reads_are_observational(tmp_pat
     history = [{"actions": result["actions"]}]
     repeated_payload = runtime._attach_public_context(prepared, payload, history=history)
     assert repeated_payload["context_memory"]["segment_id"] == source_segment
+    with_reference_note = json.loads(json.dumps(payload))
+    with_reference_note["messages"].insert(0, {"role": "system",
+        "content": "Previously retrieved exact source pages (references only): " +
+            json.dumps([{"segment_id": source_segment, "pointer": "/messages/1/content",
+                         "offset": 0, "next_offset": 19}])})
+    same_public_source = runtime._attach_public_context(with_reference_note, with_reference_note)
+    assert same_public_source["context_memory"]["segment_id"] == source_segment
     rejected = verify_episode_submission(payload, history, {"claim": "read only"}, runtime=runtime)
     assert rejected["valid"] is False and rejected["reason"] == "no_completed_source_bound_action"
     from research.experiments.study_runtime import _episode_source_frontier, _treatment_history_view
@@ -1034,6 +1041,112 @@ def test_repeated_cached_action_returns_semantic_no_progress_feedback(tmp_path):
     assert request["decision_schema"] == schema
     assert request["provider_snapshot"]["id"] == "fixture-provider"
     assert request["reasoning_effort"] == "low"
+
+
+def _context_read_episode_fixture(tmp_path, offsets):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "study_execution_manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    work_id = "episode-context-repeat"
+    prepared = {"work_id": work_id, "kind": "episode", "arm": "FULL",
+        "resource_policy": {"actual_gpu_seconds": None, "active_wall_seconds": None},
+        "messages": [{"role": "user", "content": "Read the exact registered source page."}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+            "properties": {"mode": {"type": "string", "enum": ["action", "submit"]},
+                "actions": {"type": "array", "items": {"type": "object",
+                    "required": ["kind", "action_work_id"], "properties": {
+                        "kind": {"type": "string", "enum": ["inspect"]},
+                        "action_work_id": {"type": "string", "enum": ["inspect-1"]}}}},
+                "submission": {"type": "object"}, "rationale": {"type": "string"}}},
+        "allowed_decisions": ["inspect"], "action_bindings": [{"kind": "analysis",
+            "action_name": "inspect", "work_id": "inspect-1", "analysis_operation": "inspect"}]}
+    payload = runtime._attach_public_context(prepared, prepared)
+    episode = item(work_id, kind="episode", payload=payload)
+    manifest_path.write_text(json.dumps(manifest([episode], version=2)), encoding="utf-8")
+    runtime.reload_manifest()
+    read_binding = next(row for row in payload["action_bindings"]
+        if row.get("action_name") == "read_context_segment")
+    segment_id = payload["context_memory"]["segment_id"]
+
+    class PageClient:
+        provider = {"id": "fixture-provider", "model": "fixture", "kind": "fixture"}
+        config = {"reasoning_effort": "low"}
+        def __init__(self):
+            self.offsets = list(offsets)
+            self.calls = []
+        def complete(self, *_args, **_kwargs):
+            offset = self.offsets[len(self.calls)]
+            self.calls.append(offset)
+            return {"text": json.dumps({"mode": "action", "actions": [{
+                "kind": "read_context_segment", "action_work_id": read_binding["work_id"],
+                "context_segment_id": segment_id, "context_pointer": "/messages/0/content",
+                "context_offset": offset, "context_limit": 16}], "submission": {},
+                "rationale": "Nonformal fixture page request."}),
+                "usage": {"input_tokens": 9, "output_tokens": 5}}
+    return runtime, manifest_path, episode, PageClient()
+
+
+def test_repeated_context_page_pauses_after_one_diagnostic_across_runtime_reload(tmp_path):
+    runtime, manifest_path, episode, client = _context_read_episode_fixture(tmp_path, [0, 0, 0])
+    first = runtime.run_one(owner="fixture", work_id=episode["work_id"], client=client)
+    assert first["state"] == "retryable"
+    first_page = first["action_result"]["actions"][0]["result"]
+    assert first_page["offset"] == 0 and first_page["next_offset"] > 0
+
+    second = runtime.run_one(owner="fixture", work_id=episode["work_id"], client=client)
+    assert second["state"] == "retryable"
+    observation = second["action_result"]["no_progress_observation"]
+    assert observation["new_evidence_added"] is False
+    assert observation["diagnostic_previously_delivered"] is False
+    assert second["action_result"]["actions"][0]["result"]["segment_id"] == first_page["segment_id"]
+    assert "already delivered" in second["action_result"]["response_validation_feedback"]
+
+    resumed = StudyRuntime(campaign=runtime.campaign, ledger=runtime.ledger_path,
+        ledger_id="ledger-test", manifest=manifest_path)
+    third = resumed.run_one(owner="fixture-resumed", work_id=episode["work_id"], client=client)
+    assert third["state"] == "paused_no_progress"
+    assert third["action_result"]["no_progress_observation"]["diagnostic_previously_delivered"] is True
+    assert client.calls == [0, 0, 0]
+
+
+def test_context_page_continuation_and_new_evidence_frontier_are_not_repeats(tmp_path):
+    from research.experiments.study_runtime import (_context_page_no_progress,
+        _episode_source_frontier)
+
+    frontier = {"messages": [{"role": "user", "content": "question"}],
+        "completed_source_actions": {}}
+    def read(offset, end, segment="segment-v1", requested_limit=None):
+        return {"kind": "analysis", "state": "completed", "result": {
+            "operation": "read_context_segment", "segment_id": segment, "pointer": "/source",
+            "offset": offset, "next_offset": end, "returned_characters": end - offset,
+            "requested_limit": requested_limit if requested_limit is not None else end - offset,
+            "content": "x" * (end - offset), "delivery_status": "delivered"}}
+    prior = [{"source_frontier": frontier, "actions": [read(0, 16)]}]
+    continuation = _context_page_no_progress([read(16, 32)], prior, frontier)
+    assert continuation is None
+    reread = _context_page_no_progress([read(0, 16)], prior, frontier)
+    assert reread["state"] == "retryable"
+    changed_frontier = {**frontier, "completed_source_actions": {"new-score": {"value": 2.0}}}
+    reread_after_evidence = _context_page_no_progress([read(0, 16)], prior, changed_frontier)
+    assert reread_after_evidence is None
+    large_request_prior = [{"source_frontier": frontier,
+        "actions": [read(0, 16, requested_limit=10_000_000)]}]
+    first_repeat = _context_page_no_progress(
+        [read(0, 12, requested_limit=10_000_000)], large_request_prior, frontier)
+    assert first_repeat["state"] == "retryable"
+    diagnosed_turn = {"source_frontier": frontier,
+        "actions": [read(0, 12, requested_limit=10_000_000)],
+        "no_progress_observation": first_repeat["no_progress_observation"]}
+    second_repeat = _context_page_no_progress(
+        [read(0, 10, requested_limit=10_000_000)], [*large_request_prior, diagnosed_turn], frontier)
+    assert second_repeat["state"] == "paused_no_progress"
+    context_note = {**frontier, "messages": [{"role": "system",
+        "content": "Previously retrieved exact source pages (references only): [{\"segment_id\":\"segment-v1\"}]"},
+        *frontier["messages"]]}
+    assert _episode_source_frontier(context_note) == _episode_source_frontier(frontier)
 
 
 def test_action_batch_is_fully_bound_before_first_operation(tmp_path, monkeypatch):

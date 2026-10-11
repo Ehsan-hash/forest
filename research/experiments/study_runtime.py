@@ -1273,9 +1273,11 @@ class StudyRuntime:
             action_properties.pop(key, None)
         base_messages = copy.deepcopy(payload.get("messages", []))
         catalog_marker = "Arm-public context catalog (metadata only): "
+        observational_markers = (catalog_marker,
+            "Previously retrieved exact source pages (references only): ")
         base_messages = [message for message in base_messages if not (
             isinstance(message, Mapping) and message.get("role") == "system"
-            and str(message.get("content", "")).startswith(catalog_marker))]
+            and str(message.get("content", "")).startswith(observational_markers))]
         public_turns = []
         for turn in history:
             if not isinstance(turn, Mapping):
@@ -1930,14 +1932,31 @@ class StudyRuntime:
             context_response_capacity=self._context_response_capacity(client) if client is not None else None,
             context_response_capacity_sources=copy.deepcopy(getattr(self, "_context_capacity_sources", [])))
         action_rows = list(action_result.get("actions", []))
+        page_diagnostic = self._context_read_no_progress(str(item["work_id"]), payload, action_rows)
+        if page_diagnostic:
+            prior_observation = action_result.get("no_progress_observation")
+            observation = {**(dict(prior_observation) if isinstance(prior_observation, Mapping) else {}),
+                **page_diagnostic["no_progress_observation"]}
+            action_result = {**action_result,
+                "state": "paused_no_progress" if page_diagnostic["state"] == "paused_no_progress" else "completed",
+                "no_progress_observation": observation,
+                "response_validation_feedback": page_diagnostic.get("response_validation_feedback"),
+                "pause_reason": page_diagnostic.get("pause_reason"),
+                "source_frontier": page_diagnostic["source_frontier"]}
+            action_rows = list(action_result.get("actions", []))
         pending_ids = [str(row["action_work_id"]) for row in action_rows
                        if row.get("state") in {"retryable", "awaiting_reconciliation"} and row.get("action_work_id")]
         verified = self._aide_verified_metrics(payload, action_rows)
         rendered = {"requested_decision": dict(decision), "observed_action_results": action_rows}
+        if action_result.get("response_validation_feedback"):
+            rendered["no_progress_feedback"] = action_result["response_validation_feedback"]
         base.update(state=action_result["state"], action_result=action_result,
                     action_results=action_rows,
                     action_work_ids=[str(row["action_work_id"]) for row in action_rows if row.get("action_work_id")],
                     pending_work_ids=pending_ids, verified_metrics=verified,
+                    no_progress_observation=action_result.get("no_progress_observation"),
+                    source_frontier=action_result.get("source_frontier"),
+                    response_validation_feedback=action_result.get("response_validation_feedback"),
                     stdout=base["stdout"] + "\n" + _json(rendered))
         return base
 
@@ -1962,6 +1981,25 @@ class StudyRuntime:
         if not row:
             return []
         return list(json.loads(row[0]).get("action_history", []))
+
+    def _context_read_no_progress(self, work_id: str, payload: Mapping[str, Any],
+                                  actions: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+        history = self._aide_action_history(work_id)
+        frontier = _episode_source_frontier(payload, history)
+        diagnostic = _context_page_no_progress(actions, history, frontier)
+        if not diagnostic:
+            return None
+        nonread_rows = [row for row in actions
+            if isinstance(row, Mapping) and not _is_context_read_action(row)]
+        previous_results = {str(row.get("action_work_id")): row.get("result")
+            for turn in history for row in turn.get("actions", [])
+            if isinstance(row, Mapping) and row.get("state") == "completed"
+            and row.get("action_work_id") and not _is_context_read_action(row)}
+        science_unchanged = all(row.get("state") == "completed"
+            and str(row.get("action_work_id")) in previous_results
+            and row.get("result") == previous_results[str(row.get("action_work_id"))]
+            for row in nonread_rows)
+        return {**diagnostic, "source_frontier": frontier} if science_unchanged else None
 
     @staticmethod
     def _aide_verified_metrics(payload: Mapping[str, Any], actions: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -2474,6 +2512,30 @@ class StudyRuntime:
                         "no_progress_observation": {"action_work_ids": identities,
                             "same_source_bound_results": True, "new_evidence_added": False,
                             "diagnostic_previously_delivered": already_diagnosed}}
+            frontier = _episode_source_frontier(payload, history)
+            page_diagnostic = _context_page_no_progress(action_result.get("actions", []), history, frontier)
+            if page_diagnostic:
+                nonread_rows = [row for row in action_result.get("actions", [])
+                    if isinstance(row, Mapping) and not _is_context_read_action(row)]
+                previous_results = {str(row.get("action_work_id")): row.get("result")
+                    for turn in history for row in turn.get("actions", [])
+                    if isinstance(row, Mapping) and row.get("state") == "completed"
+                    and row.get("action_work_id") and not _is_context_read_action(row)}
+                science_unchanged = all(row.get("state") == "completed"
+                    and str(row.get("action_work_id")) in previous_results
+                    and row.get("result") == previous_results[str(row.get("action_work_id"))]
+                    for row in nonread_rows)
+                if science_unchanged:
+                    prior_observation = action_result.get("no_progress_observation")
+                    observation = {**(dict(prior_observation) if isinstance(prior_observation, Mapping) else {}),
+                        **page_diagnostic["no_progress_observation"]}
+                    feedback = page_diagnostic.get("response_validation_feedback")
+                    existing_feedback = action_result.get("response_validation_feedback")
+                    if existing_feedback and feedback:
+                        feedback = str(existing_feedback) + " " + str(feedback)
+                    action_result = {**action_result, **page_diagnostic,
+                        "no_progress_observation": observation,
+                        "response_validation_feedback": feedback}
             if is_replay:
                 action_result = {**action_result, "observed_request_usage": self._replay_token_budget(str(item["work_id"]))}
             return {"request_id": request_id, "decision": decision, "usage": usage,
@@ -3439,9 +3501,11 @@ def _episode_source_frontier(payload: Mapping[str, Any], history: Sequence[Mappi
                     continue
                 key = str(action["action_work_id"])
                 observed[key] = {"kind": action.get("kind"), "result": stable(action.get("result", {}))}
+    observational_prefixes = ("Arm-public context catalog (metadata only): ",
+        "Previously retrieved exact source pages (references only): ")
     messages = [copy.deepcopy(message) for message in payload.get("messages", [])
         if not (isinstance(message, Mapping) and message.get("role") == "system"
-            and str(message.get("content", "")).startswith("Arm-public context catalog (metadata only): "))]
+            and str(message.get("content", "")).startswith(observational_prefixes))]
     action_bindings = [copy.deepcopy(binding) for binding in payload.get("action_bindings", [])
         if not isinstance(binding, Mapping) or binding.get("analysis_operation") != "read_context_segment"]
     return {"messages": messages,
@@ -3485,6 +3549,107 @@ def _is_context_read_action(action: Mapping[str, Any]) -> bool:
     result = action.get("result") or {}
     return (isinstance(result, Mapping) and result.get("operation") == "read_context_segment") or \
         action.get("action_name") == "read_context_segment"
+
+
+def _context_page_interval(action: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Identify only source characters that were actually returned to the caller."""
+    result = action.get("result")
+    if (action.get("state") != "completed" or not isinstance(result, Mapping)
+            or result.get("delivery_status") == "not_delivered"
+            or not isinstance(result.get("content"), str)):
+        return None
+    try:
+        start, end = int(result["offset"]), int(result["next_offset"])
+        returned = int(result.get("returned_characters", end - start))
+        requested_limit = int(result.get("requested_limit", returned))
+    except (KeyError, TypeError, ValueError):
+        return None
+    segment_id, pointer = result.get("segment_id"), result.get("pointer", "")
+    content = result["content"]
+    if (not isinstance(segment_id, str) or not segment_id or not isinstance(pointer, str)
+            or start < 0 or end <= start or returned != end - start or len(content) != returned
+            or requested_limit < returned):
+        return None
+    return {"segment_id": segment_id, "pointer": pointer, "start": start, "end": end,
+        "requested_limit": requested_limit}
+
+
+def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
+                                  history: Sequence[Mapping[str, Any]],
+                                  frontier: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]:
+    """Return covered read ranges and whether this turn returned any new source characters."""
+    intervals: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    frontier_json = _json(frontier)
+    for turn in history:
+        if not isinstance(turn, Mapping) or _json(turn.get("source_frontier")) != frontier_json:
+            continue
+        for prior in turn.get("actions", []):
+            if not isinstance(prior, Mapping) or not _is_context_read_action(prior):
+                continue
+            page = _context_page_interval(prior)
+            if page is not None:
+                key = (page["segment_id"], page["pointer"])
+                intervals.setdefault(key, []).append((page["start"], page["end"]))
+
+    repeated: list[dict[str, Any]] = []
+    new_characters = False
+    for action in actions:
+        if not isinstance(action, Mapping) or not _is_context_read_action(action):
+            continue
+        page = _context_page_interval(action)
+        if page is None:
+            continue
+        key = (page["segment_id"], page["pointer"])
+        existing = sorted(intervals.get(key, []))
+        cursor = page["start"]
+        for start, end in existing:
+            if end <= cursor:
+                continue
+            if start > cursor:
+                break
+            cursor = max(cursor, end)
+            if cursor >= page["end"]:
+                break
+        if cursor >= page["end"]:
+            repeated.append(page)
+        else:
+            new_characters = True
+        intervals.setdefault(key, []).append((page["start"], page["end"]))
+    return repeated, new_characters
+
+
+def _context_page_no_progress(actions: Sequence[Mapping[str, Any]],
+                              history: Sequence[Mapping[str, Any]],
+                              frontier: Mapping[str, Any]) -> dict[str, Any] | None:
+    repeated, new_characters = _repeated_context_page_ranges(actions, history, frontier)
+    if not repeated or new_characters:
+        return None
+    ranges = sorted({(row["segment_id"], row["pointer"], row["start"], row["end"])
+                     for row in repeated})
+    normalized = [{"segment_id": segment, "pointer": pointer, "start": start, "end": end}
+                  for segment, pointer, start, end in ranges]
+    requests = sorted({(row["segment_id"], row["pointer"], row["start"], row["requested_limit"])
+                       for row in repeated})
+    normalized_requests = [{"segment_id": segment, "pointer": pointer,
+        "offset": offset, "requested_limit": limit}
+        for segment, pointer, offset, limit in requests]
+    already_diagnosed = any(isinstance(turn.get("no_progress_observation"), Mapping)
+        and turn["no_progress_observation"].get("context_page_requests") == normalized_requests
+        and _json(turn.get("source_frontier")) == _json(frontier)
+        for turn in history if isinstance(turn, Mapping))
+    return {"state": "paused_no_progress" if already_diagnosed else "retryable",
+        "request_new_decision": not already_diagnosed,
+        "reason": "repeated_context_page_without_new_source_characters",
+        "response_validation_feedback": None if already_diagnosed else (
+            "This page only repeated source characters already delivered under the unchanged evidence frontier. "
+            "Continue from an unseen offset, act on the available evidence, or identify a changed source question."),
+        "pause_reason": ("The same source range recurred after a no-progress diagnostic without an evidence change. "
+            "This episode is paused until the source frontier changes or an operator resumes it."
+            if already_diagnosed else None),
+        "no_progress_observation": {"context_page_ranges": normalized,
+            "context_page_requests": normalized_requests,
+            "same_source_bound_results": True, "new_evidence_added": False,
+            "diagnostic_previously_delivered": already_diagnosed}}
 
 
 def _scientific_action_history(history: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
