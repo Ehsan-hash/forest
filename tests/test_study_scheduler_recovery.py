@@ -501,6 +501,36 @@ def test_pending_parent_wakes_only_after_children_settle_without_extra_query(tmp
         service.close()
 
 
+def test_recovery_requeues_failed_client_setup_only_before_any_model_call(tmp_path):
+    runtime = ChildRuntime(tmp_path, [{'work_id': 'orphaned-model-work', 'kind': 'replay',
+        'context': 'saved replay checkpoint'}])
+    def unavailable_client(_item):
+        raise RuntimeError('nonformal provider setup failure')
+    failed = StudyScheduler(runtime, client_factory=unavailable_client, poll_seconds=.01)
+    try:
+        failed.tick()
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and not all(future.done() for future in failed._futures):
+            time.sleep(.01)
+        assert failed._futures and all(future.done() for future in failed._futures)
+        assert rows(runtime)[0]['state'] == 'claimed'
+        with runtime.ledger.connect() as db:
+            assert db.execute("SELECT count(*) FROM forest_study_model_calls WHERE work_id='orphaned-model-work'").fetchone()[0] == 0
+    finally:
+        failed.close()
+
+    recovered = scheduler(runtime)
+    try:
+        recovered.acquire()
+        assert rows(runtime)[0]['state'] == 'retryable'
+        run_until(recovered, lambda: rows(runtime)[0]['state'] == 'completed')
+        with runtime.ledger.connect() as db:
+            assert db.execute("SELECT count(*) FROM forest_study_model_calls WHERE work_id='orphaned-model-work' AND status='completed'").fetchone()[0] == 1
+            assert db.execute("SELECT count(*) FROM forest_study_events WHERE work_id='orphaned-model-work' AND event_type='unstarted_claim_recovered'").fetchone()[0] == 1
+    finally:
+        recovered.close()
+
+
 def test_saved_completed_action_still_gets_client_for_next_actual_decision(tmp_path):
     action_id = 'nonformal-inspect'
     payload = {'arm': 'FULL', 'messages': [{'role': 'user', 'content': 'Nonformal two-turn fixture'}],

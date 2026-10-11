@@ -545,6 +545,28 @@ class StudyScheduler:
         for dispatch,item,lane in observers:
             future = self._executors[lane].submit(self._execute, dispatch, item, lane)
             self._futures[future] = {'item': item, 'lane': lane, 'dispatch_id': dispatch}
+        # Client construction can fail after the durable claim but before
+        # run_claimed changes the work state to running (for example, a
+        # temporarily unavailable saved-provider database). Such dispatches
+        # are terminal while their work lease remains claimed. Requeue only
+        # when the same dispatch has no model-call receipt at all; any recorded
+        # request, completed or ambiguous, remains untouched for reconciliation.
+        with self.ledger.connect() as db:
+            orphaned = db.execute("SELECT w.work_id,w.lease_owner,d.dispatch_id,d.accepted_at FROM forest_study_work w JOIN forest_study_dispatches d ON d.campaign_id=w.campaign_id AND d.owner=w.lease_owner WHERE w.campaign_id=? AND w.state='claimed' AND d.session_id<>? AND d.lane='model' AND d.state='failed' AND d.finished_at IS NOT NULL AND w.kind IN ('episode','replay','calibration_decision')",
+                (self.campaign_id, self.session_id)).fetchall()
+            recovered_claims = []
+            for work in orphaned:
+                call = db.execute('SELECT 1 FROM forest_study_model_calls WHERE campaign_id=? AND work_id=? AND started_at>=? LIMIT 1',
+                    (self.campaign_id, work['work_id'], work['accepted_at'])).fetchone()
+                if call:
+                    continue
+                changed = db.execute("UPDATE forest_study_work SET state='retryable',lease_owner=NULL,lease_at=NULL,error=NULL,updated_at=? WHERE campaign_id=? AND work_id=? AND state='claimed' AND lease_owner=?",
+                    (time.time(), self.campaign_id, work['work_id'], work['lease_owner'])).rowcount
+                if changed:
+                    recovered_claims.append((work['work_id'], work['dispatch_id']))
+        for work_id, dispatch_id in recovered_claims:
+            self.ledger.event(self.campaign_id, 'unstarted_claim_recovered',
+                {'dispatch_id': dispatch_id, 'reason': 'failed before any model request was recorded'}, work_id)
 
     def _interval(self, kind, start, end, *, work_id=None, reference=None):
         if end <= start:
