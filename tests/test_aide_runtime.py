@@ -17,7 +17,8 @@ import pytest
 from research.experiments.aide_runtime import (
     NativeBackend, SCHEMA, _bound_backend, _current_page_from_stdout, _journal_with_prompt_page_refs,
     _prepare_aide_task_context, _restore_pending_task_context, _review_task_description,
-    _legacy_native_prompt_equivalent, _query_router, _RandomRouter, load_upstream,
+    _legacy_native_prompt_equivalent, _repack_pending_task_context, _safe_context_repack,
+    _query_router, _RandomRouter, load_upstream,
     run_action_program, run_aide_episode,
 )
 from research.experiments.study_runtime import StudyRuntime
@@ -550,6 +551,67 @@ def test_pending_legacy_aide_context_is_restored_from_saved_task_description():
     assert payload["messages"] == original
     assert payload["aide_task_context_content"] == state["task_desc"]["Registered scientific task and public observations"]
     assert state["original_task_messages"] == original and state["task_context_encoding"] == []
+
+
+def test_native_request_rebases_only_after_lossless_preinference_size_rejection(tmp_path, native_upstream):
+    from research.agents.provider import ProviderError
+
+    runtime, item = _runtime(tmp_path, native_upstream)
+    upstream = load_upstream(native_upstream)
+    with runtime.ledger.connect() as db:
+        db.executescript(SCHEMA)
+    duplicate = {"dataset_manifest": {"rows": list(range(1800)), "split": "validation"},
+        "training_configuration": {"seed": 17, "updates": 200}}
+    original = [{"role": "user", "content": json.dumps({"artifacts": [duplicate] * 5,
+        "observations": [duplicate] * 5}, separators=(",", ":"))}]
+    source, compact_context, encoding = _prepare_aide_task_context(original)
+    assert len(compact_context) < len(json.dumps(original, ensure_ascii=False, sort_keys=True))
+    item["payload"].update(messages=source, aide_task_context_content=json.dumps(source, ensure_ascii=False,
+        sort_keys=True), aide_task_context_encoding=[])
+
+    class RejectThenComplete(NonformalClient):
+        def complete(self, messages, **kwargs):
+            self.calls.append((messages, kwargs))
+            if len(self.calls) == 1:
+                raise ProviderError("oversize rejected before generation", code="input_too_large",
+                    ambiguous=False, retryable=False, partial_output=[])
+            return {"text": "recovered response", "usage": {}, "status": "completed"}
+
+    client = RejectThenComplete([])
+    common = {"system_message": "AIDE stable system instructions",
+        "model": "gpt-6-luna"}
+    old_task = item["payload"]["aide_task_context_content"]
+    old_user = "Registered scientific task and public observations: " + old_task
+    with pytest.raises(ProviderError):
+        NativeBackend(runtime, item, client, upstream, "repack-node", "generate").query(
+            **common, user_message=old_user)
+
+    state = {"pending": {"node_id": "repack-node", "node": None},
+        "original_task_messages": source, "task_context_content": old_task,
+        "task_context_encoding": [], "task_desc": {
+            "Registered scientific task and public observations": old_task},
+        "action_history": [{"node_id": "earlier-node", "actions": [{"state": "completed"}]}]}
+    history_before = json.dumps(state["action_history"], sort_keys=True)
+    assert _repack_pending_task_context(runtime, item["work_id"], state, item["payload"])
+    assert state["task_context_content"] == compact_context
+    assert json.dumps(state["action_history"], sort_keys=True) == history_before
+    new_user = "Registered scientific task and public observations: " + state["task_context_content"]
+    assert NativeBackend(runtime, item, client, upstream, "repack-node", "generate").query(
+        **common, user_message=new_user) == "recovered response"
+    with runtime.ledger.connect() as db:
+        rows = db.execute("SELECT a.native_key,c.status,c.request_json,c.response_json "
+            "FROM forest_study_aide_requests a JOIN forest_study_model_calls c USING(request_id) "
+            "ORDER BY c.started_at").fetchall()
+    assert len(rows) == 2 and rows[0]["status"] == "failed" and rows[1]["status"] == "completed"
+    assert rows[0]["native_key"] != rows[1]["native_key"]
+    assert json.loads(rows[0]["response_json"])["transport_error"]["code"] == "input_too_large"
+    assert json.loads(rows[1]["request_json"])["original_task_messages"] == original
+    assert len(client.calls) == 2
+
+    saved = json.loads(rows[0]["request_json"])
+    current = json.loads(rows[1]["request_json"])
+    assert not _safe_context_repack(saved, current, {"status": "failed", "usage_json": None,
+        "response_json": json.dumps({"transport_error": {"code": "timeout", "ambiguous": True}})})
 
 
 def test_legacy_prompt_equivalence_rejects_partial_source_substrings():

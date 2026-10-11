@@ -103,6 +103,20 @@ to the study's shared source-bound public tool capacity. Native search and
 its journal tree are retained. The adapter and this adaptation must be
 reported as part of the baseline's operational configuration.
 
+Repeated public context is delivered with a lossless request-wide reference
+pool, following the structural reuse used by JSON Schema `$defs` / `$ref`
+(Pydantic) and the separation of concise tool content from retained artifacts
+(LangChain `ToolMessage` artifacts). The episode ledger and context store stay
+authoritative: references resolve to exact original evidence, and full source
+pages remain available through `read_context_segment`. After an explicit
+pre-generation `input_too_large` rejection, a pending prompt may be re-encoded
+only when its original task messages round-trip exactly, stable request
+settings match, and the serialized request is smaller. The rejected request
+remains in the ledger; the re-encoded request receives a linked identity.
+Ambiguous or otherwise unsettled calls still require reconciliation.
+
+Implementation references: [Pydantic JSON Schema definitions and references](https://docs.pydantic.dev/latest/concepts/json_schema/#definitions) and [LangChain ToolMessage artifacts](https://python.langchain.com/docs/how_to/tool_artifacts/).
+
 ## Dependencies and nonformal fixtures
 
 The actual clone must be present and its import dependencies installed in

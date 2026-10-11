@@ -273,6 +273,86 @@ def _native_serialization_equivalent(saved, current):
     return before == after
 
 
+def _rejected_before_generation(row):
+    """Only an explicit transport rejection with no model response is replay-safe."""
+    if not row or row["status"] != "failed" or row["usage_json"] not in (None, "", "{}"):
+        return False
+    try:
+        response = json.loads(row["response_json"] or "{}")
+        error = response.get("transport_error") or {}
+    except (TypeError, ValueError):
+        return False
+    return (error.get("code") == "input_too_large" and error.get("ambiguous") is False
+        and not error.get("response_id") and not error.get("partial_output"))
+
+
+def _safe_context_repack(saved, current, row):
+    """Permit a new native request identity only for a lossless, smaller re-encoding."""
+    if not _rejected_before_generation(row):
+        return False
+    if (not isinstance(saved.get("original_task_messages"), list)
+            or saved.get("original_task_messages") != current.get("original_task_messages")
+            or saved.get("task_context_content") == current.get("task_context_content")
+            or not _legacy_native_prompt_equivalent(saved, current)):
+        return False
+    stable_fields = ("native_node_id", "native_phase", "provider_id", "model",
+        "reasoning_effort", "provider_snapshot", "requested_temperature",
+        "temperature_supported_by_transport", "native_requested_max_tokens",
+        "registered_max_output_tokens", "native_function_spec", "response_schema",
+        "native_system_message")
+    if any(saved.get(name) != current.get(name) for name in stable_fields):
+        return False
+    saved_config = dict(saved.get("effective_provider_config") or {})
+    current_config = dict(current.get("effective_provider_config") or {})
+    for private_key in ("_forest_action_schema", "_forest_transport_trace_path"):
+        saved_config.pop(private_key, None)
+        current_config.pop(private_key, None)
+    if saved_config != current_config:
+        return False
+    old_payload, new_payload = saved.get("request_payload"), current.get("request_payload")
+    if not isinstance(old_payload, Mapping) or not isinstance(new_payload, Mapping):
+        return False
+    old_size = len(json.dumps(old_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    new_size = len(json.dumps(new_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    return new_size < old_size
+
+
+def _pending_generation_rejection(runtime, work_id, node_id):
+    with runtime.ledger.connect() as db:
+        rows = db.execute("SELECT c.* FROM forest_study_aide_requests a "
+            "JOIN forest_study_model_calls c ON c.request_id=a.request_id "
+            "WHERE a.campaign_id=? AND a.work_id=? AND "
+            "(a.native_key=? OR a.native_key LIKE ?) ORDER BY c.started_at DESC",
+            (runtime.campaign_id, str(work_id), f"{node_id}/generate/0",
+             f"{node_id}/generate/0/context-repack/%")).fetchall()
+    return rows[0] if rows and _rejected_before_generation(rows[0]) else None
+
+
+def _repack_pending_task_context(runtime, work_id, state, payload):
+    """Re-encode saved task context after a proven pre-inference size rejection."""
+    pending = state.get("pending") if isinstance(state, Mapping) else None
+    if not isinstance(pending, Mapping) or pending.get("node") is not None:
+        return False
+    if _pending_generation_rejection(runtime, work_id, pending.get("node_id")) is None:
+        return False
+    original = state.get("original_task_messages")
+    if not isinstance(original, list):
+        return False
+    source, content, encoding = _prepare_aide_task_context(original)
+    if content == state.get("task_context_content"):
+        return False
+    state["task_desc"]["Registered scientific task and public observations"] = content
+    state["original_task_messages"] = source
+    state["task_context_content"] = content
+    state["task_context_encoding"] = encoding
+    payload["messages"] = source
+    payload["aide_task_context_content"] = content
+    payload["aide_task_context_encoding"] = encoding
+    _save(runtime, work_id, state, event_type="aide_native_context_repacked_after_preinference_rejection",
+        event_payload={"node_id": pending.get("node_id"), "source_messages_preserved": True})
+    return True
+
+
 def _query_router(*args, **kwargs):
     backend = _BACKEND.get()
     if backend is None:
@@ -533,11 +613,21 @@ class NativeBackend:
                         all(saved.get(name) == request.get(name) for name in stable_fields) and
                         saved_config == request_config)
                 if previous != comparison and not legacy_prompt_match and not _native_serialization_equivalent(saved, request):
-                    raise ValueError("A native request identity was reused with different full messages/settings")
-                if row["status"] != "completed" or not row["response_json"]:
+                    if _safe_context_repack(saved, request, row):
+                        previous_request_id = str(row["request_id"])
+                        key = f"{key}/context-repack/{previous_request_id}"
+                        request["native_key"] = key
+                        request["recovered_from_request_id"] = previous_request_id
+                        row = None
+                    else:
+                        raise ValueError("A native request identity was reused with different full messages/settings")
+                if row is None:
+                    pass
+                elif row["status"] != "completed" or not row["response_json"]:
                     raise RuntimeError("Unsettled native model request requires reconciliation; it cannot be repeated")
-                response = json.loads(row["response_json"])
-                return self._output(response, schema)
+                else:
+                    response = json.loads(row["response_json"])
+                    return self._output(response, schema)
             # Replaying an already completed response consumes no model time.
             # Only a fresh external effect needs a new remaining-time bound.
             if callable(getattr(self.runtime, "_budgeted_episode_client", None)):
@@ -794,6 +884,8 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
         state["task_context_content"] = task_context_content
         state["task_context_encoding"] = task_context_encoding
         _save(runtime, work_id, state)
+    else:
+        _repack_pending_task_context(runtime, work_id, state, payload)
     item["payload"] = payload
     from omegaconf import OmegaConf
     cfg = OmegaConf.create(state["configuration"])
