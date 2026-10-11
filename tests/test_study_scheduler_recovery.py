@@ -191,6 +191,45 @@ def test_missing_original_controller_completion_waits_without_new_query(tmp_path
         service.close()
 
 
+def test_parent_reconciliation_projects_pending_fields_without_loading_large_checkpoint(tmp_path, monkeypatch):
+    """Scheduler reconciliation reads its scalar needs from the stored snapshot."""
+    import research.experiments.study_scheduler as module
+
+    runtime = ChildRuntime(tmp_path, [
+        {"work_id": "large-parent", "kind": "episode", "context": "episode"},
+        {"work_id": "settled-child", "kind": "infer", "context": "inference"},
+    ])
+    runtime.ledger.set_state(runtime.campaign_id, "settled-child", "completed", result={"receipt": "valid"})
+    runtime.ledger.set_state(runtime.campaign_id, "large-parent", "awaiting_reconciliation",
+        result={"pending_action": True, "node_id": "node-1"},
+        decision={"actions": [{"action_work_id": "settled-child"}]})
+    with runtime.ledger.connect() as db:
+        db.execute("INSERT INTO forest_study_edges VALUES(?,?,?,?)",
+            (runtime.campaign_id, "large-parent", "settled-child", "derived_from"))
+        db.execute("CREATE TABLE forest_study_aide_sessions(campaign_id TEXT, work_id TEXT, state_json TEXT, updated_at REAL, PRIMARY KEY(campaign_id,work_id))")
+        db.execute("INSERT INTO forest_study_aide_sessions VALUES(?,?,?,?)",
+            (runtime.campaign_id, "large-parent", json.dumps({"pending": {"node_id": "node-1",
+                "node": {"code": "analysis"}}, "action_history": [], "retained_evidence": "x" * 300_000}), time.time()))
+
+    service = scheduler(runtime)
+    original_loads = module.json.loads
+    large_values = []
+    def track_loads(value, *args, **kwargs):
+        if isinstance(value, str) and len(value) > 4096:
+            large_values.append(len(value))
+            raise AssertionError("Scheduler decoded a full historical checkpoint during reconciliation")
+        return original_loads(value, *args, **kwargs)
+    monkeypatch.setattr(module.json, "loads", track_loads)
+    try:
+        assert service._wake_reconciled_parents() == ["large-parent"]
+        with runtime.ledger.connect() as db:
+            state = db.execute("SELECT state FROM forest_study_work WHERE work_id='large-parent'").fetchone()[0]
+        assert state == "retryable"
+        assert large_values == []
+    finally:
+        service.close()
+
+
 def test_changed_raw_checkpoint_cannot_satisfy_controller_restart(tmp_path):
     runtime, _ = controller_fixture_runtime(tmp_path)
     service = controller_service(runtime)
@@ -492,7 +531,7 @@ def test_pending_parent_wakes_only_after_children_settle_without_extra_query(tmp
         assert next(row for row in rows(runtime) if row['work_id'] == 'parent')['state'] == 'awaiting_reconciliation'
         runtime.ledger.set_state(runtime.campaign_id, 'child', 'completed', result={'nonformal_fixture': True})
         run_until(service, lambda: next(row for row in rows(runtime) if row['work_id'] == 'parent')['state'] == 'completed')
-        assert sum('SELECT result_json FROM forest_study_work WHERE campaign_id=' in query
+        assert sum('json_extract(result_json' in query.lower() and 'FROM forest_study_work WHERE campaign_id=' in query
             for query in statements) == 1
         assert not any('length(result_json)' in query.lower() or 'length(state_json)' in query.lower()
             for query in statements)

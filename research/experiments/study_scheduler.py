@@ -799,20 +799,23 @@ class StudyScheduler:
                 if cached and cached['signature'] == signature:
                     saved, pending = cached['saved'], cached['pending']
                 else:
-                    raw = db.execute('SELECT result_json FROM forest_study_work WHERE campaign_id=? AND work_id=?',
-                        (self.campaign_id, row['work_id'])).fetchone()[0]
-                    result = json.loads(raw or '{}')
-                    saved = {key: result.get(key) for key in ('pending_action', 'node_id')}
+                    # These reconciliation decisions use only two scalar fields.
+                    # Episode result_json may contain the complete durable history
+                    # (hundreds of MB in long campaigns); avoid materializing and
+                    # decoding that snapshot just to recover its pending action.
+                    raw = db.execute("SELECT json_extract(result_json,'$.pending_action') AS pending_action, "
+                        "json_extract(result_json,'$.node_id') AS node_id "
+                        'FROM forest_study_work WHERE campaign_id=? AND work_id=?',
+                        (self.campaign_id, row['work_id'])).fetchone()
+                    saved = {'pending_action': raw['pending_action'], 'node_id': raw['node_id']} if raw else {}
                     pending = None
                     if session_table and session_updated is not None:
-                        native = db.execute('SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?',
+                        native = db.execute("SELECT json_extract(state_json,'$.pending.node_id') AS node_id, "
+                            "json_extract(state_json,'$.pending.node.code') AS code "
+                            'FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?',
                             (self.campaign_id, row['work_id'])).fetchone()
-                        if native:
-                            native_state = json.loads(native[0])
-                            value = native_state.get('pending')
-                            if isinstance(value, Mapping):
-                                node = value.get('node') or {}
-                                pending = {'node_id': value.get('node_id'), 'code': node.get('code')}
+                        if native and native['node_id'] is not None:
+                            pending = {'node_id': native['node_id'], 'code': native['code']}
                     self._parent_reconciliation_cache[row['work_id']] = {
                         'signature': signature, 'saved': saved, 'pending': pending}
                 if not has_decision and saved.get('pending_action') and saved.get('node_id'):
