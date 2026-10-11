@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping
 from copy import copy, deepcopy
 import json
 import importlib
