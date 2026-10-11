@@ -74,11 +74,24 @@ the job if the metering supervisor crashes. All original control records and
 snapshots reside under `.forest-compute` beside the SQLite ledger, outside the
 editable output workspace.
 
+An uncertain scientific receipt does not discard the watchdog for a validated
+original launch. If the original receipt host also dies, the watchdog stops its
+verified owned process group at the actual allowance, including surviving
+descendants after the command leader exits. It retains the original records and
+a separate direct OS stop observation. The scientific outcome remains
+`reconciliation`; a resource stop observation does not establish a successful fit.
+Unproven or reused process identities require reconciliation before signalling.
+
 Meter intervals and the accounted endpoint commit in one SQLite transaction;
 recovery records only unaccounted elapsed time. A confirmed stopped job's usage
 does not grow when its historical artifact later needs repair. Missing or changed
 retained source/result originals produce an explicit integrity error and cannot
 be reported as a valid successful scientific result.
+
+Each interval references the full accepted work/configuration version and original
+process records. Complete code/configuration payloads are retained once per work,
+so polling does not duplicate large scientific context or source originals into
+every usage row. Timing/status/PID observations remain directly recorded.
 
 ## Validation
 

@@ -21,7 +21,7 @@ import sys
 import time
 import uuid
 
-from research.agents.processes import (ManagedProcesses, binding_matches,
+from research.agents.processes import (ManagedProcesses, atomic_json, binding_matches, configuration_record,
     is_alive, read_json, signal_process_group)
 from research.agents.artifacts import equal_files, file_identity, record_file
 
@@ -85,6 +85,29 @@ def resolve_gpu_devices(requested, inventory):
 def _confirmed_stop(observation):
     status = observation.get('confirmed_execution_status') or observation.get('status')
     return status if status in ('completed', 'failed', 'cancelled') and observation.get('finished_at') is not None else None
+
+
+def _meter_observation(observation):
+    """Keep timing proof plus original references, without copying code per tick."""
+    fields = ('status', 'process_id', 'work_id', 'launch_id', 'pid', 'process_created',
+        'host_pid', 'host_created', 'process_group_id', 'created_at', 'started_at',
+        'finished_at', 'exit_code', 'elapsed_seconds', 'error',
+        'confirmed_execution_status', 'completion_receipt', 'supervisor_stop_receipt')
+    return {key: deepcopy(observation[key]) for key in fields if key in observation}
+
+
+def _group_live(group):
+    """Observe live members; zombies cannot continue consuming the device."""
+    import psutil
+    for process in psutil.process_iter():
+        try:
+            if os.getpgid(process.pid) == group and process.status() != psutil.STATUS_ZOMBIE:
+                return True
+        except (ProcessLookupError, psutil.NoSuchProcess):
+            continue
+        except (PermissionError, psutil.AccessDenied):
+            return True
+    return False
 
 
 class ComputeSupervisor:
@@ -228,8 +251,10 @@ class ComputeSupervisor:
             row = self._row(db, work_id)
         if row['state'] in TERMINAL or is_alive(row['supervisor_pid'], row['supervisor_created']):
             return
-        if row['state'] == 'reconciliation' and self._inspect(row).get('status') == 'reconciliation':
-            return
+        if row['state'] == 'reconciliation':
+            original = self._inspect(row)
+            if original.get('started_at') is None or _confirmed_stop(original) or row['error'] and row['error'].startswith('Original job stop requires reconciliation:'):
+                return
         folder = self.directory / work_id
         folder.mkdir(exist_ok=True)
         # Duplicate helper processes serialize on the work lease before any
@@ -267,23 +292,55 @@ class ComputeSupervisor:
             observation.update(status='reconciliation', error=source_error)
             if confirmed_stop:
                 observation['confirmed_execution_status'] = confirmed_stop
-        if observation.get('status') == 'reconciliation' and observation.get('started_at') is None:
+        if observation.get('status') == 'reconciliation':
             # An unreadable completion file does not erase a separately valid
             # original launch clock. This only supplies metering, never a
             # completion assertion or permission to relaunch unknown work.
+            for key in ('started_at', 'finished_at', 'confirmed_execution_status'):
+                observation.pop(key, None)
             try:
                 folder = manager.folder(row['work_id'])
                 request = read_json(folder / 'request.json')
                 state = read_json(folder / 'state.json')
                 conditions = json.loads(row['configuration_json'])
-                if (request and state.get('launch_committed') and binding_matches(request, state)
+                valid_request = (request.get('record_version') == 2
+                        and request.get('work_id') == row['work_id']
+                        and request.get('configuration') == configuration_record(request)
+                        and request.get('workspace') == conditions['workspace']
+                        and request.get('cwd') == str((Path(conditions['workspace']) / conditions['cwd']).resolve())
                         and request.get('command') == conditions['command']
                         and request.get('env') == conditions['env']
                         and request.get('timeout') == row['effective_timeout']
-                        and request.get('experiment') == conditions['research_configuration']):
+                        and request.get('experiment') == conditions['research_configuration'])
+                if valid_request and state.get('launch_committed') and binding_matches(request, state):
                     observation['started_at'] = state['started_at']
+                    # Original completion proves the owned group stopped even
+                    # if its scientific artifact capture later needs repair.
+                    identity = read_json(folder / 'identity.json')
+                    receipt = read_json(folder / 'completion.json')
+                    if (state.get('status') in ('completed', 'failed', 'cancelled')
+                            and identity and receipt
+                            and all(binding_matches(request, record) for record in (identity, receipt))
+                            and state.get('launch_id') == identity.get('launch_id') == receipt.get('launch_id')
+                            and state.get('status') == receipt.get('status')
+                            and state.get('exit_code') == receipt.get('exit_code')
+                            and state.get('finished_at') == receipt.get('finished_at')):
+                        observation.update(finished_at=receipt['finished_at'], confirmed_execution_status=receipt['status'])
             except (OSError, ValueError, KeyError, RuntimeError):
                 pass  # Retain any previously metered clock and original hold.
+            # A separate supervisor may have proved and recorded physical stop
+            # after the original receipt host died. This is a resource receipt,
+            # never a fabricated successful fit or reconstructed model output.
+            try:
+                stopped = read_json(self.directory / row['work_id'] / 'supervisor-stop.json')
+                if (stopped and stopped.get('work_id') == row['work_id']
+                        and stopped.get('configuration') == conditions
+                        and stopped.get('process_group_live') is False):
+                    observation.update(started_at=stopped['started_at'], finished_at=stopped['finished_at'],
+                        confirmed_execution_status='cancelled',
+                        supervisor_stop_receipt=str(self.directory / row['work_id'] / 'supervisor-stop.json'))
+            except (OSError, ValueError, KeyError):
+                pass
         return observation
 
     def _meter(self, db, row, observation):
@@ -300,17 +357,22 @@ class ComputeSupervisor:
         endpoint = finished if finished is not None else time.time()
         target = max(row['accounted_ms'], max(0, int((endpoint - float(started)) * 1000)))
         delta = target - row['accounted_ms']
+        timing = _meter_observation(observation)
         if delta:
             resource = 'gpu_allocated_ms' if conditions['gpu_devices'] else 'cpu_ms'
             quantity = delta * len(conditions['gpu_devices']) if conditions['gpu_devices'] else delta
             record = {'version': 1, 'work_id': row['work_id'], 'ledger_id': row['ledger_id'],
                 'from_ms': row['accounted_ms'], 'through_ms': target, 'started_at': started,
-                'phase': conditions['phase'], 'configuration': conditions, 'observation': observation}
+                'phase': conditions['phase'],
+                'configuration_reference': {'ledger': str(self.ledger), 'table': 'forest_compute_work',
+                    'work_id': row['work_id'], 'configuration_version': conditions['version']},
+                'original_process_directory': str(self._manager(row).folder(row['work_id'])),
+                'observation': timing}
             db.execute('INSERT INTO forest_compute_usage VALUES(?,?,?,?,?,?,?,?)',
                 (str(uuid.uuid4()), row['ledger_id'], row['work_id'], resource, quantity, target, _json(record), time.time()))
         db.execute('UPDATE forest_compute_work SET started_at=?,accounted_ms=?,receipt_json=? WHERE work_id=?',
-            (started, target, _json(observation), row['work_id']))
-        return {**row, 'started_at': started, 'accounted_ms': target, 'receipt_json': _json(observation)}
+            (started, target, _json(timing), row['work_id']))
+        return {**row, 'started_at': started, 'accounted_ms': target, 'receipt_json': _json(timing)}
 
     def status(self, work_id=None):
         with self.transaction() as db:
@@ -401,10 +463,39 @@ class ComputeSupervisor:
         request = read_json(folder / 'request.json')
         identity = read_json(folder / 'identity.json')
         state = read_json(folder / 'state.json')
-        if (request and identity and binding_matches(request, identity) and binding_matches(request, state)
-                and identity.get('launch_id') == state.get('launch_id')
-                and is_alive(identity.get('pid'), identity.get('process_created'))):
-            signal_process_group(state.get('process_group_id') or identity['pid'], signal.SIGKILL)
+        conditions = json.loads(row['configuration_json'])
+        if not (request and identity and request.get('work_id') == row['work_id']
+                and request.get('configuration') == configuration_record(request)
+                and request.get('command') == conditions['command'] and request.get('env') == conditions['env']
+                and request.get('experiment') == conditions['research_configuration']
+                and request.get('timeout') == row['effective_timeout']
+                and request.get('workspace') == conditions['workspace']
+                and request.get('cwd') == str((Path(conditions['workspace']) / conditions['cwd']).resolve())
+                and binding_matches(request, identity) and binding_matches(request, state)
+                and identity.get('launch_id') == state.get('launch_id')):
+            raise RuntimeError('Original process ownership cannot be proven for cancellation')
+        import psutil
+        group = state.get('process_group_id') or identity['pid']
+        if not is_alive(identity.get('pid'), identity.get('process_created')):
+            try:
+                if psutil.Process(identity['pid']).create_time() != identity['process_created']:
+                    raise RuntimeError('Original process identity was reused; reconcile before signalling')
+            except psutil.NoSuchProcess:
+                pass
+        signal_process_group(group, signal.SIGKILL)
+        deadline = time.monotonic() + MINIMUM_TERMINATION_MARGIN_SECONDS
+        while _group_live(group) and time.monotonic() < deadline:
+            time.sleep(.02)
+        if _group_live(group):
+            raise RuntimeError('Original owned process group did not acknowledge stop')
+        # Keep the real originals and direct OS stop observation. The original
+        # fit receipt can remain unavailable without leaving compute unbounded.
+        atomic_json(self.directory / row['work_id'] / 'supervisor-stop.json', {
+            'version': 1, 'work_id': row['work_id'], 'ledger_id': row['ledger_id'],
+            'configuration': json.loads(row['configuration_json']), 'original_request': request,
+            'original_state': state, 'original_identity': identity, 'started_at': state['started_at'],
+            'finished_at': time.time(), 'process_group_id': group, 'process_group_live': False,
+            'signal': 'SIGKILL', 'reason': 'Actual execution allowance exhausted'})
 
     def run(self, work_id):
         folder = self.directory / work_id
@@ -479,10 +570,10 @@ class ComputeSupervisor:
                             db.execute('UPDATE forest_compute_work SET state=?,error=? WHERE work_id=?',
                                 ('reconciliation', 'Original job stop requires reconciliation: ' + str(exc), work_id))
                         return
-                if observation.get('status') == 'reconciliation':
-                    # Unknown work is never relaunched. Its bounded original
-                    # host still owns execution and stop receipts; status/wait
-                    # can reconnect the meter after those originals are repaired.
+                if observation.get('status') == 'reconciliation' and observation.get('started_at') is None:
+                    # No validated original launch clock permits a watchdog
+                    # to attribute compute or stop an unknown owned process.
+                    # Keep reconciliation without ever recreating the command.
                     return
                 time.sleep(.05)
 

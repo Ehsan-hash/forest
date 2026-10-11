@@ -345,3 +345,102 @@ def test_aggregate_only_observation_freezes_genuine_stop_before_artifact_error(t
     second = supervisor.status('aggregate')
     assert first['status'] == second['status'] == 'reconciliation'
     assert first['elapsed_ms'] == second['elapsed_ms'] == measured
+
+
+def test_first_terminal_receipt_with_artifact_error_stops_meter_without_scientific_success(tmp_path):
+    supervisor, workspace = configured(tmp_path)
+    supervisor.submit(count_command(.4), workspace, work_id='first-terminal', timeout_seconds=10)
+    observed(supervisor, 'first-terminal', lambda value: value['status'] == 'running' and (workspace / 'launches').exists())
+    meter = row(supervisor, 'first-terminal'); os.kill(meter['supervisor_pid'], signal.SIGKILL)
+    manager = supervisor._manager(meter)
+    deadline = time.monotonic() + 5
+    while manager.inspect('first-terminal')['status'] != 'completed' and time.monotonic() < deadline:
+        time.sleep(.02)
+    receipt = read_json(manager.folder('first-terminal') / 'completion.json')
+    artifact = next(item for item in receipt['artifacts'] if item.get('relative_path') == 'answer')
+    Path(artifact['path']).unlink()
+    uncertain = supervisor.status('first-terminal')
+    assert uncertain['status'] == 'reconciliation'
+    assert uncertain['confirmed_execution_status'] == 'completed'
+    assert uncertain['observation']['finished_at'] == receipt['finished_at']
+    time.sleep(.12)
+    assert supervisor.status('first-terminal')['elapsed_ms'] == uncertain['elapsed_ms']
+
+
+@pytest.mark.parametrize('meter_crash', [False, True])
+def test_lost_original_host_with_broken_receipt_still_enforces_actual_timeout(tmp_path, meter_crash):
+    supervisor, workspace = configured(tmp_path)
+    supervisor.submit(count_command(8), workspace, work_id='lost-host', timeout_seconds=.7)
+    running = observed(supervisor, 'lost-host', lambda value: value['status'] == 'running' and (workspace / 'launches').exists())
+    original = running['observation']
+    manager = supervisor._manager(row(supervisor, 'lost-host'))
+    try:
+        (manager.folder('lost-host') / 'completion.json').write_text('{broken')
+        os.kill(original['host_pid'], signal.SIGKILL)
+        if meter_crash:
+            meter = row(supervisor, 'lost-host'); os.kill(meter['supervisor_pid'], signal.SIGKILL)
+            deadline = time.monotonic() + 2
+            while is_alive(meter['supervisor_pid'], meter['supervisor_created']) and time.monotonic() < deadline:
+                time.sleep(.02)
+        supervisor.wait('lost-host', timeout=2)
+        deadline = time.monotonic() + 2
+        while is_alive(original['pid'], original['process_created']) and time.monotonic() < deadline:
+            time.sleep(.02)
+        assert not is_alive(original['pid'], original['process_created'])
+        assert (workspace / 'launches').read_text() == '1'
+        stopped = observed(supervisor, 'lost-host', lambda value: value['observation'].get('supervisor_stop_receipt'))
+        assert stopped['status'] == 'reconciliation' and stopped['confirmed_execution_status'] == 'cancelled'
+        receipt = read_json(stopped['observation']['supervisor_stop_receipt'])
+        assert receipt['original_identity']['launch_id'] == original['launch_id']
+        assert receipt['process_group_live'] is False
+        time.sleep(.12)
+        assert supervisor.status('lost-host')['elapsed_ms'] == stopped['elapsed_ms']
+    finally:
+        if is_alive(original['pid'], original['process_created']):
+            os.killpg(original['process_group_id'], signal.SIGKILL)
+
+
+def test_lost_host_watchdog_stops_same_group_descendant_after_leader_exit(tmp_path):
+    supervisor, workspace = configured(tmp_path)
+    child = "import os,time;from pathlib import Path;Path('descendant').write_text(str(os.getpid()));time.sleep(8)"
+    command = [sys.executable, '-c', "import subprocess,sys;subprocess.Popen([sys.executable,'-c'," + repr(child) + "])" ]
+    supervisor.submit(command, workspace, work_id='descendant', timeout_seconds=.8)
+    running = observed(supervisor, 'descendant', lambda value: value['status'] == 'running' and (workspace / 'descendant').exists()
+        and not is_alive(value['observation'].get('pid'), value['observation'].get('process_created')))
+    original = running['observation']; descendant = int((workspace / 'descendant').read_text())
+    import psutil
+    created = psutil.Process(descendant).create_time()
+    manager = supervisor._manager(row(supervisor, 'descendant'))
+    try:
+        (manager.folder('descendant') / 'completion.json').write_text('{broken')
+        os.kill(original['host_pid'], signal.SIGKILL)
+        supervisor.wait('descendant', timeout=2)
+        deadline = time.monotonic() + 2
+        while is_alive(descendant, created) and time.monotonic() < deadline:
+            time.sleep(.02)
+        assert not is_alive(descendant, created)
+        stopped = observed(supervisor, 'descendant', lambda value: value['observation'].get('supervisor_stop_receipt'))
+        assert stopped['status'] == 'reconciliation'
+        assert read_json(stopped['observation']['supervisor_stop_receipt'])['process_group_id'] == original['process_group_id']
+    finally:
+        if is_alive(descendant, created):
+            os.killpg(original['process_group_id'], signal.SIGKILL)
+
+
+def test_interval_receipts_reference_complete_configuration_without_repeating_source(tmp_path):
+    supervisor, workspace = configured(tmp_path)
+    configuration = {'large_research_context': 'actual saved context ' * 10000}
+    supervisor.submit(count_command(.2), workspace, work_id='compact-proof', timeout_seconds=10, configuration=configuration)
+    result = supervisor.wait('compact-proof', timeout=10)
+    assert result['status'] == 'completed'
+    with supervisor.connect() as db:
+        original = json.loads(db.execute('SELECT configuration_json FROM forest_compute_work WHERE work_id=?', ('compact-proof',)).fetchone()[0])
+        assert original['research_configuration'] == configuration
+        intervals = db.execute('SELECT receipt_json FROM forest_compute_usage WHERE work_id=?', ('compact-proof',)).fetchall()
+        assert intervals
+        for interval in intervals:
+            assert len(interval[0]) < 5000
+            record = json.loads(interval[0])
+            assert record['configuration_reference']['work_id'] == 'compact-proof'
+            assert Path(record['original_process_directory'], 'request.json').is_file()
+        assert len(row(supervisor, 'compact-proof')['receipt_json']) < 5000
