@@ -1854,8 +1854,8 @@ class StudyRuntime:
                     and _json(turn.get("source_frontier")) == _json(frontier)
                     and isinstance(turn.get("submission_validation"), Mapping)
                     and turn["submission_validation"].get("valid") is False
-                    and _json(turn["submission_validation"].get("source_validation_signature",
-                        _validation_signature(turn["submission_validation"])))
+                    and _json(turn["submission_validation"].get("source_validation_signature")
+                        or _validation_signature(turn["submission_validation"]))
                         == _json(_validation_signature(validation))]
                 diagnosed = any(isinstance(turn.get("no_progress_observation"), Mapping)
                     and _semantic_submission(turn["no_progress_observation"].get("repeated_submission", {})) == semantic_submission
@@ -1877,8 +1877,13 @@ class StudyRuntime:
                             "repeated_submission": semantic_submission,
                             "diagnostic_previously_delivered": diagnosed},
                         "source_frontier": frontier}
-            base.update(state=validation.get("state", "completed"), submission_validation=validation,
-                        submission=dict(submission),
+            replan = validation.get("state") == "retryable" and validation.get("request_new_decision") is True
+            base.update(state="completed" if replan else validation.get("state", "completed"),
+                        exc_type=("ScientificSubmissionNeedsReplan" if replan else base.get("exc_type")),
+                        exc_info=({"args": [str(validation.get("response_validation_feedback")
+                            or validation.get("reason") or "The submission requires a new proposal.")]}
+                            if replan else base.get("exc_info")),
+                        submission_validation=validation, submission=dict(submission),
                         stdout=base["stdout"] + "\n" + _json({"independent_submission_validation": validation}))
             return base
         if not actions:
@@ -1945,15 +1950,20 @@ class StudyRuntime:
                 "source_frontier": page_diagnostic["source_frontier"]}
             action_rows = list(action_result.get("actions", []))
         pending_ids = [str(row["action_work_id"]) for row in action_rows
-                       if row.get("state") in {"retryable", "awaiting_reconciliation"} and row.get("action_work_id")]
+                       if row.get("state") in {"retryable", "awaiting_reconciliation"}
+                       and not row.get("request_new_decision") and row.get("action_work_id")]
         verified = self._aide_verified_metrics(payload, action_rows)
         rendered = {"requested_decision": dict(decision), "observed_action_results": action_rows}
         if action_result.get("response_validation_feedback"):
             rendered["no_progress_feedback"] = action_result["response_validation_feedback"]
-        base.update(state=action_result["state"], action_result=action_result,
+        replan = action_result.get("request_new_decision") is True
+        base.update(state="completed" if replan else action_result["state"], action_result=action_result,
                     action_results=action_rows,
                     action_work_ids=[str(row["action_work_id"]) for row in action_rows if row.get("action_work_id")],
                     pending_work_ids=pending_ids, verified_metrics=verified,
+                    exc_type=("ScientificActionNeedsReplan" if replan else base.get("exc_type")),
+                    exc_info=({"args": ["The registered action precondition requires a new proposal; no child action was queued."]}
+                        if replan else base.get("exc_info")),
                     no_progress_observation=action_result.get("no_progress_observation"),
                     source_frontier=action_result.get("source_frontier"),
                     response_validation_feedback=action_result.get("response_validation_feedback"),
@@ -2442,8 +2452,8 @@ class StudyRuntime:
                         and _json(turn.get("source_frontier")) == _json(frontier)
                         and isinstance(turn.get("submission_validation"), Mapping)
                         and turn["submission_validation"].get("valid") is False
-                        and _json(turn["submission_validation"].get("source_validation_signature",
-                            _validation_signature(turn["submission_validation"])))
+                        and _json(turn["submission_validation"].get("source_validation_signature")
+                            or _validation_signature(turn["submission_validation"]))
                             == _json(_validation_signature(action_result))]
                     if repeated_prior:
                         already_diagnosed = any(
@@ -2683,6 +2693,11 @@ class StudyRuntime:
                  else "retryable" if "retryable" in states else "completed")
         response = {"state": state, "actions": results, "submission": dict(submission or {}),
                     "source_validation": validation}
+        if any(result.get("request_new_decision") is True for result in results):
+            # A source precondition can request a new proposal without creating
+            # a child action. Keep this at the aggregate boundary so recovery
+            # does not mistake it for pending GPU work and replay it forever.
+            response["request_new_decision"] = True
         if len(results) == 1:
             response["result"] = results[0].get("result")
         return response
@@ -3322,10 +3337,13 @@ class StudyRuntime:
                 prior_result = json.loads(item["result_json"]) if item.get("result_json") else {}
                 history = list(prior_result.get("action_history", []))
                 previous_action_result = prior_result.get("action_result") or {}
+                nested_replan = any(isinstance(action, Mapping) and action.get("request_new_decision") is True
+                    for action in previous_action_result.get("actions", []))
                 pending_retry = bool(prior_decision and (previous_action_result.get("state") in
                                      {"retryable", "awaiting_reconciliation"} or
                                      (prior_result.get("decision_received") and "action_result" not in prior_result))
-                                     and not previous_action_result.get("request_new_decision"))
+                                     and not previous_action_result.get("request_new_decision")
+                                     and not nested_replan)
                 if pending_retry:
                     episode_payload = dict(item["payload"])
                     prepared = prior_result.get("prepared_episode_payload")
@@ -4048,6 +4066,14 @@ def _treatment_history_view(arm: str, history: Sequence[Mapping[str, Any]]) -> d
                 continue
             action_id = str(operation.get("action_work_id", f"turn-{episode_turn}"))
             result = dict(operation.get("result") or {})
+            # Preserve guard and validation diagnostics that live on the
+            # action row rather than inside its result object. A fresh model
+            # turn must see why the previous proposal needs replanning.
+            for key in ("reason", "request_new_decision", "selection_work_id",
+                        "source_selected_configuration_id", "proposed_comparison_configuration_id",
+                        "response_validation_feedback"):
+                if key in operation:
+                    result[key] = operation[key]
             if _is_context_read_action(operation):
                 all_reads.append({"id": action_id, "episode_turn": episode_turn, "result": result})
                 continue

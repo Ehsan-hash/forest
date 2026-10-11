@@ -1381,6 +1381,126 @@ def test_invalid_actual_response_is_saved_and_gets_one_evidence_bound_repair_tur
     assert "A submit-mode response cannot add unexecuted operations" in delivered
 
 
+@pytest.mark.parametrize("arm", ["FLAT", "DAG_ID"])
+def test_source_precondition_replan_survives_restart_and_uses_fresh_model_decision(tmp_path, arm):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    compare = {"work_id": "compare-before-select", "kind": "analysis", "action_name": "compare",
+        "analysis_operation": "compare", "selection_work_id": "selection-not-yet-run",
+        "compared_configuration_ids": ["anchor", "candidate"], "evidence": [
+            {"work_id": "candidate-evidence", "configuration_id": "candidate", "seed": 11,
+             "state": "not_run", "receipt_path": str(campaign / "missing-candidate-receipt.json")}]}
+    inspect = {"work_id": "inspect-current-state", "kind": "analysis", "action_name": "inspect",
+        "analysis_operation": "inspect", "evidence": [{"work_id": "candidate-evidence",
+            "configuration_id": "candidate", "seed": 11, "state": "not_run", "metrics": {}}],
+        "output_path": str(campaign / "inspect-current-state.json")}
+    payload = {"arm": arm, "messages": [{"role": "user", "content": "Nonformal replan fixture."}],
+        "resource_policy": {"active_wall_seconds": 300, "actual_gpu_seconds": 10},
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+            "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
+                "type": "object", "required": ["kind", "action_work_id"], "properties": {
+                    "kind": {"type": "string"}, "action_work_id": {"type": "string"}}}},
+                "submission": {"type": "object"}, "rationale": {"type": "string"}}},
+        "allowed_decisions": ["compare", "inspect"], "action_bindings": [compare, inspect]}
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([{"work_id": "replan-episode", "kind": "episode",
+        "payload": payload}])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    requests = []
+
+    class ReplanningClient:
+        provider = {"id": "fixture", "kind": "scripted", "model": "fixture"}
+        config = {"reasoning_effort": "medium"}
+        timeout = 10
+        def complete(self, messages, **_kwargs):
+            requests.append(messages)
+            if len(requests) == 1:
+                decision = {"mode": "action", "actions": [{"kind": "compare",
+                    "action_work_id": "compare-before-select"}], "submission": {},
+                    "rationale": "Nonformal fixture deliberately compares before source selection."}
+            else:
+                decision = {"mode": "action", "actions": [{"kind": "inspect",
+                    "action_work_id": "inspect-current-state"}], "submission": {},
+                    "rationale": "Nonformal fixture replans using the registered inspection."}
+            return {"text": json.dumps(decision), "usage": {"input_tokens": 5, "output_tokens": 7},
+                "model": "fixture", "status": "completed"}
+
+    client = ReplanningClient()
+    first = runtime.run_one(owner="replan-fixture", client=client)
+    assert first["action_result"]["state"] == "retryable"
+    assert first["action_result"]["request_new_decision"] is True
+    nested = first["action_result"]["actions"][0]
+    assert nested["reason"] == "source_selection_must_complete_before_comparison"
+    assert nested["request_new_decision"] is True
+    # Model rows created before the aggregate field was added have the flag
+    # only on the child action. Recreate that legacy persisted shape.
+    with runtime.ledger.connect() as db:
+        saved = db.execute("SELECT result_json FROM forest_study_work WHERE work_id='replan-episode'").fetchone()[0]
+        legacy_result = json.loads(saved)
+        legacy_result["action_result"].pop("request_new_decision", None)
+        db.execute("UPDATE forest_study_work SET result_json=? WHERE work_id='replan-episode'",
+            (json.dumps(legacy_result),))
+    # Reconstruct the runtime as a scheduler restart would, then verify it
+    # chooses a fresh decision rather than replaying the blocked comparison.
+    recovered = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    second = recovered.run_one(owner="replan-fixture-resumed", client=client)
+    assert len(requests) == 2
+    assert second["decision"]["actions"][0]["action_work_id"] == "inspect-current-state"
+    assert second.get("resumed_saved_decision", False) is False
+    delivered = "\n".join(str(message.get("content", "")) for message in requests[1])
+    assert "source_selection_must_complete_before_comparison" in delivered
+    with recovered.ledger.connect() as db:
+        calls = db.execute("SELECT status FROM forest_study_model_calls WHERE work_id='replan-episode' ORDER BY recorded_at").fetchall()
+        row = db.execute("SELECT decision_json,result_json,state FROM forest_study_work WHERE work_id='replan-episode'").fetchone()
+        comparison = db.execute("SELECT state FROM forest_study_work WHERE work_id='compare-before-select'").fetchone()
+    assert [call[0] for call in calls] == ["completed", "completed"]
+    assert json.loads(row[0])["actions"][0]["action_work_id"] == "inspect-current-state"
+    assert any(action["reason"] == "source_selection_must_complete_before_comparison"
+        for action in json.loads(row[1])["action_history"][0]["actions"])
+    assert comparison is None  # The blocked precondition never registered/executed a comparison.
+
+
+def test_pending_gpu_action_still_reuses_saved_decision(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    fit = {"work_id": "pending-fit", "kind": "fit", "action_name": "train",
+        "configuration_id": "candidate", "seed": 11, "configuration_path": str(campaign / "config.json"),
+        "fit_timeout_seconds": 10, "output_directory": str(campaign / "fit-output"),
+        "effective_config": {"work_id": "pending-fit", "configuration_id": "candidate", "seed": 11}}
+    decision = {"mode": "action", "actions": [{"kind": "train", "action_work_id": "pending-fit",
+        "configuration_id": "candidate", "seed": 11}], "submission": {}, "rationale": "Nonformal pending fit fixture."}
+    payload = {"arm": "FULL", "messages": [{"role": "user", "content": "Nonformal pending fit."}],
+        "resource_policy": {"active_wall_seconds": 300, "actual_gpu_seconds": 10},
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"]},
+        "allowed_decisions": ["train"], "action_bindings": [fit]}
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([{"work_id": "pending-episode", "kind": "episode",
+        "payload": payload}])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    runtime.ledger.register_action("campaign-test", "pending-fit", fit, parent_id="pending-episode")
+    runtime.ledger.set_state("campaign-test", "pending-fit", "retryable")
+    runtime.ledger.set_state("campaign-test", "pending-episode", "retryable", decision=decision,
+        result={"decision": decision, "action_result": {"state": "retryable", "actions": [
+            {"action_work_id": "pending-fit", "kind": "fit", "state": "retryable"}]},
+            "action_history": []})
+    calls = []
+    class NoCallClient:
+        provider = {"id": "fixture", "kind": "scripted", "model": "fixture"}
+        config = {"reasoning_effort": "medium"}
+        timeout = 10
+        def complete(self, *args, **kwargs):
+            calls.append((args, kwargs))
+            raise AssertionError("Pending GPU reconciliation must reuse the saved model decision")
+    result = runtime.run_one(owner="pending-gpu-fixture", work_id="pending-episode",
+        client=NoCallClient(), defer_gpu=True)
+    assert result["resumed_saved_decision"] is True
+    assert result["action_result"]["actions"][0]["state"] == "retryable"
+    assert calls == []
+
+
 @pytest.mark.parametrize("arm,expected_view", [
     ("FULL", "typed_graph"), ("DAG_ID", "id_only_graph"), ("FLAT", "flat_artifact_index"),
 ])
