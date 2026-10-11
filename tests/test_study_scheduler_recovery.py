@@ -480,11 +480,20 @@ def test_pending_parent_wakes_only_after_children_settle_without_extra_query(tmp
     runtime.ledger.set_state(runtime.campaign_id, 'parent', 'awaiting_reconciliation',
         decision={'child_id': 'child'}, result={'pending_work_ids': ['child']})
     service = scheduler(runtime)
+    statements = []
+    original_connect = runtime.ledger.connect
+    def traced_connect():
+        db = original_connect()
+        db.set_trace_callback(statements.append)
+        return db
+    runtime.ledger.connect = traced_connect
     try:
         service.tick()
         assert next(row for row in rows(runtime) if row['work_id'] == 'parent')['state'] == 'awaiting_reconciliation'
         runtime.ledger.set_state(runtime.campaign_id, 'child', 'completed', result={'nonformal_fixture': True})
         run_until(service, lambda: next(row for row in rows(runtime) if row['work_id'] == 'parent')['state'] == 'completed')
+        assert sum('SELECT result_json FROM forest_study_work WHERE campaign_id=' in query
+            for query in statements) == 1
         with runtime.ledger.connect() as db:
             assert db.execute('SELECT count(*) FROM forest_study_model_calls').fetchone()[0] == 0
         assert json.loads(next(row for row in rows(runtime) if row['work_id'] == 'parent')['result_json'])['resumed_saved_decision'] is True

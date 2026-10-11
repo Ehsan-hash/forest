@@ -152,10 +152,21 @@ def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, 
     runtime = ChildRuntime(tmp_path, [
         {'work_id': 'large-queued', 'kind': 'replay', 'context': history},
         {'work_id': 'large-retryable', 'kind': 'replay', 'context': history}])
+    runtime.ledger.register_action(runtime.campaign_id, 'pending-source',
+        {'work_id': 'pending-source', 'kind': 'infer', 'phase': 'DEV'}, parent_id='large-retryable')
     runtime.ledger.set_state(runtime.campaign_id, 'large-retryable', 'retryable',
-        result={'pending_work_ids': [], 'history': history})
+        result={'pending_work_ids': ['pending-source'], 'history': history})
     service = scheduler(runtime)
     original_loads = scheduler_module.json.loads
+    statements = []
+    original_connect = runtime.ledger.connect
+
+    def traced_connect():
+        db = original_connect()
+        db.set_trace_callback(statements.append)
+        return db
+
+    monkeypatch.setattr(runtime.ledger, 'connect', traced_connect)
 
     def reject_full_record(value, *args, **kwargs):
         if isinstance(value, str) and ('"context"' in value or '"history"' in value):
@@ -164,7 +175,11 @@ def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, 
 
     monkeypatch.setattr(scheduler_module.json, 'loads', reject_full_record)
     try:
+        assert service._ready_ids(('replay',), {}) == ['large-queued']
+        with runtime.ledger.connect() as db:
+            db.execute("UPDATE forest_study_work SET state='completed' WHERE work_id='pending-source'")
         assert service._ready_ids(('replay',), {}) == ['large-queued', 'large-retryable']
+        assert not any('json_extract(result_json' in query.lower() for query in statements)
         with runtime.ledger.connect() as db:
             assert original_loads(db.execute('SELECT payload_json FROM forest_study_work WHERE work_id=?',
                 ('large-queued',)).fetchone()[0])['context'] == history

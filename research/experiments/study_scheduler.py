@@ -431,6 +431,7 @@ class StudyScheduler:
         self._tested_degrees = set()
         self._pending_decisions = []
         self._reconciliation_seen = {}
+        self._parent_reconciliation_cache = {}
         self._executors = {'model': ThreadPoolExecutor(max_workers=self.maximum, thread_name_prefix='forest-model'),
             'gpu': ThreadPoolExecutor(max_workers=1, thread_name_prefix='forest-gpu'),
             'cpu': ThreadPoolExecutor(max_workers=self.cpu_degree, thread_name_prefix='forest-audit')}
@@ -757,27 +758,48 @@ class StudyScheduler:
         """Resume a durable pending decision only after all its children settle."""
         active = {entry['item']['work_id'] for entry in self._futures.values()}
         with self.ledger.connect() as db:
-            db.execute('BEGIN IMMEDIATE')
-            rows = db.execute("SELECT * FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
+            rows = db.execute("SELECT work_id,decision_json,updated_at,length(result_json) AS result_size FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
+            session_table = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_study_aide_sessions'").fetchone()
+            sessions = {row['work_id']: (row['updated_at'], row['state_size']) for row in db.execute(
+                'SELECT work_id,updated_at,length(state_json) AS state_size FROM forest_study_aide_sessions WHERE campaign_id=?',
+                (self.campaign_id,))} if session_table else {}
             states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
             edges = db.execute("SELECT source_id,target_id FROM forest_study_edges WHERE campaign_id=? AND relation='derived_from'", (self.campaign_id,)).fetchall()
             awakened = []
             for row in rows:
                 if row['work_id'] in active or db.execute("SELECT 1 FROM forest_study_model_calls WHERE campaign_id=? AND work_id=? AND status='requested'", (self.campaign_id, row['work_id'])).fetchone():
                     continue
-                saved = json.loads(row['result_json'] or '{}')
                 has_decision = bool(row['decision_json'])
+                session_updated = sessions.get(row['work_id'])
+                signature = (row['updated_at'], row['result_size'], session_updated)
+                cached = self._parent_reconciliation_cache.get(row['work_id'])
+                if cached and cached['signature'] == signature:
+                    saved, pending = cached['saved'], cached['pending']
+                else:
+                    raw = db.execute('SELECT result_json FROM forest_study_work WHERE campaign_id=? AND work_id=?',
+                        (self.campaign_id, row['work_id'])).fetchone()[0]
+                    result = json.loads(raw or '{}')
+                    saved = {key: result.get(key) for key in ('pending_action', 'node_id')}
+                    pending = None
+                    if session_table and session_updated is not None:
+                        native = db.execute('SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?',
+                            (self.campaign_id, row['work_id'])).fetchone()
+                        if native:
+                            native_state = json.loads(native[0])
+                            value = native_state.get('pending')
+                            if isinstance(value, Mapping):
+                                node = value.get('node') or {}
+                                pending = {'node_id': value.get('node_id'), 'code': node.get('code')}
+                    self._parent_reconciliation_cache[row['work_id']] = {
+                        'signature': signature, 'saved': saved, 'pending': pending}
                 if not has_decision and saved.get('pending_action') and saved.get('node_id'):
                     program = db.execute('SELECT code,program_json FROM forest_study_aide_programs WHERE campaign_id=? AND work_id=? AND node_id=?', (self.campaign_id, row['work_id'], saved['node_id'])).fetchone()
-                    table = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_study_aide_sessions'").fetchone()
-                    native = db.execute('SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?', (self.campaign_id, row['work_id'])).fetchone() if table else None
-                    pending = json.loads(native[0]).get('pending') if native else None
-                    has_decision = bool(program and (json.loads(program['program_json']).get('decision') or {}).get('actions') and pending and pending.get('node_id') == saved['node_id'] and (pending.get('node') or {}).get('code') == program['code'])
+                    has_decision = bool(program and (json.loads(program['program_json']).get('decision') or {}).get('actions') and pending and pending.get('node_id') == saved['node_id'] and pending.get('code') == program['code'])
                 children = {edge['target_id'] for edge in edges if edge['source_id'] == row['work_id']}
-                children.update(map(str, saved.get('pending_work_ids') or []))
                 if has_decision and children and all(states.get(child) in TERMINAL for child in children):
                     db.execute("UPDATE forest_study_work SET state='retryable',lease_owner=NULL,lease_at=NULL,error=NULL,updated_at=? WHERE campaign_id=? AND work_id=? AND state='awaiting_reconciliation'", (time.time(), self.campaign_id, row['work_id']))
                     awakened.append((row['work_id'], sorted(children)))
+                    self._parent_reconciliation_cache.pop(row['work_id'], None)
         for work_id, children in awakened:
             self.ledger.event(self.campaign_id, 'pending_decision_reconciled', {'settled_child_work_ids': children}, work_id)
         return [work_id for work_id, _ in awakened]
@@ -807,14 +829,16 @@ class StudyScheduler:
                     original = compute.get(row['supervisor_work_id'] or row['work_id'])
                     if original and original['status'] not in ('completed', 'failed', 'cancelled', 'budget_exhausted', 'reconciliation'):
                         continue
-                    children = [edge['target_id'] for edge in edges if edge['source_id'] == row['work_id'] and edge['relation'] == 'derived_from']
-                    if row['decision_json'] and any(states.get(child) not in TERMINAL for child in children):
-                        continue
-                    pending_json = db.execute(
-                        "SELECT json_extract(result_json,'$.pending_work_ids') FROM forest_study_work WHERE work_id=?",
-                        (row['work_id'],)).fetchone()[0]
-                    pending = json.loads(pending_json) if pending_json else []
-                    if any(states.get(work) not in TERMINAL for work in pending):
+                    # Pending action IDs are registered as derived_from edges
+                    # before execution. Use this compact relational index for
+                    # readiness instead of json_extract(result_json): SQLite
+                    # must scan and parse the entire (potentially huge) durable
+                    # episode history even when only pending_work_ids is asked
+                    # for. This mirrors checkpoint engines that route on small
+                    # state metadata and hydrate full snapshots only on resume.
+                    children = [edge['target_id'] for edge in edges
+                        if edge['source_id'] == row['work_id'] and edge['relation'] == 'derived_from']
+                    if any(states.get(child) not in TERMINAL for child in children):
                         continue
                 provider_json = db.execute(
                     "SELECT json_extract(payload_json,'$.model_provider') FROM forest_study_work WHERE work_id=?",
