@@ -80,6 +80,24 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
+def _result_event_delta(result: Mapping[str, Any], previous_history: Sequence[Any]) -> dict[str, Any]:
+    """Keep cumulative history in the checkpoint; append only its changed suffix to the event."""
+    history = result.get("action_history")
+    if not isinstance(history, list):
+        return dict(result)
+    previous = list(previous_history) if isinstance(previous_history, Sequence) else []
+    shared = 0
+    while shared < min(len(previous), len(history)) and previous[shared] == history[shared]:
+        shared += 1
+    compact = {key: value for key, value in result.items() if key != "action_history"}
+    compact["action_history_delta"] = {
+        "replace_from_turn": shared,
+        "turn_count": len(history),
+        "turns": history[shared:],
+    }
+    return compact
+
+
 def _transport_trace_reference(campaign: Path, request_id: str, provider: Mapping[str, Any]) -> str | None:
     """Return a durable, request-unique local Codex trace location."""
     if provider.get("kind") != "codex_cli":
@@ -475,7 +493,7 @@ class StudyLedger:
             raise ValueError(f"Cannot release a claim not held in claimed state by {owner}: {work_id}")
 
     def set_state(self, campaign_id: str, work_id: str, state: str, *, result=None, error=None,
-                  supervisor_work_id=None, decision=None):
+                  supervisor_work_id=None, decision=None, event_result=None):
         if state not in TERMINAL | {"queued", "claimed", "running", "awaiting_reconciliation", "retryable", "blocked", "paused_no_progress"}:
             raise ValueError(f"Unknown study state: {state}")
         now = time.time()
@@ -487,7 +505,8 @@ class StudyLedger:
                        (state, _json(result) if result is not None else None, error, supervisor_work_id,
                         _json(decision) if decision is not None else None, now, work_id))
         self.event(campaign_id, "work_state", {"state": state, "error": error,
-            "supervisor_work_id": supervisor_work_id, "result": result}, work_id)
+            "supervisor_work_id": supervisor_work_id,
+            "result": result if event_result is None else event_result}, work_id)
 
     def resume_no_progress(self, campaign_id: str, work_id: str, *, operator: str) -> None:
         """Explicitly reopen a paused episode while retaining its prior evidence."""
@@ -1968,6 +1987,9 @@ class StudyRuntime:
 
     def _aide_action_history(self, work_id: str) -> list[dict[str, Any]]:
         with self.ledger.connect() as db:
+            table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='forest_study_aide_sessions'").fetchone()
+            if not table:
+                return []
             row = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?",
                 (self.campaign_id, work_id)).fetchone()
         if not row:
@@ -3363,6 +3385,7 @@ class StudyRuntime:
                                    ((nested_episode or {}).get("arm") if isinstance(nested_episode, Mapping) else ""))).upper()
                 if payload_arm == "AIDE":
                     from .aide_runtime import run_aide_episode
+                    previous_aide_history = self._aide_action_history(str(item["work_id"]))
                     if _is_replay_episode(item) or _is_replay_episode(raw_episode_payload):
                         client = self._budgeted_episode_client(item, client)
                         client = self._replay_request_client(item, client)
@@ -3376,6 +3399,7 @@ class StudyRuntime:
                     if state not in {"completed", "failed", "retryable", "awaiting_reconciliation", "budget_exhausted", "paused_no_progress"}:
                         raise ValueError(f"Native AIDE returned unknown episode state: {state}")
                     self.ledger.set_state(self.campaign_id, item["work_id"], state, result=outcome,
+                        event_result=_result_event_delta(outcome, previous_aide_history),
                         error=outcome.get("reason") if state in {"failed", "budget_exhausted"} else None)
                     return {"work_id": item["work_id"], "kind": item["kind"], **outcome}
                 prior_decision = json.loads(item["decision_json"]) if item.get("decision_json") else None
@@ -3473,7 +3497,8 @@ class StudyRuntime:
                     outcome["no_progress_observation"] = action_result["no_progress_observation"]
                 outcome["state"] = final_state
                 self.ledger.set_state(self.campaign_id, item["work_id"], final_state,
-                                      result=outcome, decision=decision if decision else None,
+                                      result=outcome, event_result=_result_event_delta(outcome, history),
+                                      decision=decision if decision else None,
                                       error=(action_result.get("reason") if final_state == "failed" else None))
                 return {"work_id": item["work_id"], "kind": item["kind"], **outcome}
             raise NotImplementedError(f"No factual executor is registered for {item['kind']}")

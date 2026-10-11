@@ -6,6 +6,7 @@ import pytest
 
 from research.experiments.study_runtime import (StudyLedger, StudyRuntime,
     _manifest_work_items, _manifest_edges, _known_source_preflight_failure,
+    _result_event_delta,
     numpy_score_predictions, _normalize_episode_payload, _episode_mutation_id,
     _c2_evaluation_overrides, _episode_metric_contract, verify_episode_submission,
     execute_registered_analysis, _codex_strict_schema, _restore_strict_optional_nulls,
@@ -47,6 +48,36 @@ def test_manifest_registration_versions_only_unlaunched_work_revisions(tmp_path)
         ledger.register(changed_again)
     with ledger.connect() as db:
         assert db.execute("SELECT count(*) FROM forest_study_work").fetchone()[0] == 1
+
+
+def test_action_history_events_store_only_changed_turns_and_keep_full_checkpoint(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([item("episode-1", kind="replay")]))
+    first_turn = {"actions": [{"action_work_id": "inspect-1", "detail": "A" * 20000}]}
+    first = {"state": "retryable", "action_history": [first_turn]}
+    ledger.set_state("campaign-test", "episode-1", "retryable", result=first,
+        event_result=_result_event_delta(first, []))
+    second_turn = {"actions": [{"action_work_id": "inspect-2", "detail": "B" * 20000}]}
+    second = {"state": "retryable", "action_history": [first_turn, second_turn]}
+    ledger.set_state("campaign-test", "episode-1", "retryable", result=second,
+        event_result=_result_event_delta(second, first["action_history"]))
+
+    with ledger.connect() as db:
+        checkpoint = json.loads(db.execute(
+            "SELECT result_json FROM forest_study_work WHERE work_id='episode-1'").fetchone()[0])
+        events = [json.loads(row[0]) for row in db.execute(
+            "SELECT payload_json FROM forest_study_events WHERE work_id='episode-1' AND event_type='work_state' ORDER BY rowid")]
+        event_sizes = [len(_json_value) for _json_value in db.execute(
+            "SELECT payload_json FROM forest_study_events WHERE work_id='episode-1' AND event_type='work_state' ORDER BY rowid")]
+    assert checkpoint["action_history"] == [first_turn, second_turn]
+    assert all("action_history" not in event["result"] for event in events)
+    restored = []
+    for event in events:
+        delta = event["result"]["action_history_delta"]
+        restored[delta["replace_from_turn"]:] = delta["turns"]
+        assert len(restored) == delta["turn_count"]
+    assert restored == checkpoint["action_history"]
+    assert event_sizes[1] < len(json.dumps(checkpoint))
 
 
 @pytest.mark.parametrize("external_evidence", ["claim", "released_claim", "supervisor", "model_call", "fit_attempt"])
