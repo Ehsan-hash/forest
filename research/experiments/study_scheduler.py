@@ -781,10 +781,10 @@ class StudyScheduler:
         """Resume a durable pending decision only after all its children settle."""
         active = {entry['item']['work_id'] for entry in self._futures.values()}
         with self.ledger.connect() as db:
-            rows = db.execute("SELECT work_id,decision_json,updated_at,length(result_json) AS result_size FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
+            rows = db.execute("SELECT work_id,decision_json,updated_at FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
             session_table = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_study_aide_sessions'").fetchone()
-            sessions = {row['work_id']: (row['updated_at'], row['state_size']) for row in db.execute(
-                'SELECT work_id,updated_at,length(state_json) AS state_size FROM forest_study_aide_sessions WHERE campaign_id=?',
+            sessions = {row['work_id']: row['updated_at'] for row in db.execute(
+                'SELECT work_id,updated_at FROM forest_study_aide_sessions WHERE campaign_id=?',
                 (self.campaign_id,))} if session_table else {}
             states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
             edges = db.execute("SELECT source_id,target_id FROM forest_study_edges WHERE campaign_id=? AND relation='derived_from'", (self.campaign_id,)).fetchall()
@@ -794,7 +794,7 @@ class StudyScheduler:
                     continue
                 has_decision = bool(row['decision_json'])
                 session_updated = sessions.get(row['work_id'])
-                signature = (row['updated_at'], row['result_size'], session_updated)
+                signature = (row['updated_at'], session_updated)
                 cached = self._parent_reconciliation_cache.get(row['work_id'])
                 if cached and cached['signature'] == signature:
                     saved, pending = cached['saved'], cached['pending']

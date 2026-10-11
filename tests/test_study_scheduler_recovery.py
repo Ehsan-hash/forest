@@ -494,6 +494,8 @@ def test_pending_parent_wakes_only_after_children_settle_without_extra_query(tmp
         run_until(service, lambda: next(row for row in rows(runtime) if row['work_id'] == 'parent')['state'] == 'completed')
         assert sum('SELECT result_json FROM forest_study_work WHERE campaign_id=' in query
             for query in statements) == 1
+        assert not any('length(result_json)' in query.lower() or 'length(state_json)' in query.lower()
+            for query in statements)
         with runtime.ledger.connect() as db:
             assert db.execute('SELECT count(*) FROM forest_study_model_calls').fetchone()[0] == 0
         assert json.loads(next(row for row in rows(runtime) if row['work_id'] == 'parent')['result_json'])['resumed_saved_decision'] is True
