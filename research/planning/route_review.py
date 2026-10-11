@@ -253,13 +253,16 @@ def execute_route_review(run_id, config, output):
     provider = config.get('provider_snapshot')
     if not provider:
         raise ValueError('Connect a real model provider before reviewing research directions')
-    client = ModelClient(provider, read_secret(provider.get('credential_ref')), config.get('allow_paid', False))
+    from research.agents.output_budget import configure_request_policy
+    client = configure_request_policy(ModelClient(provider, read_secret(provider.get('credential_ref')),
+                                                   config.get('allow_paid', False)), config, 'analysis')
     # Put the complete recorded route in the original task, so large contexts
     # require reading every original page instead of hiding optional nodes.
     report, response = context_model_json(client, [
         {'role': 'system', 'content': RESEARCH_POLICY + '\n' + REVIEW_INSTRUCTIONS},
         {'role': 'user', 'content': json.dumps(context, ensure_ascii=False, default=str)},
-    ], Path(output) / 'route_context', char_hint=config.get('context_char_budget', 64000))
+    ], Path(output) / 'route_context', char_hint=config.get('context_char_budget', 64000),
+        output_stage='analysis')
     result = validate_route_review(report, context)
     result.update(project_revision=context['project']['revision'], project_goal=context['project']['goal'],
                   reviewed_run_ids=context['coverage']['run_ids'], review_run_id=run_id,

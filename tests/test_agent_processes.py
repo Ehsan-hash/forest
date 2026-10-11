@@ -250,7 +250,10 @@ while not Path('finish_done').exists():
         provider = harness.request('POST', '/api/providers', json={
             'name': 'Local process lifecycle fixture', 'kind': 'ollama',
             'base_url': f'http://127.0.0.1:{server.server_port}',
-            'model': 'local-process-lifecycle-fixture', 'allow_paid': False})
+            'model': 'local-process-lifecycle-fixture', 'allow_paid': False,
+            'config': {'model_capabilities': {'context_window_tokens': 8192,
+                                               'max_output_tokens': 4096,
+                                               'source': 'test_transport_contract'}}})
         project = harness.request('POST', '/api/projects', json={
             'name': 'Managed child completion check',
             'goal': 'Run the managed command, keep the agent active until its child exits, then finish.',

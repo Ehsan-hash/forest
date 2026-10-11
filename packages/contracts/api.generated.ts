@@ -117,7 +117,7 @@ export interface components {
     "ReporterJob": { "created_at": string; "current": boolean; "error": (string) | (null); "facts": Array<components["schemas"]["ProgressFact"]>; "id": string; "report": (components["schemas"]["ReporterReport"]) | (null); "snapshot_id": string; "status": string; "updated_at": string; };
     "ReporterRefresh": { "request_id": string; };
     "ReporterReport": { "fact_ids": Array<string>; "focus": "activity" | "attention" | "evidence" | "no_material_change"; "snapshot_id": string; };
-    "ReporterSettings": { "automatic"?: boolean; "cap_usd"?: number; "enabled"?: boolean; "language"?: "en" | "zh"; "max_output_tokens"?: number; "max_requests"?: number; "maximum_wait_seconds"?: number; "minimum_seconds"?: number; "provider_id"?: (string) | (null); };
+    "ReporterSettings": { "automatic"?: boolean; "cap_usd"?: number; "enabled"?: boolean; "language"?: "en" | "zh"; "max_output_tokens"?: (number) | (null); "max_requests"?: number; "maximum_wait_seconds"?: number; "minimum_seconds"?: number; "provider_id"?: (string) | (null); };
     "ReporterSettingsView": { "estimated_usd": number; "requests": number; "reserved_usd": number; "settings": components["schemas"]["ReporterSettings"]; "unpriced_requests": number; "version": number; };
     "ReporterSettingsWrite": { "expected_version": number; "settings": components["schemas"]["ReporterSettings"]; };
     "RepositoryCloneRequest": { "repository": components["schemas"]["RepositoryInput"]; "request_id"?: string; };

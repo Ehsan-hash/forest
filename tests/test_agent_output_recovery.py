@@ -59,14 +59,16 @@ def test_incomplete_usage_and_one_charged_recovery_are_retained():
     assert turn['incomplete_public_output'][0]['arguments'].endswith('unfinished')
     allowed = ['read_file', 'write_file', 'write_file_chunk', 'finish']
     assert prepare_output_recovery(state, error, {}, allowed)
-    assert model_turn_tools(state, allowed) == ['write_file_chunk']
+    assert state['output_recovery']['strategy'] == 'split_into_smaller_actions'
+    assert set(model_turn_tools(state, allowed)) == {'read_file', 'write_file', 'write_file_chunk'}
     assert not any(item.get('type') == 'function_call' for item in responses_input(state['messages']))
     assert budget_reason(state, {'agent_budget': {'cost': .3}})
     assert budget_reason(state, {'agent_budget': {'steps': 1}})
     assert budget_reason(state, {'agent_budget': {'active_seconds': 200}})
     resumed = json.loads(json.dumps(state))
+    assert prepare_output_recovery(resumed, error, {}, allowed)
+    assert resumed['output_recovery']['used'] == 2
     assert not prepare_output_recovery(resumed, error, {}, allowed)
-    assert resumed['output_recovery']['used'] == 1
     assert not prepare_output_recovery(empty_state(), error, {'output_recovery_attempts': 0}, allowed)
 
 
@@ -81,7 +83,7 @@ def test_ambiguous_failure_and_unknown_usage_never_become_free_retries():
     assert state['active_seconds'] == 121
     assert not prepare_output_recovery(state, error, {}, ['write_file_chunk'])
     assert 'output_recovery' not in state
-    assert not prepare_output_recovery(empty_state(), incomplete_error(), {}, ['read_file'])
+    assert not prepare_output_recovery(empty_state(), incomplete_error(), {}, ['finish'])
 
 
 def test_chunk_bounds_validate_native_and_real_writes(tmp_path):
@@ -102,7 +104,7 @@ def test_chunk_bounds_validate_native_and_real_writes(tmp_path):
             write_file_chunk(tmp_path / 'source.py', 'print(1)', offset)
 
 
-@pytest.mark.parametrize('scenario', ['chunks', 'transport', 'budget'])
+@pytest.mark.parametrize('scenario', ['chunks', 'transport', 'budget', 'dynamic-steps', 'errors'])
 def test_actual_recovery_components(tmp_path, scenario):
     env = {**os.environ, 'FOREST_DATABASE_URL': 'sqlite:///' + str(tmp_path / 'recovery.db'),
            'FOREST_DATA_DIR': str(tmp_path / 'data'), 'PYTHONPATH': str(ROOT)}
@@ -115,6 +117,8 @@ if __name__ == '__main__':
     import socket
     import time
     from sqlalchemy import select
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
     from services.api.db import migrate, Session, Project, TaskRun, ToolExecution, Provider, ModelRequest, asdict, uid
     from research.agents.runtime import ToolRuntime, run_agent
     from research.agents.budget import BudgetExceeded, make_request_guard
@@ -129,7 +133,86 @@ if __name__ == '__main__':
         project_id, run_id = project.id, run.id
     workspace = directory / 'workspace'; workspace.mkdir()
 
-    if scenario == 'chunks':
+    if scenario == 'dynamic-steps':
+        progress={'turn':0}
+        class Transport(BaseHTTPRequestHandler):
+            def log_message(self,*_args): pass
+            def do_POST(self):
+                size=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(size))
+                if self.path=='/api/show':
+                    value={'model_info':{'test.context_length':8192}}
+                else:
+                    index=progress['turn']; progress['turn']+=1
+                    action=({'tool':'write_file','arguments':{'path':f'progress-{index}.txt','content':str(index)},'summary':'Persist one verified progress artifact'}
+                            if index<31 else {'tool':'finish','arguments':{'summary':'Observed thirty-one saved progress artifacts.','artifacts':[f'progress-{i}.txt' for i in range(31)]}})
+                    value={'model':'step-budget-integration-fixture','done':True,'done_reason':'stop',
+                           'message':{'role':'assistant','content':json.dumps(action)},
+                           'prompt_eval_count':100,'eval_count':30}
+                response=json.dumps(value).encode(); self.send_response(200); self.send_header('Content-Type','application/json')
+                self.send_header('Content-Length',str(len(response))); self.end_headers(); self.wfile.write(response)
+        server=ThreadingHTTPServer(('127.0.0.1',0),Transport)
+        thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+        try:
+            provider=Provider(name='Local dynamic step fixture',kind='ollama',base_url=f'http://127.0.0.1:{server.server_port}',
+                              model='step-budget-fixture',allow_paid=False,config={'timeout':5,'adaptive_output_fallback_tokens':256})
+            with Session.begin() as s:
+                s.add(provider); s.flush(); snapshot=asdict(provider,True)
+            result=run_agent(run_id,workspace,{'provider_snapshot':snapshot,
+                'instructions':'Write separate progress files using real tool actions, then finish after all are observed.'})
+            saved=json.loads((workspace/'agent_session.json').read_text())
+            assert saved['status']=='completed'
+            assert progress['turn']==32
+            assert saved['dynamic_step_budget']['expansions']==[{'from':30,'to':60,'after_step':30,'basis':'verified_non_read_tool_result'}]
+            assert len(saved['result']['artifacts'])==31
+            assert all((workspace/f'progress-{index}.txt').is_file() for index in range(31))
+        finally:
+            server.shutdown(); server.server_close(); thread.join(timeout=2)
+        print('Actual Ollama-compatible worker chain persisted 31 writes, expanded node allowance from 30 to 60, and finished from saved artifacts')
+
+    elif scenario == 'errors':
+        requests=[]
+        class Transport(BaseHTTPRequestHandler):
+            def log_message(self,*_args): pass
+            def do_POST(self):
+                size=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(size))
+                if self.path=='/api/show':
+                    value={'model_info':{}}
+                else:
+                    requests.append(request)
+                    action={'tool':'read_file','arguments':{'path':'missing-input.csv'}}
+                    value={'model':'error-circuit-fixture','done':True,'done_reason':'stop',
+                           'message':{'role':'assistant','content':json.dumps(action)},
+                           'prompt_eval_count':80,'eval_count':20}
+                response=json.dumps(value).encode(); self.send_response(200)
+                self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(response)))
+                self.end_headers(); self.wfile.write(response)
+        server=ThreadingHTTPServer(('127.0.0.1',0),Transport)
+        thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+        try:
+            provider=Provider(name='Local error circuit fixture',kind='ollama',base_url=f'http://127.0.0.1:{server.server_port}',
+                              model='error-circuit-fixture',allow_paid=False,config={'timeout':5})
+            with Session.begin() as s:
+                s.add(provider); s.flush(); snapshot=asdict(provider,True)
+            try:
+                run_agent(run_id,workspace,{'provider_snapshot':snapshot,'execution_backend':'local',
+                    'agent_budget':{'steps':10},'instructions':'Inspect the input and continue only when the authorized file exists.'})
+            except Exception as error:
+                from research.agents.runtime import AgentYield
+                assert isinstance(error,AgentYield) and error.status=='waiting_input'
+            else:
+                raise AssertionError('Repeated missing-file errors did not pause for owner diagnosis')
+            saved=json.loads((workspace/'agent_session.json').read_text())
+            history=saved['error_recovery']['history']
+            assert len(requests)==3
+            assert [item['state'] for item in history if 'state' in item]==[
+                'observed','diagnosis_required','blocked_after_failed_diagnosis']
+            assert any('ERROR RECOVERY REQUIRED' in json.dumps(request) for request in requests[2]['messages'])
+            assert saved['status']=='waiting_input'
+        finally:
+            server.shutdown(); server.server_close(); thread.join(timeout=2)
+        print('Actual agent run diagnosed a repeated same-class tool error and paused after the repeated failed diagnosis')
+
+    elif scenario == 'chunks':
         tool = ToolRuntime(run_id, workspace, ['write_file', 'read_file', 'start_process'])
         assert 'write_file_chunk' in tool.allowed
         assert 'write_file_chunk' not in ToolRuntime(run_id, workspace, ['read_file']).allowed

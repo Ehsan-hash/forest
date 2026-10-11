@@ -168,7 +168,8 @@ def draft_with_model(client, evidence, goal, output_dir, *, title=None, attempts
             # This editable working preference preserves the complete request;
             # an actual provider context rejection still enters paged recovery.
             preference=int(client.config.get('manuscript_context_chars',256000))
-            _, response = context_model_json(client, messages, response_dir / 'context_sessions', char_hint=preference, parse_result=False)
+            _, response = context_model_json(client, messages, response_dir / 'context_sessions',
+                                              char_hint=preference, parse_result=False, output_stage='paper')
         except Exception as exc:
             record({'attempt': number, 'valid': False, 'provider_error': type(exc).__name__, 'error': str(exc)})
             raise

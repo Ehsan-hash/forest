@@ -130,12 +130,14 @@ def saved_paper_response(session, project_id, config, current_run_id):
 def model_json(config,prompt,system=''):
     from research.agents.provider import ModelClient
     from research.agents.policy import RESEARCH_POLICY
+    from research.agents.output_budget import configure_request_policy
     provider=config.get('provider_snapshot')
     if not provider: raise ValueError('Connect a model provider in Settings before running this task')
     from research.planning.model import context_model_json
-    client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+    client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config)
     return context_model_json(client,[{'role':'system','content':RESEARCH_POLICY+'\n'+system},{'role':'user','content':prompt}],
-                              Path(config['_context_workspace']),char_hint=config.get('context_char_budget',64000))
+                              Path(config['_context_workspace']),char_hint=config.get('context_char_budget',64000),
+                              output_stage=client.config.get('output_stage','research'))
 
 def materialize_branch_references(root, workspace, bindings):
     """Copy branch-level reference files into an isolated task workspace."""
@@ -200,7 +202,11 @@ def path_request_graph(graph,scope,node_id,branch_id):
 
 def execute(run_id):
     with Session() as s:
-        run=get(s,TaskRun,run_id); config=run.config; pid=run.project_id; kind=run.kind; node_id=run.node_id; branch=s.get(Branch,run.branch_id) if run.branch_id else s.scalar(select(Branch).where(Branch.project_id==pid,Branch.is_main==True)); branch_workspace=branch.workspace if branch else '.'
+        run=get(s,TaskRun,run_id); pid=run.project_id; project=get(s,Project,pid)
+        defaults=project.config.get('agent_execution',{}) if isinstance(project.config,dict) else {}
+        if not isinstance(defaults,dict): raise ValueError('project.config.agent_execution must be an object')
+        config={**defaults,**(run.config or {})}; kind=run.kind; node_id=run.node_id
+        branch=s.get(Branch,run.branch_id) if run.branch_id else s.scalar(select(Branch).where(Branch.project_id==pid,Branch.is_main==True)); branch_workspace=branch.workspace if branch else '.'
         output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid); source_workspace=safe_path(root,branch_workspace)
         from services.api.verification import verification_gate
         gate=verification_gate(s,run)
@@ -301,7 +307,8 @@ def execute(run_id):
         from research.agents.policy import RESEARCH_POLICY
         provider=config.get('provider_snapshot')
         if not provider: raise ValueError('Connect a model provider in Settings before planning')
-        client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+        from research.agents.output_budget import configure_request_policy
+        client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'planning')
         repair_context=None
         for repair in range(int(config.get('structured_repair_attempts',3))):
             try:
@@ -542,7 +549,8 @@ def execute(run_id):
             from research.figures.model_workflow import design_method_graph
             from research.agents.provider import ModelClient
             from research.paper.evidence import _method_context, _numbers
-            client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+            from research.agents.output_budget import configure_request_policy
+            client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'figure_design')
             data=design_method_graph(client,{'goal':config.get('project_goal'),'caption':fig.get('caption'),
                 'method':data,'layout_width_in':style.get('layout_width_in',6.5),
                 'source_runs':[{'id':r.id,'status':r.status,'metrics':r.metrics} for r in selected],
@@ -553,7 +561,8 @@ def execute(run_id):
         if provider:
             from research.figures.model_workflow import reviewed_render,reviewed_image,reviewed_custom_plot
             from research.agents.provider import ModelClient
-            client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+            from research.agents.output_budget import configure_request_policy
+            client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'visual_review')
             context={'goal':config.get('project_goal'),'caption':fig.get('caption'),'purpose':fig.get('purpose'),
                 'source_run_ids':[r.id for r in selected],'layout_width_in':style.get('layout_width_in',6.5),
                 'source_runs':[{'id':r.id,'kind':r.kind,'status':r.status,'metrics':r.metrics} for r in selected]}
@@ -678,11 +687,8 @@ def execute(run_id):
                 from research.agents.policy import agent_policy
                 provider=config.get('provider_snapshot')
                 if not provider: raise ValueError('Connect a real model provider before drafting a manuscript')
-                client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
-                # Manuscript responses need room for a full article. Preserve
-                # explicitly configured limits and account every request normally.
-                if not any(key in client.config for key in ('max_output_tokens','max_tokens')):
-                    client.config={**client.config,'max_output_tokens':32768}
+                from research.agents.output_budget import configure_request_policy
+                client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'paper')
                 from research.paper.statistical_workflow import prepare_statistical_presentation
                 evidence=prepare_statistical_presentation(evidence,folder/'statistical_presentation',selected_layout,client)
                 required_figures=list(dict.fromkeys([*(config.get('figure_ids') or []),

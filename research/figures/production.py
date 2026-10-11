@@ -59,15 +59,9 @@ def _json_reply(client, instruction, payload, images=()):
     from research.paper.style import writing_contract
     text = json.dumps(payload, ensure_ascii=False)
     user = image_content(client, images, text, maximum=1536) if images else {'role': 'user', 'content': text}
-    original = client.config
-    maximum = original.get('figure_design_max_output_tokens', 12288)
-    if isinstance(maximum, bool) or not isinstance(maximum, int) or maximum < 1:
-        raise ValueError('figure_design_max_output_tokens must be a positive integer')
-    client.config = {**original, 'max_output_tokens': maximum}
-    try:
-        response = client.complete([{'role': 'system', 'content': writing_contract() + '\n' + instruction}, user])
-    finally:
-        client.config = original
+    from research.agents.output_budget import complete_for_stage
+    response = complete_for_stage(client,
+        [{'role': 'system', 'content': writing_contract() + '\n' + instruction}, user], 'figure_design')
     value = json.loads(response['text'])
     if not isinstance(value, dict):
         raise ValueError('Figure designer must return one JSON object')

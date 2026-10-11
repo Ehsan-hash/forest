@@ -1,12 +1,40 @@
 # Persistent research agents
 
 `run_agent(run_id, workspace, config)` uses the selected actual provider. There is
-no built-in total turn limit. Optional `agent_budget` fields are `steps`,
+no project-lifetime total turn limit. Nodes without an explicit legacy hard
+`agent_budget.steps` use a persisted evidence-gated allowance from
+`step_budget_policy` (defaults: 30 initial, +30 after verified progress, 150
+per node). Project-level values live under `Project.config.agent_execution`;
+run-level values override them. Explicit outer limits always win. Optional
+`agent_budget` fields are `steps`,
 `input_tokens`, `output_tokens`, `cost`, and `active_seconds`; legacy `max_steps`
 is interpreted as an explicit configured budget. Budget edits on the run take
 effect at the next turn. Provider transport failures never produce replacement
 responses.
 
+Output requests are provider-aware and task-stage aware. Declare verified
+`provider.config.model_capabilities.max_output_tokens` and
+`context_window_tokens` when the provider exposes them. Ollama context windows
+are read from local model metadata when available; no external capability
+lookup is made. Unknown limits use the configurable
+`adaptive_output_fallback_tokens` (conservative by default), which is an
+allocation preference, never a claimed model limit. Projects can configure
+`adaptive_output_budget.stage_targets`, `complexity`, `complexity_factor`, and
+`growth_factor`; tasks can set `task_complexity` or `research_stage`. Each
+request is bounded by the declared model output maximum and the remaining
+declared context window. Every retry is charged to the same provider/project
+budget. An explicit `max_output_tokens` is an initial request preference, not
+a replacement model-capability claim or global ceiling.
+
+Responses explicitly truncated at `max_output_tokens` are retained as failed
+attempts with usage and cost. A finite retry can grow within a declared output
+maximum or the remaining declared context window. If capacity is unknown or
+exhausted, planning switches to separately validated JSON chunks or smaller
+independently verifiable actions. JSON is merged only after all numbered chunks
+are present, complete, and conflict-free. Partial JSON and tool actions never
+count as success. There is no fixed project-lifetime step or output-token
+counter; provider, context, project spending, compute, GPU and external
+supervisor limits still apply.
 The editable `agent_session.json` retains messages, reported token usage, public
 action summaries, full tool observations, and the exact pending action ID.
 `agent_transcript.json` is available to the model through paginated
@@ -17,6 +45,12 @@ or read-only artifact restrictions.
 
 ## Real process tools
 
+- Research Agent command tools use Bubblewrap by default and expose a minimal
+  read-only runtime plus the writable task workspace. Explicit absolute
+  `readonly_paths` are shared with `read_file`, mounted read-only, and must not
+  include test or evaluator data. Select `execution_backend: local` only for
+  intentionally trusted owner-controlled execution; local mode runs with the
+  worker's ordinary host filesystem permissions.
 - `start_process` / `run_command`: `command` is an argv list or shell string;
   `cwd` must resolve inside the workspace. `env` and `timeout` are optional.
 - `python`: writes the supplied code to the requested workspace path and starts
@@ -29,8 +63,9 @@ or read-only artifact restrictions.
 - `cancel_process`: terminates the actual process group, with escalation after a
   grace period. Parent worker cancellation also visits all managed children.
 
-Commands run with the operating user's permissions. Workspace path checks are
-not an operating-system sandbox for arbitrary shell commands.
+Bubblewrap command children cannot see the host root, home directory, unrelated
+data, credentials or network. The worker's local backend is a trusted execution
+choice and is not an operating-system sandbox.
 
 Each launch records its request before the supervisor starts. Supervisors survive
 Agent interpreter exits. A transient supervisor coordination lease prevents

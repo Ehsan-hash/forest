@@ -5,7 +5,7 @@ request under the original run's remaining budget, not a transport retry.
 """
 from __future__ import annotations
 
-from .code_writes import CODE_CHUNK_CHARS
+from .output_budget import grow_output_allocation, recovery_attempt_limit
 
 
 def account_usage(state, usage, elapsed):
@@ -44,35 +44,44 @@ def record_provider_failure(state, error, elapsed, model):
     return turn
 
 
-def prepare_output_recovery(state, error, config, allowed):
-    """Only recover a known output ceiling; ambiguous outcomes never retry."""
-    maximum = config.get('output_recovery_attempts', 1)
-    if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 0:
-        raise ValueError('output_recovery_attempts must be a nonnegative integer')
+def prepare_output_recovery(state, error, config, allowed, *, messages=None, output_budget=None):
+    """Recover only a reported token truncation; partial output is never parsed."""
+    maximum = recovery_attempt_limit(config)
     recovery = state.get('output_recovery', {})
     usage = error.usage or {}
+    executed_actions = sum(1 for turn in state.get('transcript', [])
+                           if isinstance(turn.get('executed_action'), dict))
+    used = recovery.get('used', 0) if recovery.get('executed_actions') == executed_actions else 0
     if (error.code != 'incomplete_response' or error.incomplete_reason != 'max_output_tokens'
-            or error.ambiguous or 'write_file_chunk' not in allowed
-            or usage.get('input_tokens') is None or usage.get('output_tokens') is None
-            or recovery.get('used', 0) >= maximum):
+            or error.ambiguous or not any(name != 'finish' for name in allowed)
+            or used >= maximum):
         return False
-    state['output_recovery'] = {'used': recovery.get('used', 0) + 1, 'pending': True,
-                                'failed_step': len(state['transcript']), 'request_id': error.request_id}
+    previous = output_budget or error.requested_output_tokens
+    next_budget = None
+    if isinstance(previous, int) and previous > 0 and messages is not None:
+        try:
+            next_budget = grow_output_allocation(config, messages, previous)
+        except ValueError:
+            return False
+    state['output_recovery'] = {'used': used + 1, 'executed_actions': executed_actions, 'pending': True,
+                                'failed_step': len(state['transcript']), 'request_id': error.request_id,
+                                'previous_output_tokens': previous, 'next_output_tokens': next_budget,
+                                'strategy': 'increase_within_declared_capability' if next_budget else 'split_into_smaller_actions'}
     state['status'] = 'recovering_output'
     state['messages'].append({'role': 'user', 'content': (
-        'The last model response ended at its output-token ceiling. No tool from that response was executed. '
-        'Its actual tokens, cost, and elapsed time are retained and count against this same run. '
-        f'Continue with one write_file_chunk call containing at most {CODE_CHUNK_CHARS} raw text characters: '
-        'write a small module header or one function, not the complete implementation. '
-        'Use offset=0 for a new file or a previously observed exact byte offset for an existing file. '
-        'The tool returns next_offset for the following chunk. Do not reproduce truncated JSON or treat it as saved code. '
-        'Then build and execute the implementation incrementally under the existing budget. '
+        'The last response was explicitly truncated at max_output_tokens. No action from that response was executed. '
+        'Its measured tokens, cost, and elapsed time are retained against this same run. '
+        + (f'The next request may use at most {next_budget} output tokens, within the provider declared output and context limits. '
+           if next_budget else 'Provider capacity is unknown or already at its declared ceiling; do not guess a larger limit. Split the work into smaller independently verifiable actions or artifacts. ')
+        + 'Return exactly one complete, valid JSON tool action from the enabled tools. Keep arguments concise; for large files use write_file_chunk with the observed exact byte offset, and for large research plans, datasets, analyses, or prose create a sequence of separately verifiable artifacts and combine them only after each is complete. '
+        'Never repeat a partial JSON object or treat diagnostic fragments as saved output. Execute and inspect each real computation under the existing outer budgets. '
         'Diagnostic fragments remain available in read_transcript; they are not executable evidence.')})
     return True
 
 
 def model_turn_tools(state, allowed):
-    """A corrected request can only produce a small file edit, never finish."""
+    """Recovery calls remain authorized but cannot finish on a truncated turn."""
     if state.get('output_recovery', {}).get('pending'):
-        return ['write_file_chunk'] if 'write_file_chunk' in allowed else []
+        actionable = [name for name in allowed if name != 'finish']
+        return actionable or list(allowed)
     return list(allowed)

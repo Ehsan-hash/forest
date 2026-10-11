@@ -192,12 +192,15 @@ def provider_working_preference(client, preference, schema_characters=0):
         if isinstance(configured,bool) or not isinstance(configured,int) or configured<2500:
             raise ValueError('working_context_chars must be an integer of at least 2500')
         preference=configured
-    window = config.get('context_window_tokens')
+    capabilities = config.get('model_capabilities') or {}
+    window = config.get('context_window_tokens', capabilities.get('context_window_tokens'))
     if window is None and client.api == 'ollama':
-        window = config.get('context_length', 8192)
+        window = config.get('context_length')
     if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
         return preference
-    output = int(config.get('max_output_tokens', config.get('max_tokens', 2048)))
+    from .output_budget import output_allocation
+    output = output_allocation(config, [], stage=config.get('output_stage')).get('tokens', 1)
+    output = max(1, int(output))
     estimate = (window - output) * 3 - schema_characters - 2000
     return min(max(8000, preference), max(2500, estimate))
 

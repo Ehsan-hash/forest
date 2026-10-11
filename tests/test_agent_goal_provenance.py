@@ -187,6 +187,11 @@ def probe_request_delivery(folder, mode):
         def log_message(self,*args): pass
         def do_POST(self):
             body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            if self.path == '/api/show':
+                value=json.dumps({'model_info':{}}).encode()
+                self.send_response(200); self.send_header('Content-Type','application/json')
+                self.send_header('Content-Length',str(len(value))); self.end_headers(); self.wfile.write(value)
+                return
             captures.append(body)
             stage=len(captures)
             status=200

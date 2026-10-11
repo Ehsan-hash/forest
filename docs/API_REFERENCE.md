@@ -4103,7 +4103,7 @@ Additional properties: rejected by the existing typed/schema-specific validator.
 | `provider_id` | string or null | no |  |
 | `cap_usd` | number | no |  Default: `0`. minimum=0.0, maximum=10000.0. |
 | `max_requests` | integer | no |  Default: `20`. minimum=1.0, maximum=1000.0. |
-| `max_output_tokens` | integer | no |  Default: `1024`. minimum=128.0, maximum=4096.0. |
+| `max_output_tokens` | integer or null | no |  |
 | `language` | string | no |  Default: `en`. Values: `en`, `zh`. |
 | `minimum_seconds` | integer | no |  Default: `60`. minimum=30.0, maximum=3600.0. |
 | `maximum_wait_seconds` | integer | no |  Default: `180`. minimum=60.0, maximum=3600.0. |

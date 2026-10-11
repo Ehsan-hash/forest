@@ -236,7 +236,8 @@ def review_statistical_explanations(client, evidence, draft):
         _, response = context_model_json(client,
             [{'role': 'system', 'content': _REVIEW_PROMPT},
              {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False, allow_nan=False)}],
-            workspace, char_hint=int(getattr(client, 'config', {}).get('manuscript_context_chars', 256000)), parse_result=False)
+            workspace, char_hint=int(getattr(client, 'config', {}).get('manuscript_context_chars', 256000)),
+            parse_result=False, output_stage='analysis')
     result = _parse_response(response)
     changes = {}
     required = {'section_index', 'block_index', 'field', 'before', 'after', 'reason', 'evidence_refs'}

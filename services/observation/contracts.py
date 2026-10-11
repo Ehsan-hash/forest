@@ -112,7 +112,7 @@ class ReporterSettings(Contract):
     provider_id: str|None = None
     cap_usd: float = Field(default=0, ge=0, le=10000, allow_inf_nan=False)
     max_requests: int = Field(default=20, ge=1, le=1000)
-    max_output_tokens: int = Field(default=1024, ge=128, le=4096)
+    max_output_tokens: int|None = Field(default=None, ge=1)
     language: Literal['en', 'zh'] = 'en'
     minimum_seconds: int = Field(default=60, ge=30, le=3600)
     maximum_wait_seconds: int = Field(default=180, ge=60, le=3600)

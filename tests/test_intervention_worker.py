@@ -90,7 +90,16 @@ def test_intervention_crosses_actual_worker_and_transport_boundaries(tmp_path, c
         def log_message(self, *args): pass
 
         def do_POST(self):
-            captures.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+            body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            if self.path == '/api/show':
+                payload = json.dumps({'model_info': {}}).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            captures.append(body)
             stage = len(captures)
             if stage == 1:
                 first.set()
