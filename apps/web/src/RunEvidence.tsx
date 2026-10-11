@@ -30,6 +30,31 @@ function bytes(value: number) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export function SessionContinuity({ session }: { session: Json }) {
+  const lifecycle = session.lifecycle;
+  const checkpoint = lifecycle?.checkpoints?.at(-1);
+  const recovery = lifecycle?.recovery ?? session.recovery;
+  const recoveryReason = session.reconciliation_reason ?? recovery?.reason;
+  return (
+    <>
+      {lifecycle?.state && <span>Research lifecycle: {lifecycle.state}</span>}
+      {lifecycle?.round_index !== undefined && (
+        <span>Work round {lifecycle.round_index}</span>
+      )}
+      {session.status === "waiting" && lifecycle?.state !== "blocked" && session.wait_for?.type === "work_round" && (
+        <span>Checkpoint saved; next work round continues automatically</span>
+      )}
+      {checkpoint?.checkpoint_id && (
+        <span>Checkpoint {checkpoint.checkpoint_id}: {checkpoint.reason}</span>
+      )}
+      {recoveryReason && <p>{recoveryReason}</p>}
+      {session.usage_error?.message && (
+        <p role="status">Resource usage unavailable: {session.usage_error.message}</p>
+      )}
+    </>
+  );
+}
+
 export function RunEvidence({ runId }: { runId: string }) {
   const [open, setOpen] = useState(false);
   const [lineage, setLineage] = useState<Lineage | null>(null);
@@ -283,12 +308,13 @@ export function RunEvidence({ runId }: { runId: string }) {
                       <div className="run-evidence-session">
                         <strong>Research session</strong>
                         <span>{saved.status}</span>
+                        <SessionContinuity session={saved} />
                         {steps !== undefined && (
                           <span>{steps} model turns</span>
                         )}
-                        {saved.active_seconds !== undefined && (
+                        {saved.usage?.active_seconds !== undefined && saved.usage.active_seconds !== null && (
                           <span>
-                            {Math.round(saved.active_seconds)} seconds of active
+                            {Math.round(saved.usage.active_seconds)} seconds of active
                             model work
                           </span>
                         )}

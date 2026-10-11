@@ -4802,7 +4802,8 @@
               "null"
             ]
           },
-          "max_cycles": {
+          "legacy_max_cycles": {
+            "description": "Historical planning cap; never enforced.",
             "type": [
               "integer",
               "null"
@@ -4861,6 +4862,8 @@
             ]
           },
           "max_cycles": {
+            "deprecated": true,
+            "description": "Deprecated legacy input; recorded as history and does not limit research lifetime.",
             "type": [
               "integer",
               "null"
@@ -5274,9 +5277,6 @@
       "RouteReviewSettings": {
         "additionalProperties": true,
         "properties": {
-          "counterexample_limit": {
-            "type": "integer"
-          },
           "enabled": {
             "type": "boolean"
           },
@@ -5289,6 +5289,9 @@
           "review_every_runs": {
             "type": "integer"
           },
+          "unchanged_counterexample_repeats": {
+            "type": "integer"
+          },
           "window": {
             "type": "integer"
           }
@@ -5297,7 +5300,7 @@
           "enabled",
           "window",
           "repeated_failures",
-          "counterexample_limit",
+          "unchanged_counterexample_repeats",
           "planning_without_execution",
           "review_every_runs"
         ],
@@ -5490,7 +5493,7 @@
         "properties": {
           "agent_budget": {
             "$ref": "#/components/schemas/JsonObject",
-            "description": "resume only; merges editable per-Agent token/model-call/cost/time limits after budget validation."
+            "description": "resume only; merges editable per-Agent token/cost/time hard limits after budget validation. Legacy steps is accepted as a bounded work-round hint, never a cumulative research limit."
           },
           "context_char_budget": {
             "description": "resume only; Agent run, integer >= 1000.",
@@ -21032,7 +21035,7 @@
     },
     "/api/projects/{ident}/research/route-health": {
       "get": {
-        "description": "Calculate actual repeated current-revision failures, stopped checking alerts, excessive consecutive counterexample checks and planning without execution. Return editable thresholds, signals and reviewed run IDs. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.",
+        "description": "Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.",
         "operationId": "research_route_health_api_projects__ident__research_route_health_get",
         "parameters": [
           {
@@ -21253,7 +21256,7 @@
     },
     "/api/projects/{ident}/research/{action}": {
       "post": {
-        "description": "Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous/max_cycles and resumes previously paused runs. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.",
+        "description": "Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous and resumes previously paused runs. Legacy max_cycles is history only; goals, actual resource hard limits, cancellation and actionable blockers govern lifetime. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.",
         "operationId": "research_control_api_projects__ident__research__action__post",
         "parameters": [
           {
@@ -25819,7 +25822,7 @@
     },
     "/api/runs/{ident}/session": {
       "get": {
-        "description": "Return {run_id,status,session}. Missing agent_session.json means session:null. For a cancelled run, the session status is reported as cancelled even if its last checkpoint predates cancellation. summary=true returns selected session status/totals/active_seconds/wait_for/updated_at/budget_reason plus transcript_count; selected fields can be null. Full session structure is extensible.",
+        "description": "Return {run_id,status,session}. Missing agent_session.json means session:null. Full session is extensible scientific state and excludes cumulative resource accounting. For a cancelled run, session status follows the authoritative cancelled run. summary=true includes lifecycle, round, recovery, goal_contract, status/wait_for/updated_at/budget_reason/reconciliation_reason and transcript_count; selected fields can be null for legacy checkpoints. summary usage reads totals/active_seconds/completeness explicitly from the separate matching agent_usage.json resource ledger, or is null when unavailable. Invalid or unreadable ledgers return usage:null with usage_error diagnostics, never zero consumption. waiting with wait_for.type=work_round is automatic checkpoint continuation under the same Run ID and resource ledger.",
         "operationId": "agent_session_api_runs__ident__session_get",
         "parameters": [
           {

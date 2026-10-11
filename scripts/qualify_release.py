@@ -90,6 +90,8 @@ def evidence(api,run,outputs):
         try: artifacts[name]=api.read(run['project_id'],run['output_path']+'/workspace/'+name)
         except httpx.HTTPError as exc: errors.append(f'{name}: HTTP {getattr(exc.response,"status_code",None)}' if isinstance(exc,httpx.HTTPStatusError) else f'{name}: transport failure')
     session=api('GET',f'/api/runs/{run["id"]}/session')['session'] or {}
+    usage=(api('GET',f'/api/runs/{run["id"]}/session',params={'summary':True}).get('session') or {}).get('usage')
+    session={**session,'supervisory_usage':usage}
     receipts=[]
     for step in session.get('transcript',[]):
         result=step.get('tool_result',{})
@@ -130,12 +132,12 @@ def run_prime(api,args,record,persist):
         project,_=api.project('Release qualification · original autonomous prime task',PRIME_GOAL,args.allow_paid)
         pid=project['id']; record.update(project_id=pid,started_at=utc(),status='running'); persist()
         api('PATCH',f'/api/projects/{pid}',json={'mode':'auto','config':{'provider_id':args.provider_id}})
-        api('POST',f'/api/projects/{pid}/research/start',json={'autonomous':True,'max_cycles':2}); persist()
+        api('POST',f'/api/projects/{pid}/research/start',json={'autonomous':True}); persist()
     pid=record['project_id']
     current_project=api('GET',f'/api/projects/{pid}')
     if not current_project.get('config',{}).get('controller'):
         api('PATCH',f'/api/projects/{pid}',json={'mode':'auto','config':{'provider_id':args.provider_id}})
-        api('POST',f'/api/projects/{pid}/research/start',json={'autonomous':True,'max_cycles':2})
+        api('POST',f'/api/projects/{pid}/research/start',json={'autonomous':True})
     started=time.monotonic()
     while time.monotonic()-started<args.task_timeout:
         project=api('GET',f'/api/projects/{pid}'); control=project.get('config',{}).get('controller',{})
@@ -165,7 +167,7 @@ def run_prime(api,args,record,persist):
         sources=source_paths[run['id']]
         artifacts,session,receipts,errors=evidence(api,run,['metrics.json','report.md',*sources])
         oracle_errors,review=prime_oracle(artifacts); errors.extend(oracle_errors)
-        checked.append({'run_id':run['id'],'errors':errors,'review':review,'receipts':receipts,'usage':session.get('totals',{})})
+        checked.append({'run_id':run['id'],'errors':errors,'review':review,'receipts':receipts,'usage':(session.get('supervisory_usage') or {}).get('totals')})
         folder=Path(args.report).parent/'release-artifacts'/record['id']/run['id']
         for name,content in artifacts.items():
             path=folder/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content)
@@ -215,7 +217,7 @@ def agents(api,args,report):
         previous=[r for r in report['tasks'] if r['id']==task.id]
         if previous and evaluated_status(previous[-1]) in ('passed','failed') and not args.retry_failed: continue
         if previous and evaluated_status(previous[-1])=='passed': continue
-        record=previous[-1] if previous and previous[-1]['status']=='running' else {'id':task.id,'category':task.category,'attempt':len(previous)+1,'status':'running','started_at':utc(),'conditions':{'corpus_version':VERSION,'oracle_revision':ORACLE_REVISION,'provider_id':args.provider_id,'model':provider.get('model'),'context_char_budget':AGENT_CONTEXT_CHARS,'max_steps':args.max_steps,'task_timeout':args.task_timeout,'instructions':PRIME_GOAL if task.id=='01-prime-independence' else task_instruction(task),'output_contract':{'required_artifacts':['metrics.json','report.md'] if task.id=='01-prime-independence' else list(task.outputs),'metrics_required_keys':[] if task.id=='01-prime-independence' else list(task.expected.keys()),'top_level_types':{} if task.id=='01-prime-independence' else result_types(task.expected)}}}
+        record=previous[-1] if previous and previous[-1]['status']=='running' else {'id':task.id,'category':task.category,'attempt':len(previous)+1,'status':'running','started_at':utc(),'conditions':{'corpus_version':VERSION,'oracle_revision':ORACLE_REVISION,'provider_id':args.provider_id,'model':provider.get('model'),'context_char_budget':AGENT_CONTEXT_CHARS,'round_steps':args.max_steps,'task_timeout':args.task_timeout,'instructions':PRIME_GOAL if task.id=='01-prime-independence' else task_instruction(task),'output_contract':{'required_artifacts':['metrics.json','report.md'] if task.id=='01-prime-independence' else list(task.outputs),'metrics_required_keys':[] if task.id=='01-prime-independence' else list(task.expected.keys()),'top_level_types':{} if task.id=='01-prime-independence' else result_types(task.expected)}}}
         if record not in report['tasks']: report['tasks'].append(record)
         persist()
         if args.allow_paid:
@@ -233,7 +235,7 @@ def agents(api,args,report):
                     pid=project['id']; branch=graph['branches'][0]
                     for name,content in task.inputs.items(): api.write(pid,branch['workspace']+'/'+name,content)
                     instruction=task_instruction(task)
-                    config={'kind':'agent','role':'Engineer' if task.category!='writing' else 'Analyst','provider_id':args.provider_id,'required_outputs':list(task.outputs),'metrics_file':'result.json','metrics_required_keys':list(task.expected.keys()),'instructions':instruction,'context_char_budget':AGENT_CONTEXT_CHARS,'agent_budget':{**({'steps':args.max_steps} if args.max_steps is not None else {}),'active_seconds':args.task_timeout},'resources':{'cpu':1,'memory_gb':.5}}
+                    config={'kind':'agent','role':'Engineer' if task.category!='writing' else 'Analyst','provider_id':args.provider_id,'required_outputs':list(task.outputs),'metrics_file':'result.json','metrics_required_keys':list(task.expected.keys()),'instructions':instruction,'context_char_budget':AGENT_CONTEXT_CHARS,'agent_budget':{'active_seconds':args.task_timeout},**({'execution_round':{'steps':args.max_steps}} if args.max_steps is not None else {}),'resources':{'cpu':1,'memory_gb':.5}}
                     nid=api.node(pid,branch['id'],task.id,instruction,config)
                     record.update(project_id=pid,node_id=nid,request_id=str(uuid.uuid4())); persist()
                 run=api.launch(record['node_id'],record['request_id']); record['run_id']=run['id']; persist()
@@ -246,7 +248,7 @@ def agents(api,args,report):
             folder=Path(args.report).parent/'release-artifacts'/task.id/run['id']
             for name,content in artifacts.items():
                 path=folder/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content)
-            record.update(status='passed' if not errors else 'failed',finished_at=utc(),run_status=run['status'],failures=errors,usage=session.get('totals',{}),runtime_context_history=session.get('context_history',[]),runtime_context_budget_history=session.get('context_budget_history',[]),steps=len(session.get('transcript',[])),receipts=receipts,artifacts_directory=str(folder),run_error=run.get('error'),actual_configuration={k:run.get('config',{}).get(k) for k in ('provider_id','context_char_budget','agent_budget','resources','instructions','required_outputs','metrics_file','metrics_required_keys','qualification_adjustments')},actual_processes=run.get('metrics',{}).get('executions',[])); persist()
+            record.update(status='passed' if not errors else 'failed',finished_at=utc(),run_status=run['status'],failures=errors,usage=(session.get('supervisory_usage') or {}).get('totals'),runtime_context_history=session.get('context_history',[]),runtime_context_budget_history=session.get('context_budget_history',[]),steps=len(session.get('transcript',[])),receipts=receipts,artifacts_directory=str(folder),run_error=run.get('error'),actual_configuration={k:run.get('config',{}).get(k) for k in ('provider_id','context_char_budget','execution_round','agent_budget','resources','instructions','required_outputs','metrics_file','metrics_required_keys','qualification_adjustments')},actual_processes=run.get('metrics',{}).get('executions',[])); persist()
         print(json.dumps({'task':task.id,'status':record['status'],'failures':record.get('failures',[])}),flush=True)
     latest={r['id']:r for r in report['tasks']}
     report['summary']={'selected':len(selected),'passed':sum(evaluated_status(latest.get(t.id,{}))=='passed' for t in selected),'failed':sum(evaluated_status(latest.get(t.id,{}))=='failed' for t in selected),'scope':'Selected bounded tasks; not a general intelligence, scientific novelty, publication, production, or soak certification'}
@@ -418,14 +420,14 @@ def main(argv=None):
     parser.add_argument('mode',choices=['agents','graph','compute','soak','list','rescore'])
     parser.add_argument('--url',default='http://127.0.0.1:8000'); parser.add_argument('--report'); parser.add_argument('--resume',action='store_true')
     parser.add_argument('--provider-id'); parser.add_argument('--allow-paid',action='store_true'); parser.add_argument('--max-cost-usd',type=float,default=5)
-    parser.add_argument('--task',action='append'); parser.add_argument('--retry-failed',action='store_true'); parser.add_argument('--max-steps',type=int,default=None,help='Optional explicit per-task step budget; omitted means no step cap'); parser.add_argument('--task-timeout',type=float,default=900)
+    parser.add_argument('--task',action='append'); parser.add_argument('--retry-failed',action='store_true'); parser.add_argument('--round-steps','--max-steps',dest='max_steps',type=int,default=None,help='Technical work-round size hint; automatically continues checkpointed rounds'); parser.add_argument('--task-timeout',type=float,default=900)
     parser.add_argument('--nodes',type=int,default=1000); parser.add_argument('--seconds',type=float); parser.add_argument('--interval',type=float,default=60); parser.add_argument('--poll',type=float,default=2); parser.add_argument('--submit-only',action='store_true')
     args=parser.parse_args(argv)
     if args.mode=='list':
         print(json.dumps([{'id':t.id,'category':t.category,'prompt':PRIME_GOAL if t.id=='01-prime-independence' else t.prompt} for t in corpus()],indent=2)); return 0
     args.report=args.report or str(ROOT/'var/qa'/('release-'+args.mode+'.json'))
     args.seconds=args.seconds if args.seconds is not None else (14400 if args.mode=='compute' else 86400)
-    if args.max_steps is not None and args.max_steps<=0: parser.error('--max-steps must be positive when explicitly supplied')
+    if args.max_steps is not None and args.max_steps<=0: parser.error('--round-steps must be positive when explicitly supplied')
     if args.nodes<1 or args.seconds<=0 or args.poll<=0 or args.interval<=0: parser.error('Durations, node count and poll interval must be positive')
     path=Path(args.report)
     with report_lock(path):

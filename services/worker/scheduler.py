@@ -277,9 +277,8 @@ def enqueue(s, project_id, kind, config, request_id=None, node=None, dependencie
     if old:
         return old
     budget = p.budget or {}
-    total = s.scalar(select(func.count()).select_from(TaskRun).where(TaskRun.project_id == project_id)) or 0
-    if budget.get('max_runs') is not None and total >= int(budget['max_runs']):
-        error('RUN_BUDGET_EXHAUSTED', 'Project run budget exhausted', 409, 'Increase budget or choose a narrower next experiment.')
+    # Legacy max_runs remains readable in project metadata. A count of prior
+    # decisions is not a compute resource and cannot end a research lifecycle.
     dependencies = dependencies or []
     config = deepcopy(config) if retry_snapshot else {**(node.config if node else {}), **config}
     from research.agents.tool_policy import validate_permissions
@@ -341,6 +340,15 @@ def enqueue(s, project_id, kind, config, request_id=None, node=None, dependencie
     if node and not retry_snapshot:
         merged.update(instructions=node.instructions, node_type=node.type, node_title=node.title,
                       context_overrides=deepcopy(node.context_overrides), input_references=deepcopy(node.inputs))
+    if node:
+        from research.agents.research_path import task_signature
+        # Preserve the submitted method identity before synthetic execution
+        # envelopes and effective project time reservations are stamped on it.
+        merged['research_task_signature']=(config.get('research_task_signature') if retry_snapshot else None) or task_signature({
+            'instructions':config.get('instructions','') if retry_snapshot else node.instructions,
+            'config':config,
+            'inputs':config.get('input_references',[]) if retry_snapshot else node.inputs,
+        })
     role = merged.get('role', 'Researcher')
     agent = (s.get(Agent, merged['agent_id']) if merged.get('agent_id') else
              s.scalar(select(Agent).where(Agent.role == role)))

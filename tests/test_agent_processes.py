@@ -328,7 +328,7 @@ def test_process_paths_cannot_escape_and_outputs_remain_editable(tmp_path):
 def test_no_default_agent_turn_limit_and_explicit_budget():
     state = {'transcript': [{'step': n} for n in range(120)], 'totals': {'input_tokens': 500, 'output_tokens': 400, 'cost': None}, 'active_seconds': 200}
     assert budget_reason(state, {}) is None
-    assert 'steps=120' in budget_reason(state, {'agent_budget': {'steps': 120}})
+    assert budget_reason(state, {'agent_budget': {'steps': 120}}) is None
     assert budget_reason(state, {'agent_budget': {'steps': 121}}) is None
     assert 'output_tokens' in budget_reason(state, {'agent_budget': {'output_tokens': 300}})
 

@@ -1095,9 +1095,15 @@ def test_idempotent_run_budget_timeout_and_measured_resources(actual_worker):
     stopped = h.terminal(run)
     assert stopped["status"] == "failed"
     assert "budget" in stopped["error"].lower() or "timed out" in stopped["error"].lower()
-    over_budget = h.client.post(f"/api/nodes/{node['id']}/run", json={"request_id": str(uuid.uuid4())})
-    assert over_budget.status_code == 409
-    assert over_budget.json()["detail"]["code"] == "RUN_BUDGET_EXHAUSTED"
+    # A prior execution count is historical metadata, not a lifecycle limit.
+    # The remaining actual time can still admit another run after max_runs=1.
+    continued = h.launch(node)
+    assert continued['id'] != run['id']
+    continued = h.terminal(continued)
+    assert continued['status'] == 'failed'
+    exhausted = h.client.post(f"/api/nodes/{node['id']}/run", json={"request_id": str(uuid.uuid4())})
+    assert exhausted.status_code == 409
+    assert exhausted.json()["detail"]["code"] == "TIME_BUDGET_EXHAUSTED"
 
 
 def test_exhausted_time_budget_blocks_actual_job_creation(actual_worker):

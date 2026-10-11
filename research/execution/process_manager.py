@@ -12,4 +12,4 @@ def process_manager(workspace, config=None):
         return BubblewrapProcesses(workspace, config)
     if backend != 'local':
         raise ValueError('execution_backend must be local, container or bubblewrap')
-    return ManagedProcesses(workspace)
+    return ManagedProcesses(workspace,code_inputs=(config or {}).get('code_inputs'))

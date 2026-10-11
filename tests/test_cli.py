@@ -253,7 +253,7 @@ def test_resume_updates_total_agent_limits_but_retry_submits_new_run(tmp_path, c
     (["research", "start"], {}),
     (["research", "start", "--no-autonomous"], {"autonomous": False}),
     (["research", "start", "--autonomous", "--branch", "branch-1", "--max-cycles", "3"],
-     {"autonomous": True, "branch_id": "branch-1", "max_cycles": 3}),
+     {"autonomous": True, "branch_id": "branch-1"}),
 ])
 def test_research_policy_is_explicit_and_partial_control_errors_are_not_success(arguments, body, capsys):
     scenario = HTTPScenario(lambda call: {"status": "running", "process_control_errors": [{"run_id": "r1", "error": "process control failed"}]})

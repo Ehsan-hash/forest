@@ -596,7 +596,11 @@ def research_control(ident:str,action:str,body:dict=Body(default={})):
                 if selected_branch.status!='active':
                     error('BRANCH_NOT_RUNNABLE','Restore this branch before starting research on it',409)
             affected=control.get('paused_run_ids',[])
-            control={**control,'status':'running','phase':'PLAN','branch_id':branch_id,'required_artifacts':body.get('required_artifacts',control.get('required_artifacts',[])), 'autonomous':body.get('autonomous',control.get('autonomous',p.mode=='auto')), 'max_cycles':body.get('max_cycles',control.get('max_cycles')),'ready_parallelism':parallelism}
+            control={**control,'status':'running','phase':'PLAN','branch_id':branch_id,'required_artifacts':body.get('required_artifacts',control.get('required_artifacts',[])), 'autonomous':body.get('autonomous',control.get('autonomous',p.mode=='auto')),'ready_parallelism':parallelism}
+            # Old clients/checkpoints may carry a planning-cycle cap. Preserve
+            # it as history only; research lifetime follows goals and resources.
+            legacy_limit=control.pop('max_cycles',body.get('max_cycles'))
+            if legacy_limit is not None: control['legacy_max_cycles']=legacy_limit
             control.pop('reason',None);control.pop('paused_run_ids',None)
         elif action in ('pause','stop'):
             from services.worker.scheduler import ACTIVE

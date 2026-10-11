@@ -28,6 +28,9 @@ Results are not treated as the end of a task. FOREST interprets them, compares c
 **Keeps the research path editable.**  
 Researchers can intervene at any point: edit a node, change an experiment, revisit an earlier assumption, or branch the graph to investigate an alternative approach without losing the existing work.
 
+**Continues across execution rounds.**
+Agents save durable checkpoints at bounded work-round boundaries and automatically continue the same research run. Cumulative turns and planning cycles do not determine scientific lifetime. Recovery uses the retained goal, graph, evidence and action receipts; all rounds and branches share resource accounting. Actual spending, compute limits, permissions and unresolved blockers still govern execution. See [research execution and recovery](docs/RUNTIME.md).
+
 **Builds scientific figures and tables.**  
 Experimental results can be turned into publication-ready visualizations and tables while remaining tied to their underlying runs and observations.
 

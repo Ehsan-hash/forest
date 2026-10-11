@@ -1,16 +1,14 @@
 # Persistent research agents
 
 `run_agent(run_id, workspace, config)` uses the selected actual provider. There is
-no project-lifetime total turn limit. Nodes without an explicit legacy hard
-`agent_budget.steps` use a persisted evidence-gated allowance from
-`step_budget_policy` (defaults: 30 initial, +30 after verified progress, 150
-per node). Project-level values live under `Project.config.agent_execution`;
-run-level values override them. Explicit outer limits always win. Optional
-`agent_budget` fields are `steps`,
-`input_tokens`, `output_tokens`, `cost`, and `active_seconds`; legacy `max_steps`
-is interpreted as an explicit configured budget. Budget edits on the run take
-effect at the next turn. Provider transport failures never produce replacement
-responses.
+no node or project lifetime turn limit. `execution_round.steps` controls a
+technical checkpoint cadence (default 30), followed automatically by another
+round of the same Run. Legacy step hints migrate to this cadence; their former
+cumulative limits and expansion counts have no lifetime effect. Project-level
+values live under `Project.config.agent_execution`; run-level values override
+them. Explicit supervisory `agent_budget` limits for `input_tokens`,
+`output_tokens`, `cost`, and `active_seconds` still apply and take effect at the
+next turn. Provider transport failures never produce replacement responses.
 
 Output requests are provider-aware and task-stage aware. Declare verified
 `provider.config.model_capabilities.max_output_tokens` and
@@ -35,13 +33,15 @@ are present, complete, and conflict-free. Partial JSON and tool actions never
 count as success. There is no fixed project-lifetime step or output-token
 counter; provider, context, project spending, compute, GPU and external
 supervisor limits still apply.
-The editable `agent_session.json` retains messages, reported token usage, public
-action summaries, full tool observations, and the exact pending action ID.
+The editable `agent_session.json` retains the full versioned scientific state,
+messages, public action summaries, full tool observations, and the exact pending
+action ID. Cumulative accounting lives separately in the original supervisor's
+ledger; checkpoints retain its external identity and never reset its usage.
 `agent_transcript.json` is available to the model through paginated
 `read_transcript`. Context compaction only changes model input; it does not erase
 recorded turns. `research_memory.json` holds editable decision summaries and
-unresolved questions. Session files are ordinary JSON, without content addressing
-or read-only artifact restrictions.
+unresolved questions. Session files are ordinary JSON; immutable round snapshots
+reference content-addressed Graph versions and original execution artifacts.
 
 ## Real process tools
 

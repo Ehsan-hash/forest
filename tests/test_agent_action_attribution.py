@@ -42,7 +42,8 @@ if __name__ == '__main__':
     original_action = {'tool': 'read_file', 'arguments': {'path': 'requested.txt'}}
     action = {'tool': 'read_file', 'arguments': {'path': 'selected.txt'}, 'id': uid()}
     # These are explicit persisted protocol inputs, not a provider response or
-    # a claimed model success. The one-step budget prevents any model request.
+    # a claimed model success. A persisted one-turn round boundary prevents a
+    # new model request after executing the already journaled local action.
     turn = {'step': 1, 'model': 'local-protocol-record', 'content': json.dumps(original_action), 'tool_calls': []}
     if protocol == 'native':
         turn['content'] = ''
@@ -50,7 +51,8 @@ if __name__ == '__main__':
         action['call_id'] = 'local-call'
     original_turn = copy.deepcopy(turn)
     state = {'run_id': run_id, 'status': 'executing', 'messages': [{'role': 'system', 'content': 'local test'}, {'role': 'user', 'content': 'local test'}],
-             'transcript': [turn], 'pending_action': action, 'totals': {'input_tokens': 0, 'output_tokens': 0, 'cost': None}, 'active_seconds': 0}
+             'transcript': [turn], 'pending_action': action, 'totals': {'input_tokens': 0, 'output_tokens': 0, 'cost': None}, 'active_seconds': 0,
+             'lifecycle':{'version':1,'state':'running','round_index':1,'round_start_step':0,'checkpoints':[],'recovery':{}}}
     pending = copy.deepcopy(state)
     config = {'provider_snapshot': {'kind': 'ollama', 'base_url': 'http://127.0.0.1:9', 'model': 'no-request-is-made'},
               'agent_budget': {'steps': 1}, 'instructions': 'Execute the persisted local action only.'}
@@ -60,12 +62,16 @@ if __name__ == '__main__':
         try:
             run_agent(run_id, workspace, config)
         except AgentYield as exc:
-            assert exc.status == 'budget_exhausted'
+            assert exc.status == 'waiting' and exc.wait_for['type'] == 'work_round'
         else:
-            raise AssertionError('Expected a budget yield before any model request')
+            raise AssertionError('Expected a checkpointed round yield before a new model request')
         return json.loads((workspace / 'agent_session.json').read_text())
 
     first = resume_pending()
+    assert first['wait_for']['type']=='work_round' and first['lifecycle']['state']=='checkpointed'
+    assert 'totals' not in first and 'active_seconds' not in first
+    initial_usage=json.loads((workspace.parent/'agent_usage.json').read_text())
+    assert initial_usage['run_id']==run_id and initial_usage['accounted_transcript_steps']==1
     for stored in (first['transcript'][0], json.loads((workspace / 'agent_transcript.json').read_text())[0]):
         assert stored['content'] == original_turn['content']
         assert stored['tool_calls'] == original_turn['tool_calls']
@@ -81,6 +87,7 @@ if __name__ == '__main__':
     # Valid replay must return the actual prior read, not read the changed file.
     (workspace / 'selected.txt').write_text('Changed after the completed read')
     resumed = resume_pending()
+    assert json.loads((workspace.parent/'agent_usage.json').read_text())['totals']==initial_usage['totals']
     assert resumed['transcript'][0]['executed_action'] == action
     assert resumed['transcript'][0]['tool_result'] == first['transcript'][0]['tool_result']
     assert observed_progress(resumed) == observed_progress(first)

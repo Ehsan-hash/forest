@@ -29,7 +29,7 @@ def test_second_same_class_failure_requires_diagnosis_and_persists_audit():
     assert persisted['error_recovery']['history'][-1]['category'] == 'permission_error'
 
 
-def test_successful_diagnostic_observation_resets_repeat_count():
+def test_diagnostic_reads_do_not_erase_repeated_failed_operation():
     state = {}
     failure = {'error': 'Execution denied by policy', 'exit_code': 1}
     observe_tool_result(state, 'run_command', failure, 1)
@@ -38,4 +38,10 @@ def test_successful_diagnostic_observation_resets_repeat_count():
     event, action = observe_tool_result(state, 'read_file', {'content': 'observed policy', 'exit_code': 0}, 3)
     assert action == 'continue' and event['state'] == 'diagnosis_observed'
     repeat, action = observe_tool_result(state, 'run_command', failure, 4)
-    assert repeat['repeat_count'] == 1 and action == 'continue'
+    assert repeat['repeat_count'] == 3 and action == 'block'
+
+
+def test_budget_filename_does_not_masquerade_as_resource_exhaustion():
+    assert classify_failure('read_file', {'error': 'Missing project file: budget_protocol.json', 'exit_code': 1})['category'] == 'environment_error'
+    assert classify_failure('python', {'error': 'No such file: token_limit.csv', 'exit_code': 1})['category'] == 'environment_error'
+    assert classify_failure('run_command', {'error': 'Hard GPU budget exhausted', 'exit_code': 1})['category'] == 'budget_exhausted'

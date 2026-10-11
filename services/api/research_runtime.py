@@ -160,7 +160,27 @@ def agent_session(ident:str,summary:bool=False):
         # process has stopped. The last session checkpoint may predate that
         # confirmation, so expose the authoritative terminal run state.
         if run.status == 'cancelled': data={**data,'status':'cancelled'}
-        if summary: data={**{k:data.get(k) for k in ('status','totals','active_seconds','wait_for','updated_at','budget_reason')},'transcript_count':len(data.get('transcript',[]))}
+        # Scientific checkpoints describe research state. Resource accounting
+        # belongs to the independent ledger, including for legacy readback.
+        for key in ('totals','active_seconds','cost_complete','usage_complete'):
+            data.pop(key,None)
+        if summary:
+            usage_path=folder.parent/'agent_usage.json'
+            if not usage_path.exists(): usage_path=folder/'agent_usage.json'
+            usage=None; usage_error=None
+            if usage_path.exists():
+                try:
+                    ledger=json.loads(usage_path.read_text())
+                except (OSError,ValueError,UnicodeError) as exc:
+                    usage_error={'code':'LEDGER_UNREADABLE','message':'Resource ledger cannot be read; reconcile the original supervisor. '+str(exc)}
+                else:
+                    if (isinstance(ledger,dict) and ledger.get('run_id')==ident
+                            and isinstance(ledger.get('totals'),dict)):
+                        usage={key:ledger.get(key) for key in ('totals','active_seconds','cost_complete','usage_complete','updated_at')}
+                    else:
+                        usage_error={'code':'LEDGER_INVALID','message':'Resource ledger does not bind this run or has invalid totals; reconcile the original supervisor.'}
+            data={**{k:data.get(k) for k in ('status','wait_for','updated_at','budget_reason','lifecycle','round','recovery','goal_contract','reconciliation_reason')},
+                  'usage':usage,'usage_error':usage_error,'transcript_count':len(data.get('transcript',[]))}
         return {'run_id':ident,'status':run.status,'session':data}
 
 @router.patch('/api/runs/{ident}/configuration')

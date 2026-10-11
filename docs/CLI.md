@@ -206,7 +206,7 @@ forest run retry RUN_ID --request-id retry-baseline-01
 
 `resume` continues a paused/waiting run according to its existing runner/session behavior. `retry` queues a new run. Neither command manufactures a computation checkpoint: successful recovery still depends on retained processes or checkpoints written by the task. See [execution recovery](DEPLOYMENT.md#isolated-task-execution).
 
-For an explicit Agent budget update during resume, use `--budget-file agent-budget.json`. The object contains limits such as `steps`, `input_tokens`, `output_tokens`, `cost` (USD) and `active_seconds`. Limits are total limits, not an increment of additional allowance. They must be positive and remain subject to the project/provider limits.
+For an explicit Agent budget update during resume, use `--budget-file agent-budget.json`. The object contains actual resource limits such as `input_tokens`, `output_tokens`, `cost` (USD) and `active_seconds`. They are total limits, not additional allowance, and remain subject to project/provider limits. Legacy `steps` is accepted as a work-round size hint; reaching it writes a checkpoint and continues the same run automatically. It cannot terminate the scientific task or reset its usage ledger.
 
 Ctrl+C exits client observation with code 130. It does not issue a cancellation request. Use `run cancel` or `research stop` to stop backend work. Ctrl+C in the foreground `serve` process stops its API/worker process group; use that only when stopping the service is intended.
 
@@ -214,7 +214,7 @@ Ctrl+C exits client observation with code 130. It does not issue a cancellation 
 
 ```sh
 forest research start --no-autonomous
-forest research start --autonomous --max-cycles 10
+forest research start --autonomous
 forest research start --autonomous --branch BRANCH_ID
 forest research pause
 forest research stop
@@ -224,7 +224,7 @@ forest research stop
 
 `manual` and `assisted` modes do not by themselves implement a per-step approval queue in this release. If every task should be explicitly triggered, use `node run` and leave the controller stopped. Choose an explicit autonomous flag when starting the controller so that the intended behavior is visible in scripts.
 
-`research pause` pauses the controller and eligible owned runs; `research stop` stops the controller and cancels its active work under the existing API policy. Partial process-control errors are reported. A successful controller start means the request was accepted, not that the research or manuscript is complete. Cycle/budget exhaustion can leave `submission_incomplete`.
+`research pause` pauses the controller and eligible owned runs; `research stop` stops the controller and cancels its active work under the existing API policy. Partial process-control errors are reported. A successful controller start means the request was accepted, not that the research or manuscript is complete. Planning cycles do not limit research lifetime. Older scripts can still pass `--max-cycles`, but it is deprecated and ignored. Actual resource exhaustion or a recorded blocker can pause incomplete work.
 
 ## Manuscripts, delivery and export
 

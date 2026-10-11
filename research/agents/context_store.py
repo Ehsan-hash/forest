@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+import hashlib
 from pathlib import Path
 
 from .processes import atomic_json, read_json
@@ -41,13 +42,22 @@ class ContextStore:
 
     def put(self, key, text, *, origin, authority='untrusted_evidence', save_index=True):
         text = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
+        fingerprint = hashlib.sha256(text.encode()).hexdigest()
         previous = self.index['current'].get(key)
-        if previous and (self.root / (previous + '.txt')).is_file() and (self.root / (previous + '.txt')).read_text() == text:
-            return previous
+        if previous and (self.root / (previous + '.txt')).is_file():
+            metadata = self.index['segments'][previous]
+            if metadata.get('sha256') == fingerprint:
+                return previous
+            if 'sha256' not in metadata and (self.root / (previous + '.txt')).read_text() == text:
+                metadata['sha256'] = fingerprint
+                return previous
         identifier = str(uuid.uuid4())
         (self.root / (identifier + '.txt')).write_text(text)
         self.index['segments'][identifier] = {'id': identifier, 'origin': origin, 'authority': authority,
-                                            'characters': len(text), 'created_at': time.time()}
+                                            'characters': len(text), 'sha256': fingerprint, 'created_at': time.time(),
+                                            'source_key': key,
+                                            'progress_eligible': key.startswith(('original-message:', 'controls:', 'material:'))
+                                                or key in {'task-materials', 'original-task-brief'}}
         self.index['current'][key] = identifier
         if save_index: self.save()  # Flush originals before transport can reference them.
         return identifier

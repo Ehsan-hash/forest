@@ -1623,7 +1623,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `GET /api/projects/{ident}/research/route-health`
 
-Calculate actual repeated current-revision failures, stopped checking alerts, excessive consecutive counterexample checks and planning without execution. Return editable thresholds, signals and reviewed run IDs. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.
+Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -1649,7 +1649,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `POST /api/projects/{ident}/research/{action}`
 
-Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous/max_cycles and resumes previously paused runs. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.
+Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous and resumes previously paused runs. Legacy max_cycles is history only; goals, actual resource hard limits, cancellation and actionable blockers govern lifetime. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -2424,7 +2424,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `GET /api/runs/{ident}/session`
 
-Return {run_id,status,session}. Missing agent_session.json means session:null. For a cancelled run, the session status is reported as cancelled even if its last checkpoint predates cancellation. summary=true returns selected session status/totals/active_seconds/wait_for/updated_at/budget_reason plus transcript_count; selected fields can be null. Full session structure is extensible.
+Return {run_id,status,session}. Missing agent_session.json means session:null. Full session is extensible scientific state and excludes cumulative resource accounting. For a cancelled run, session status follows the authoritative cancelled run. summary=true includes lifecycle, round, recovery, goal_contract, status/wait_for/updated_at/budget_reason/reconciliation_reason and transcript_count; selected fields can be null for legacy checkpoints. summary usage reads totals/active_seconds/completeness explicitly from the separate matching agent_usage.json resource ledger, or is null when unavailable. Invalid or unreadable ledgers return usage:null with usage_error diagnostics, never zero consumption. waiting with wait_for.type=work_round is automatic checkpoint continuation under the same Run ID and resource ledger.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -4176,7 +4176,7 @@ Additional properties: extensible JSON.
 | `branch_id` | string or null | no |  |
 | `required_artifacts` | JsonValue[] | no |  |
 | `autonomous` | boolean | no |  |
-| `max_cycles` | integer or null | no |  |
+| `legacy_max_cycles` | integer or null | no | Historical planning cap; never enforced. |
 | `paused_run_ids` | string[] | no |  |
 | `process_control_errors` | object[] | yes |  |
 
@@ -4189,7 +4189,7 @@ Additional properties: extensible JSON.
 | `branch_id` | string or null | no |  |
 | `required_artifacts` | JsonValue[] | no |  |
 | `autonomous` | boolean | no |  |
-| `max_cycles` | integer or null | no |  |
+| `max_cycles` | integer or null | no | Deprecated legacy input; recorded as history and does not limit research lifetime. |
 
 Additional properties: extensible JSON.
 
@@ -4327,7 +4327,7 @@ Additional properties: extensible JSON.
 | `enabled` | boolean | yes |  |
 | `window` | integer | yes |  |
 | `repeated_failures` | integer | yes |  |
-| `counterexample_limit` | integer | yes |  |
+| `unchanged_counterexample_repeats` | integer | yes |  |
 | `planning_without_execution` | integer | yes |  |
 | `review_every_runs` | integer | yes |  |
 
@@ -4384,7 +4384,7 @@ Additional properties: extensible JSON.
 | `request_id` | string | no | Used by retry; other run actions ignore it. |
 | `priority` | integer | no | Used by priority, default 0; handler converts with int(). |
 | `context_char_budget` | integer | no | resume only; Agent run, integer >= 1000. |
-| `agent_budget` | JsonObject | no | resume only; merges editable per-Agent token/model-call/cost/time limits after budget validation. |
+| `agent_budget` | JsonObject | no | resume only; merges editable per-Agent token/cost/time hard limits after budget validation. Legacy steps is accepted as a bounded work-round hint, never a cumulative research limit. |
 
 Additional properties: extensible JSON.
 

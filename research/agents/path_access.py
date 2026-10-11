@@ -41,13 +41,12 @@ def authorized_read_path(workspace, value, config=None, *, must_exist=True):
     root = Path(workspace).resolve()
     candidate = Path(value).expanduser()
     authorized_root = None
-    if not candidate.is_absolute():
-        resolved = (root / candidate).resolve()
+    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
+    if not candidate.is_absolute() or resolved.is_relative_to(root):
         if not resolved.is_relative_to(root):
             error('PATH_ESCAPE', 'Path escapes project workspace', 403)
         protected_relative = resolved.relative_to(root)
     else:
-        resolved = candidate.resolve()
         allowed = _paths(config, 'readonly_paths')
         denied = _paths(config, 'denied_readonly_paths')
         if _within(resolved, denied) or not _within(resolved, allowed):

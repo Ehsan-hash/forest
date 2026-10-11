@@ -212,9 +212,11 @@ def test_route_context_reads_complete_actual_records_and_files_and_budget(route_
             "from pathlib import Path;print(Path('required_actual_input.csv').read_text())"]}})
     failed = h.launch(producer)
     assert h.terminal(failed)['status'] == 'failed'
-    denied = h.client.post(f"/api/nodes/{producer['id']}/run", json={})
-    assert denied.status_code == 409
-    assert denied.json()['detail']['code'] == 'RUN_BUDGET_EXHAUSTED'
+    # A legacy run count cannot stop a materially repaired research path.
+    h.request('PATCH', f"/api/nodes/{producer['id']}", json={'config': {
+        'kind': 'command', 'command': arithmetic_command(10)}})
+    repaired = h.launch(producer)
+    assert h.terminal(repaired)['status'] == 'completed'
     # These are actual draft files in the editable branch, not generated agent
     # findings. A credential-shaped canary must never enter provider context.
     graph = h.request('GET', f"/api/projects/{project['id']}/graph")
@@ -258,7 +260,7 @@ with Session() as session:
     assert not any(path.endswith(('/secrets.json','/credentials.json','/task_config.json')) for path in materials)
     assert 'test-only-context-exclusion-canary' not in json.dumps(context)
     print(json.dumps({'node_count':len(context['coverage']['node_ids']),'run_count':len(context['coverage']['run_ids']),'resource_count':len(context['coverage']['resource_ids'])}))
-''', project['id'], ','.join((producer['id'], unused['id'])), ','.join((first['id'], failed['id']))],
+''', project['id'], ','.join((producer['id'], unused['id'])), ','.join((first['id'], failed['id'], repaired['id']))],
         cwd=ROOT, env=h.env, capture_output=True, text=True, timeout=20)
     assert inspected.returncode == 0, inspected.stdout+inspected.stderr
-    assert json.loads(inspected.stdout) == {'node_count': 2, 'run_count': 2, 'resource_count': 10}
+    assert json.loads(inspected.stdout) == {'node_count': 2, 'run_count': 3, 'resource_count': 10}

@@ -1,5 +1,7 @@
 """Persisted diagnosis circuit breaker for repeated Research Agent tool errors."""
 from __future__ import annotations
+import hashlib
+import json
 
 
 DIAGNOSTIC_TOOLS = {
@@ -27,7 +29,10 @@ def classify_failure(tool, result):
     if code in {'PATH_ESCAPE', 'PERMISSION_DENIED', 'EACCES', 'EPERM', 'AUTHORIZATION'} or any(
             token in text for token in ('permission denied', 'not authorized', 'authorization', 'unauthorized', 'forbidden', 'path escapes', 'access denied')):
         category = 'permission_error'
-    elif any(token in text for token in ('budget', 'token limit', 'cost limit', 'gpu hour', 'resource limit')):
+    elif code in {'BUDGET_EXHAUSTED', 'RESOURCE_BUDGET_EXHAUSTED', 'GPU_BUDGET_EXHAUSTED',
+                  'MODEL_BUDGET_EXHAUSTED', 'TIME_BUDGET_EXHAUSTED'} or any(token in text for token in (
+                    'budget exhausted', 'budget reached', 'spending limit cannot reserve',
+                    'configured agent budget reached', 'hard resource limit reached')):
         category = 'budget_exhausted'
     elif any(token in text for token in ('provider', 'model response', 'model request', 'context window', 'incomplete response')):
         category = 'model_error'
@@ -42,7 +47,22 @@ def classify_failure(tool, result):
     return {'category': category, 'tool': tool, 'code': code or None, 'message': error or 'Tool returned a nonzero exit status'}
 
 
-def observe_tool_result(state, tool, result, step):
+def action_signature(tool, arguments, basis=None):
+    return hashlib.sha256(json.dumps({'tool': tool, 'arguments': arguments or {}, 'source_basis': basis},
+        sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def rejected_action(state, tool, arguments):
+    basis = state.get('action_source_basis') if tool in {'python', 'run_command', 'start_process'} else state.get('authorization_basis')
+    failure = (state.get('error_recovery') or {}).get('rejected_actions', {}).get(action_signature(tool, arguments, basis))
+    if failure:
+        return {'error': failure['message'], 'code': failure.get('code'),
+                'exit_code': 1, 'repetition_prevented': True,
+                'reason': 'Unchanged failed operation was already diagnosed; choose a corrected authorized action.'}
+    return None
+
+
+def observe_tool_result(state, tool, result, step, *, arguments=None):
     """Return a persisted event and whether the caller should diagnose or stop."""
     recovery = state.setdefault('error_recovery', {'last_category': None, 'repeat_count': 0,
         'diagnosis_pending': False, 'history': []})
@@ -51,8 +71,7 @@ def observe_tool_result(state, tool, result, step):
         if recovery.get('diagnosis_pending') and (tool in DIAGNOSTIC_TOOLS or tool in SUBSTANTIVE_TOOLS):
             event = {'step': step, 'state': 'diagnosis_observed', 'tool': tool,
                      'prior_category': recovery.get('last_category')}
-            recovery.update(last_category=None, repeat_count=0, diagnosis_pending=False,
-                            last_error=None, last_failure_tool=None)
+            recovery['diagnosis_pending'] = False
             recovery.setdefault('history', []).append(event)
             return event, 'continue'
         return None, 'continue'
@@ -65,17 +84,17 @@ def observe_tool_result(state, tool, result, step):
                         diagnosis_pending=False, last_error=failure['message'], last_failure_tool=tool)
         recovery.setdefault('history', []).append(event)
         return event, 'block'
-    if recovery.get('diagnosis_pending'):
-        event = {'step': step, **failure, 'repeat_count': recovery.get('repeat_count', 2),
-                 'state': 'blocked_after_failed_diagnosis'}
-        recovery.setdefault('history', []).append(event)
-        recovery['last_error'] = failure['message']
-        return event, 'block'
-
     count = recovery.get('repeat_count', 0) + 1 if prior_category == failure['category'] else 1
-    outcome = 'diagnose' if count >= 2 else 'continue'
+    basis = state.get('action_source_basis') if tool in {'python', 'run_command', 'start_process'} else state.get('authorization_basis')
+    signature = action_signature(tool, arguments, basis)
+    attempts = recovery.setdefault('action_failures', {})
+    attempts[signature] = attempts.get(signature, 0) + 1
+    if failure['category'] == 'permission_error' or attempts[signature] >= 2:
+        recovery.setdefault('rejected_actions', {})[signature] = failure
+    outcome = 'block' if result.get('repetition_prevented') or attempts[signature] >= 3 else 'diagnose' if count >= 2 else 'continue'
     event = {'step': step, **failure, 'repeat_count': count,
-             'state': 'diagnosis_required' if outcome == 'diagnose' else 'observed'}
+             'state': 'blocked_after_failed_diagnosis' if outcome == 'block' else 'diagnosis_required' if outcome == 'diagnose' else 'observed',
+             'action_signature': signature, 'action_failures': attempts[signature]}
     recovery.update(last_category=failure['category'], repeat_count=count,
                     diagnosis_pending=outcome == 'diagnose', last_error=failure['message'],
                     last_failure_tool=tool)

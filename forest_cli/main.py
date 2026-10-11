@@ -221,7 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
     autonomous.add_argument("--no-autonomous", action="store_false", dest="autonomous")
     p.set_defaults(autonomous=None)
     p.add_argument("--branch")
-    p.add_argument("--max-cycles", type=positive_int)
+    # Accept older scripts without preserving a research-lifetime cap.
+    p.add_argument("--max-cycles", type=positive_int, help=argparse.SUPPRESS)
     for action in ["pause", "stop"]: _command(group, action, f"{action.capitalize()} the controller and report process-control failures")
     _command(group, "route-health", "Inspect repeated failures and excessive counterexample checking")
     p = _command(group, "route-review", "Review the complete recorded research route and propose the next direction")
@@ -601,7 +602,6 @@ def execute(args, *, client_factory=ForestClient):
             if args.action == "start":
                 if args.autonomous is not None: body["autonomous"] = args.autonomous
                 if args.branch: body["branch_id"] = args.branch
-                if args.max_cycles is not None: body["max_cycles"] = args.max_cycles
             path = f"/api/projects/{identifier(require_project(context))}/research/{args.action}"
             if args.action == "route-health": value = client.request("GET", path)
             elif args.action == "route-review":

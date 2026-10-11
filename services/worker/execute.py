@@ -139,6 +139,17 @@ def model_json(config,prompt,system=''):
                               Path(config['_context_workspace']),char_hint=config.get('context_char_budget',64000),
                               output_stage=client.config.get('output_stage','research'))
 
+def copy_task_file(origin,destination):
+    """A crashed preparation may leave a temporary file, never a partial input."""
+    temporary=destination.with_name(destination.name+'.preparing.'+str(time.time_ns()))
+    try:
+        shutil.copy2(origin,temporary)
+        with temporary.open('rb') as handle: os.fsync(handle.fileno())
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def materialize_branch_references(root, workspace, bindings):
     """Copy branch-level reference files into an isolated task workspace."""
     # Keep the nearest/last mapping when nested forks reference the same path.
@@ -151,7 +162,44 @@ def materialize_branch_references(root, workspace, bindings):
         if destination.exists():
             raise ValueError('A branch reference destination is not a file path')
         destination.parent.mkdir(parents=True,exist_ok=True)
-        shutil.copy2(origin,destination)
+        copy_task_file(origin,destination)
+
+
+def prepare_task_workspace(root, source_workspace, output, config):
+    """Resume interrupted input preparation before running any model or fit."""
+    from research.agents.processes import atomic_json
+    workspace=output/'workspace'
+    marker=output/'workspace_preparation.json'
+    preparation=json.loads(marker.read_text()) if marker.exists() else None
+    if preparation and preparation.get('status')=='completed':
+        return
+    if preparation is None and config.get('execution_attempt',{}).get('number',1)>1:
+        # Legacy workspaces can already contain executed, edited outputs. Never
+        # overwrite those with their original branch when migrating an old run.
+        atomic_json(marker,{'status':'completed','legacy_existing_workspace':True})
+        return
+    atomic_json(marker,{'status':'preparing','source_workspace':str(source_workspace.relative_to(root)),
+        'inputs':config.get('resolved_inputs',[]),
+        'branch_references':config.get('resolved_branch_references',[])})
+    if source_workspace!=root:
+        for source in source_workspace.rglob('*'):
+            if source.is_file() and not source.is_symlink():
+                destination=workspace/source.relative_to(source_workspace)
+                destination.parent.mkdir(parents=True,exist_ok=True)
+                copy_task_file(source,destination)
+    materialize_branch_references(root,workspace,config.get('resolved_branch_references',[]))
+    hashes={}
+    for binding in config.get('resolved_inputs',[]):
+        origin=safe_path(root,binding['source_path'],True)
+        destination=safe_path(workspace,binding['destination'])
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        copy_task_file(origin,destination)
+    for binding in [*config.get('resolved_inputs',[]),*config.get('resolved_branch_references',[])]:
+        destination=safe_path(workspace,binding['destination'])
+        with destination.open('rb') as handle: digest=hashlib.file_digest(handle,'sha256').hexdigest()
+        hashes[binding['destination']]=digest
+    atomic_json(marker,{'status':'completed','source_workspace':str(source_workspace.relative_to(root)),
+        'input_hashes':hashes})
 
 def idea_source_material(source):
     metadata={key:source.data[key] for key in ('authors','year','doi','arxiv_id','url','abstract','journal','source') if key in source.data}
@@ -207,7 +255,8 @@ def execute(run_id):
         if not isinstance(defaults,dict): raise ValueError('project.config.agent_execution must be an object')
         config={**defaults,**(run.config or {})}; kind=run.kind; node_id=run.node_id
         branch=s.get(Branch,run.branch_id) if run.branch_id else s.scalar(select(Branch).where(Branch.project_id==pid,Branch.is_main==True)); branch_workspace=branch.workspace if branch else '.'
-        output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid); source_workspace=safe_path(root,branch_workspace)
+        output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid)
+        source_workspace=safe_path(root,config.get('_workspace_source_snapshot',branch_workspace))
         from services.api.verification import verification_gate
         gate=verification_gate(s,run)
         if not gate['ready']:
@@ -216,15 +265,7 @@ def execute(run_id):
             s.add(run); s.commit()
             raise AgentYield('waiting_input',reason=gate['message'])
     output.mkdir(parents=True,exist_ok=True); workspace=output/'workspace'; workspace.mkdir(exist_ok=True)
-    # Capture editable working files at task start, excluding previous run output.
-    if source_workspace!=root and config.get('execution_attempt',{}).get('number',1)==1:
-        for f in source_workspace.rglob('*'):
-            if f.is_file() and not f.is_symlink():
-                target=workspace/f.relative_to(source_workspace); target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(f,target)
-    if config.get('execution_attempt',{}).get('number',1)==1:
-        materialize_branch_references(root,workspace,config.get('resolved_branch_references',[]))
-    for binding in (config.get('resolved_inputs',[]) if config.get('execution_attempt',{}).get('number',1)==1 else []):
-        origin=safe_path(root,binding['source_path'],True); destination=safe_path(workspace,binding['destination']); destination.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(origin,destination)
+    prepare_task_workspace(root,source_workspace,output,config)
     paired_input=None
     if kind!='verification':
         with Session() as s:
@@ -845,8 +886,35 @@ def execute(run_id):
         return result
     raise ValueError('Unsupported task kind '+kind)
 
+def await_committed_dispatch(run_id, attempt_id, *, timeout_seconds=10):
+    """Fence orphan executors until their attempt/PID ownership is durable.
+
+    The worker must spawn inside its admission transaction to claim the PID.
+    A crash before commit must not let that unowned child start scientific work.
+    Standalone execution without an attempt ID retains the CLI's existing use.
+    """
+    if not attempt_id:
+        return True
+    deadline=time.monotonic()+timeout_seconds
+    while time.monotonic()<deadline:
+        with Session() as session:
+            run=session.get(TaskRun,run_id)
+            if run is None or run.status in ('cancelled','completed','failed','skipped','interrupted'):
+                return False
+            attempt=(run.config or {}).get('execution_attempt') or {}
+            if attempt.get('id')==attempt_id and run.pid==os.getpid() and run.status=='running':
+                return True
+        time.sleep(0.05)
+    return False
+
+
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--run-id',required=True); args=parser.parse_args(); start=time.monotonic()
+    parser=argparse.ArgumentParser(); parser.add_argument('--run-id',required=True); args=parser.parse_args()
+    attempt_id=os.environ.get('FOREST_ATTEMPT_ID')
+    if not await_committed_dispatch(args.run_id,attempt_id):
+        # Do not overwrite a later attempt's receipt or touch its workspace.
+        sys.exit(75)
+    start=time.monotonic()
     with Session() as s: run=get(s,TaskRun,args.run_id); out=safe_path(project_dir(run.project_id),run.output_path)
     out.mkdir(parents=True,exist_ok=True)
     try: result=execute(args.run_id); receipt={'status':'completed','exit_code':0,'metrics':result,'elapsed_seconds':time.monotonic()-start}
@@ -857,7 +925,8 @@ def main():
         receipt={'status':'budget_exhausted','reason':str(exc),'error':str(exc),'exit_code':0,'elapsed_seconds':time.monotonic()-start}
     except Exception as exc:
         traceback.print_exc(); receipt={'status':'failed','exit_code':1,'error':str(exc),'elapsed_seconds':time.monotonic()-start}
-    receipt['attempt_id']=os.environ.get('FOREST_ATTEMPT_ID')
-    tmp=out/('result.'+str(os.environ.get('FOREST_ATTEMPT_ID','initial'))+'.tmp'); tmp.write_text(json.dumps(receipt,ensure_ascii=False,indent=2,default=str)); tmp.replace(out/'result.json')
+    receipt['attempt_id']=attempt_id
+    from research.agents.processes import atomic_json
+    atomic_json(out/'result.json',json.loads(json.dumps(receipt,default=str)))
     sys.exit(receipt['exit_code'])
 if __name__=='__main__': main()

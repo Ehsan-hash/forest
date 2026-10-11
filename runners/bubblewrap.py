@@ -30,7 +30,9 @@ class BubblewrapProcesses(ManagedProcesses):
     """ManagedProcesses whose task child sees only explicit project/data mounts."""
 
     def __init__(self, workspace, config=None):
-        super().__init__(workspace)
+        workspace=Path(workspace).resolve()
+        super().__init__(workspace,directory=workspace.parent/'.forest-processes'/workspace.name,
+            legacy_directory=workspace/'.forest-processes',code_inputs=(config or {}).get('code_inputs'))
         self.config = dict(config or {})
         isolation = self.config.get("bubblewrap", {})
         if not isinstance(isolation, dict):

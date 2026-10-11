@@ -1,6 +1,7 @@
 """Database-backed worker. Browser/API lifetimes do not own scientific processes."""
 from __future__ import annotations
 import datetime as dt
+import hashlib
 import json
 import os
 import signal
@@ -55,9 +56,11 @@ def reservation_for(run):
     try: request=task_request(run.config)
     except (ValueError,TypeError): request=resource_request({})
     workspace=safe_path(project_dir(run.project_id),run.output_path+'/workspace')
-    folder=workspace.parent/'.forest-container-processes'/workspace.name if run.config.get('execution_backend')=='container' else workspace/'.forest-processes'
+    backend=run.config.get('execution_backend')
+    folder=(workspace.parent/'.forest-container-processes'/workspace.name if backend=='container'
+        else workspace.parent/'.forest-processes'/workspace.name if backend=='bubblewrap' else workspace/'.forest-processes')
     managed=[]
-    if folder.is_dir():
+    if folder.is_dir() or (backend=='bubblewrap' and (workspace/'.forest-processes').is_dir()):
         try: managed=[item for item in process_manager(workspace,run.config).all() if item['status'] not in ('completed','failed','cancelled','lost')]
         except (OSError,ValueError,KeyError,RuntimeError):
             if run.config.get('execution_backend')=='container': managed=[{'status':'unknown'}]
@@ -114,6 +117,11 @@ def _lock_waiting_snapshot(session, value):
     observed = value.get('resource') or {}
     if current.get('waiting_started_at') != observed.get('waiting_started_at'):
         return None
+    if ((getattr(run,'config',None) or {}).get('execution_attempt', {}).get('id') !=
+            (value.get('config') or {}).get('execution_attempt', {}).get('id')):
+        return None
+    if current.get('wait_for') != observed.get('wait_for'):
+        return None
     return run
 
 
@@ -128,13 +136,91 @@ def _waiting_outcome_resource(resource, outcome, observed_at=None):
     """Persist a live wait clock only while work is actually waiting to resume."""
     value = {**(resource or {}), 'wait_for': outcome.get('wait_for', {}),
              'resume_after': outcome.get('resume_after')}
-    if outcome.get('status') == 'waiting':
+    if (outcome.get('status') == 'waiting' and
+            (outcome.get('wait_for') or {}).get('type') != 'work_round'):
         value['waiting_started_at'] = time.time() if observed_at is None else observed_at
         value['elapsed_before_wait'] = value.get('elapsed_seconds', 0)
     else:
         value.pop('waiting_started_at', None)
         value.pop('elapsed_before_wait', None)
     return value
+
+
+def _agent_checkpoint(output, run_id):
+    """Load only an intact checkpoint owned by this run for recovery admission."""
+    path = Path(output) / 'workspace' / 'agent_session.json'
+    try:
+        checkpoint = json.loads(path.read_text())
+    except (OSError, ValueError, UnicodeError):
+        return None
+    if not isinstance(checkpoint, dict) or checkpoint.get('run_id') != run_id:
+        return None
+    if not isinstance(checkpoint.get('transcript'), list):
+        return None
+    # Scientific checkpoints carry decisions/evidence only. Actual resource
+    # accounting is restored from the independent supervisor ledger; older
+    # sessions with embedded usage remain readable until their next save.
+    usage_path=Path(output)/'agent_usage.json'
+    if not usage_path.exists(): usage_path=path.with_name('agent_usage.json')
+    if usage_path.exists():
+        try: usage=json.loads(usage_path.read_text())
+        except (OSError,ValueError,UnicodeError): return None
+        if not isinstance(usage,dict) or usage.get('run_id')!=run_id: return None
+        checkpoint={**checkpoint,**{key:usage[key] for key in (
+            'totals','active_seconds','cost_complete','usage_complete') if key in usage}}
+    return checkpoint
+
+
+def _legacy_step_continuation(value, output):
+    """Migrate only old step-bound stops, never a user pause or hard exhaustion."""
+    if value['status'] != 'budget_exhausted' or value['kind'] != 'agent':
+        return False
+    checkpoint = _agent_checkpoint(output, value['id'])
+    reason = (checkpoint or {}).get('budget_reason', '')
+    if not isinstance(reason, str) or not reason.startswith('Configured agent budget reached: steps='):
+        return False
+    if checkpoint.get('status') != 'budget_exhausted':
+        return False
+    if not isinstance(checkpoint.get('totals'), dict):
+        return False
+    from research.agents.runtime import budget_reason
+    config = dict(value.get('config') or {})
+    budgets = dict(config.get('agent_budget') or {})
+    budgets.pop('steps', None)
+    config['agent_budget'] = budgets
+    config.pop('max_steps', None)
+    # The runtime's resource check deliberately excludes cumulative step count.
+    # Old dynamic step state is ignored while testing all actual resource caps.
+    check = {**checkpoint, 'dynamic_step_budget': None}
+    if budget_reason(check, config):
+        return False
+    timeout = config.get('timeout')
+    elapsed = (value.get('resource') or {}).get('elapsed_seconds', 0)
+    return timeout is None or float(elapsed or 0) < float(timeout)
+
+
+def _checkpoint_recovery_config(run, output):
+    """Limit repeated crashes at one checkpoint, without a lifetime retry cap."""
+    config = dict(run.config or {})
+    if run.kind != 'agent':
+        return config
+    checkpoint = _agent_checkpoint(output, run.id)
+    if not checkpoint:
+        return config
+    identity = hashlib.sha256(json.dumps({
+        'transcript': checkpoint.get('transcript'),
+        'pending_action': checkpoint.get('pending_action'),
+        'memory': checkpoint.get('memory'),
+        'wait_for': checkpoint.get('wait_for'),
+    }, sort_keys=True, default=str).encode()).hexdigest()
+    previous = (run.resource or {}).get('checkpoint_recovery') or {}
+    failures = int(previous.get('failures', 0)) if previous.get('identity') == identity else 0
+    config['_recovery_failures'] = failures
+    run.resource = {**(run.resource or {}), 'checkpoint_recovery': {
+        'identity': identity, 'failures': failures + 1,
+        'checkpoint_step': len(checkpoint['transcript']),
+    }}
+    return config
 
 
 def _invalidate_failed_run_dependents(session, project_id, node_id):
@@ -276,9 +362,17 @@ class WorkerLoop:
                 else:
                     branch_bound,branch_missing=[],[]
                 missing.extend(branch_missing)
+                if r.config.get('execution_attempt') and 'resolved_inputs' in r.config:
+                    # Continuation is the same task with the same copied input
+                    # binding, even if a producer has since been edited/retried.
+                    bound=r.config['resolved_inputs']
+                    branch_bound=r.config.get('resolved_branch_references',[])
+                    missing=[binding for binding in [*bound,*branch_bound]
+                        if not safe_path(project_dir(r.project_id),binding['source_path']).is_file()]
                 if missing:
                     r.status='waiting_input'; r.resource={**r.resource,'blocked_reason':'input_missing'}; r.error='Required input files are missing or unavailable: '+json.dumps(missing,ensure_ascii=False); emit(s,r.project_id,'run_changed',{'run_id':r.id,'status':r.status}); continue
-                r.config={**r.config,'resolved_inputs':bound,'resolved_branch_references':branch_bound}
+                r.config={**r.config,'resolved_inputs':bound,'resolved_branch_references':branch_bound,
+                    '_workspace_source_snapshot':r.config.get('_workspace_source_snapshot',branch.workspace if branch else '.')}
                 from services.api.verification import dispatch_verification
                 gate=dispatch_verification(s,r,resolved_inputs=bound)
                 if not gate['ready']:
@@ -316,6 +410,7 @@ class WorkerLoop:
                 resource={**r.resource,'elapsed_before_attempt':r.resource.get('elapsed_seconds',0)}
                 resource.pop('container_reconnect_pending_dispatch',None)
                 resource.pop('live_process_pending_dispatch',None)
+                resource.pop('last_observed_live_attempt_seconds',None)
                 r.resource=resource
                 if resume_live_process:
                     resume_live_process_for_dispatch(r.config,output/'workspace',{'live_process_pending_dispatch':True})
@@ -336,8 +431,25 @@ class WorkerLoop:
             waiting=[asdict(r) for r in s.scalars(select(TaskRun).where(TaskRun.status.in_(('waiting','budget_exhausted'))))]
         for value in waiting:
             folder=safe_path(project_dir(value['project_id']),value['output_path'])
+            # A yielded receipt can be visible before its writer exits. Never
+            # run a second executor against that same checkpoint concurrently.
+            if value.get('pid') and process_matches(value['pid'],value.get('process_created')):
+                continue
             managed=process_manager(folder/'workspace',value['config']).all()
             child_active=any(item['status'] not in ('completed','failed','cancelled','lost') for item in managed)
+            legacy_step_stop=_legacy_step_continuation(value,folder)
+            if legacy_step_stop:
+                with Session.begin() as s:
+                    live=_lock_waiting_snapshot(s,value)
+                    if live:
+                        freeze_budget_exhausted_elapsed(live)
+                        live.status='queued'; live.pid=None; live.process_created=None; live.error=None
+                        live.config={**live.config,'_next_attempt':{'mode':'continue','reason':'legacy_step_boundary'}}
+                        live.resource={**live.resource,'step_stop_migrated':True}
+                        node=s.get(Node,live.node_id) if live.node_id else None
+                        if node and node.extra.get('latest_run_id')==live.id: node.execution_status='queued'
+                        emit(s,live.project_id,'run_resumed',{'run_id':live.id,'reason':'Legacy step boundary converted to checkpoint continuation'})
+                continue
             if value['status']=='budget_exhausted' and not child_active:
                 with Session.begin() as s:
                     live=_lock_waiting_snapshot(s,value)
@@ -349,6 +461,7 @@ class WorkerLoop:
                 if not live: continue
                 resource=live.resource or {}
                 waiting_seconds=max(0,time.time()-float(resource.get('waiting_started_at') or time.time()))
+                if (resource.get('wait_for') or {}).get('type')=='work_round': waiting_seconds=0
                 total=float(resource.get('elapsed_before_wait',resource.get('elapsed_seconds',0)))+waiting_seconds
                 timeout=(live.config or {}).get('timeout')
                 live.resource={**resource,'elapsed_seconds':total,
@@ -372,10 +485,18 @@ class WorkerLoop:
                 continue
             if value['status']=='budget_exhausted': continue
             state=value['resource'].get('wait_for') or {}
-            due=time.time() >= float(value['resource'].get('resume_after') or 0)
+            due=time.time() >= float(value['resource'].get('resume_after') or state.get('resume_after') or 0)
             if state.get('process_id') and state.get('workspace'):
                 try:
                     process=process_manager(Path(state['workspace']),value['config']).inspect(state['process_id'])
+                    if process.get('status')=='reconciliation':
+                        with Session.begin() as s:
+                            item=_lock_waiting_snapshot(s,value)
+                            if item:
+                                item.status='waiting_input'; item.error=process.get('error')
+                                item.resource={**item.resource,'blocked_reason':'execution_reconciliation','reconciliation':process}
+                                emit(s,item.project_id,'run_changed',{'run_id':item.id,'status':item.status,'error':item.error})
+                        continue
                     due=process.get('status') in ('completed','failed','cancelled','lost')
                 except (OSError,ValueError,KeyError,RuntimeError) as exc:
                     with Session.begin() as s:
@@ -390,7 +511,13 @@ class WorkerLoop:
                 if r:
                     r.status='queued'; r.pid=None; r.process_created=None
                     r.config={**r.config,'_next_attempt':{'mode':'continue'}}
-                    emit(s,r.project_id,'run_resumed',{'run_id':r.id,'reason':'Awaited work is ready'})
+                    if state.get('type')=='work_round':
+                        r.config={**r.config,'_recovery_failures':0}
+                        r.resource={**r.resource,'checkpoint_recovery':{},'last_round':state}
+                    node=s.get(Node,r.node_id) if r.node_id else None
+                    if node and node.extra.get('latest_run_id')==r.id: node.execution_status='queued'
+                    emit(s,r.project_id,'run_resumed',{'run_id':r.id,
+                        'reason':'Starting next checkpointed work round' if state.get('type')=='work_round' else 'Awaited work is ready'})
 
     def reap_cancelled(self):
         """Reap exited local executor children after cancellation or row deletion.
@@ -420,13 +547,14 @@ class WorkerLoop:
         ident=value['id']; output=safe_path(project_dir(value['project_id']),value['output_path']); receipt=output/'result.json'; log=output/'stdout.txt'
         elapsed=(dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(value['started_at'])).total_seconds() if value.get('started_at') else 0
         before=float(value.get('resource',{}).get('elapsed_before_attempt',0))
-        alive=bool(value['pid'] and process_matches(value['pid'],value['process_created']))
         proc=self.processes.get(ident)
         if proc: proc.poll()
+        alive=bool(value['pid'] and process_matches(value['pid'],value['process_created']))
         resource={'elapsed_seconds':before+elapsed,'cpu_percent':None,'rss_bytes':None,'cpu_measurement_scope':'host_process_tree'}
         if value['config'].get('execution_backend')=='container':
             resource.update(cpu_measurement_scope='host_executor_only',container_cpu_seconds=None)
         if alive:
+            resource['last_observed_live_attempt_seconds']=elapsed
             try:
                 resource.update(process_tree_resources(value['pid'],value['process_created']))
             except (psutil.NoSuchProcess,psutil.AccessDenied): pass
@@ -439,7 +567,7 @@ class WorkerLoop:
             except ValueError: candidate=None
             expected=value['config'].get('execution_attempt',{}).get('id')
             if candidate and (not expected or candidate.get('attempt_id')==expected):
-                outcome=candidate
+                if not alive: outcome=candidate
             elif candidate:
                 # Never accept a receipt from a superseded attempt.
                 stale=output/'attempts'/'stale'; stale.mkdir(parents=True,exist_ok=True)
@@ -484,12 +612,15 @@ class WorkerLoop:
                     # queue another executor for the same run ID.
                     interrupt_run_reservations(r.id,session=s)
                 attempt={**r.config.get('execution_attempt',{}),'status':outcome['status'],'exit_code':outcome.get('exit_code'),'error':outcome.get('error'),'finished_at':now(),'elapsed_seconds':outcome.get('elapsed_seconds',elapsed)}
+                attempt['elapsed_seconds']=max(float(attempt['elapsed_seconds']),
+                    float(r.resource.get('last_observed_live_attempt_seconds',0)))
                 attempts=[*r.resource.get('attempts',[]),attempt]
-                r.resource={**r.resource,'attempts':attempts,'elapsed_seconds':before+float(outcome.get('elapsed_seconds',elapsed))}
+                r.resource={**r.resource,'attempts':attempts,'elapsed_seconds':before+attempt['elapsed_seconds']}
                 decision=None
                 container_reconnect_pending=False
                 if outcome['status'] in ('interrupted','failed') and not outcome.get('budget_exhausted'):
-                    decision=recovery_decision(r.config,output,kind=r.kind,failed=outcome['status']=='failed')
+                    recovery_config=_checkpoint_recovery_config(r,output)
+                    decision=recovery_decision(recovery_config,output,kind=r.kind,failed=outcome['status']=='failed')
                     if r.config.get('execution_backend')=='container' and r.kind in ('command','experiment') and (not decision or decision.get('mode')!='checkpoint'):
                         decision=None  # Recreate work only from an explicitly configured, present task checkpoint.
                     if r.config.get('execution_backend')=='container' and outcome['status']=='interrupted' and (output/'container_task.json').exists():
@@ -498,7 +629,7 @@ class WorkerLoop:
                         if state['status'] in ('running','paused','starting','completed') or (state['status']=='failed' and not decision):
                             decision={'mode':'container_reconnect'}
                 if decision:
-                    r.config={**r.config,'_next_attempt':decision,'_recovery_failures':int(r.config.get('_recovery_failures',0))+1}
+                    r.config={**r.config,'_next_attempt':decision,'_recovery_failures':int(recovery_config.get('_recovery_failures',0))+1}
                     if decision.get('mode')=='container_reconnect' and container_reconnect_pending:
                         r.resource={**r.resource,'container_reconnect_pending_dispatch':True}
                     r.status='paused' if value['status']=='paused' else 'queued'; r.pid=None; r.process_created=None; r.error=outcome.get('error')
