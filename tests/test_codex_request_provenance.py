@@ -20,6 +20,8 @@ def test_codex_receipt_preserves_actual_cli_prompt_and_effective_controls(monkey
     recorded = json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(',', ':')).encode()
     captured = []
     def child(argv, **kwargs):
+        assert '--no-daemon' not in argv
+        assert argv[1] == 'exec'
         captured.append(kwargs['input'])
         return SimpleNamespace(returncode=0, stdout='\n'.join(json.dumps(event) for event in [
             {'type':'item.completed','item':{'type':'agent_message','text':'{"tool":"finish","arguments":{}}'}},
