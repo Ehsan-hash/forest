@@ -50,6 +50,32 @@ def test_manifest_registration_versions_only_unlaunched_work_revisions(tmp_path)
         assert db.execute("SELECT count(*) FROM forest_study_work").fetchone()[0] == 1
 
 
+def test_manifest_and_action_reregistration_do_not_hydrate_saved_results(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    data = manifest([item("episode-long", kind="replay")])
+    ledger.register(data)
+    large_result = {"state": "retryable", "retained_evidence": "evidence" * 50_000}
+    ledger.set_state("campaign-test", "episode-long", "retryable", result=large_result)
+    action = {"work_id": "episode-child", "kind": "analysis", "action_name": "inspect"}
+    ledger.register_action("campaign-test", "episode-child", action, parent_id="episode-long")
+    ledger.set_state("campaign-test", "episode-child", "completed", result=large_result)
+
+    statements = []
+    original_connect = ledger.connect
+    def traced_connect():
+        db = original_connect()
+        db.set_trace_callback(statements.append)
+        return db
+    ledger.connect = traced_connect
+    assert ledger.register(data)["unchanged"] == 1
+    ledger.register_action("campaign-test", "episode-child", action, parent_id="episode-long")
+
+    assert not any("select * from forest_study_work" in query.lower() for query in statements)
+    with original_connect() as db:
+        saved = json.loads(db.execute("SELECT result_json FROM forest_study_work WHERE work_id='episode-child'").fetchone()[0])
+    assert saved["retained_evidence"] == large_result["retained_evidence"]
+
+
 def test_action_history_events_store_only_changed_turns_and_keep_full_checkpoint(tmp_path):
     ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
     ledger.register(manifest([item("episode-1", kind="replay")]))

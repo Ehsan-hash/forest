@@ -414,7 +414,7 @@ class StudyLedger:
             raise ValueError(f"Unsupported bound action kind: {kind}")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            existing = db.execute("SELECT * FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
+            existing = db.execute("SELECT campaign_id,payload_json FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
             encoded = _json(value)
             if existing:
                 if existing["campaign_id"] != campaign_id or existing["payload_json"] != encoded:
@@ -456,7 +456,10 @@ class StudyLedger:
                                 "calibration_decision", "snapshot_stage"}:
                     raise ValueError(f"Runnable work {work_id} has unsupported or missing kind")
                 stage = str(item.get("stage", item.get("phase", item.get("category", ""))))
-                prior = db.execute("SELECT * FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
+                # Re-registering the manifest only compares its immutable plan
+                # fields. Do not hydrate result_json: completed episodes may
+                # retain hundreds of MB of complete scientific history there.
+                prior = db.execute("SELECT campaign_id,payload_json,state FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
                 payload_json = _json(dict(item))
                 if prior:
                     if prior["campaign_id"] != campaign_id or prior["payload_json"] != payload_json:
@@ -2958,7 +2961,7 @@ class StudyRuntime:
             from .study_prerequisites import inspect_analysis_prerequisites
             with self.ledger.connect() as db:
                 def source_work(source_id):
-                    row = db.execute("SELECT * FROM forest_study_work WHERE campaign_id=? AND work_id=?",
+                    row = db.execute("SELECT kind,state,supervisor_work_id FROM forest_study_work WHERE campaign_id=? AND work_id=?",
                         (self.campaign_id, source_id)).fetchone()
                     return dict(row) if row else None
                 compute_exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_compute_work'").fetchone()
