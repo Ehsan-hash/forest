@@ -230,6 +230,32 @@ def test_parent_reconciliation_projects_pending_fields_without_loading_large_che
         service.close()
 
 
+def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
+    runtime = ChildRuntime(tmp_path, [{"work_id": "ready-work", "kind": "replay", "context": "saved"}])
+    service = scheduler(runtime)
+    try:
+        with runtime.ledger.connect() as db:
+            db.execute("INSERT INTO forest_study_dispatches(dispatch_id,campaign_id,scheduler_id,session_id,owner,lane,state,accepted_at) VALUES(?,?,?,?,?,?,?,?)",
+                ("active-dispatch", runtime.campaign_id, "scheduler", "current-session", "owner", "model", "running", time.time()))
+            db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at) VALUES(?,?,?,?,?,?)",
+                ("pending-request", runtime.campaign_id, "ready-work", "{}", "requested", time.time()))
+            plans = {
+                "work": db.execute("EXPLAIN QUERY PLAN SELECT work_id,kind,state FROM forest_study_work "
+                    "WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id",
+                    (runtime.campaign_id,)).fetchall(),
+                "dispatch": db.execute("EXPLAIN QUERY PLAN SELECT dispatch_id FROM forest_study_dispatches "
+                    "WHERE campaign_id=? AND session_id<>? AND state IN ('claiming','accepted','running')",
+                    (runtime.campaign_id, "other-session")).fetchall(),
+                "model_call": db.execute("EXPLAIN QUERY PLAN SELECT work_id FROM forest_study_model_calls "
+                    "WHERE campaign_id=? AND status='requested'", (runtime.campaign_id,)).fetchall(),
+            }
+        assert "forest_study_work_live_state" in " ".join(str(row[3]) for row in plans["work"])
+        assert "forest_study_dispatch_live_session" in " ".join(str(row[3]) for row in plans["dispatch"])
+        assert "forest_study_model_call_unsettled" in " ".join(str(row[3]) for row in plans["model_call"])
+    finally:
+        service.close()
+
+
 def test_changed_raw_checkpoint_cannot_satisfy_controller_restart(tmp_path):
     runtime, _ = controller_fixture_runtime(tmp_path)
     service = controller_service(runtime)

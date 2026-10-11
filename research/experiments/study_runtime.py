@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS forest_study_aide_programs (
   campaign_id TEXT NOT NULL, work_id TEXT NOT NULL, node_id TEXT NOT NULL,
   code TEXT NOT NULL, program_json TEXT NOT NULL, recorded_at REAL NOT NULL,
   PRIMARY KEY(campaign_id,work_id,node_id));
+CREATE INDEX IF NOT EXISTS forest_study_work_live_state
+  ON forest_study_work(campaign_id,state,created_at,work_id,kind);
+CREATE INDEX IF NOT EXISTS forest_study_model_call_unsettled
+  ON forest_study_model_calls(campaign_id,work_id)
+  WHERE status='requested';
 """
 
 TERMINAL = {"completed", "failed", "cancelled", "not_run", "budget_exhausted"}

@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS forest_study_queue_spans (
  span_id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL, work_id TEXT NOT NULL,
  lane TEXT NOT NULL, ready_at REAL NOT NULL, claimed_at REAL);
 CREATE INDEX IF NOT EXISTS forest_study_dispatch_work ON forest_study_dispatches(work_id,state);
+CREATE INDEX IF NOT EXISTS forest_study_dispatch_live_session
+ ON forest_study_dispatches(campaign_id,state,session_id)
+ WHERE state IN ('claiming','accepted','running');
 CREATE TABLE IF NOT EXISTS forest_study_controller_processes (
  dispatch_id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL, work_id TEXT NOT NULL,
  folder TEXT NOT NULL, state TEXT NOT NULL, worker_pid INTEGER, worker_created REAL,
