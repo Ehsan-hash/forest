@@ -17,7 +17,8 @@ import pytest
 from research.experiments.aide_runtime import (
     NativeBackend, SCHEMA, _bound_backend, _current_page_from_stdout, _journal_with_prompt_page_refs,
     _prepare_aide_task_context, _restore_pending_task_context, _review_task_description,
-    _legacy_native_prompt_equivalent, _repack_pending_task_context, _safe_context_repack,
+    _legacy_native_prompt_equivalent, _public_messages_equal_after_reference_expansion,
+    _repack_pending_task_context, _safe_context_repack,
     _query_router, _RandomRouter, load_upstream,
     run_action_program, run_aide_episode,
 )
@@ -611,7 +612,34 @@ def test_native_request_rebases_only_after_lossless_preinference_size_rejection(
     saved = json.loads(rows[0]["request_json"])
     current = json.loads(rows[1]["request_json"])
     assert not _safe_context_repack(saved, current, {"status": "failed", "usage_json": None,
-        "response_json": json.dumps({"transport_error": {"code": "timeout", "ambiguous": True}})})
+        "response_json": json.dumps({"transport_error": {"code": "timeout", "ambiguous": True}})},
+        runtime, item["payload"])
+
+
+def test_public_history_reference_repack_roundtrips_exactly(tmp_path):
+    from research.experiments.study_memory import StudyMemory
+
+    memory = StudyMemory(tmp_path / "memory")
+    previous = {"revision": 1, "actual_decision_history": [{"request_id": "prior-request",
+        "actions": [{"work_id": "fit-1", "state": "completed", "evidence": "exact"}]}],
+        "actual_completed_exploration": [{"work_id": "fit-1", "metric": 0.2}]}
+    segment = memory.save_json("end-to-end-decision-history-v1",
+        previous["actual_decision_history"], origin="exact saved decision history")
+    current = {key: value for key, value in previous.items() if key != "actual_decision_history"}
+    current["actual_decision_history_reference"] = {"segment_id": segment["segment_id"],
+        "pointer": "", "characters": segment["characters"], "read_operation": "read_context_segment"}
+    before = [{"role": "system", "content": "same goal"},
+        {"role": "user", "content": json.dumps({"objective_history": [previous], "current": "facts"})}]
+    after = [{"role": "system", "content": "same goal"},
+        {"role": "system", "content": "Arm-public context catalog (metadata only): refreshed"},
+        {"role": "user", "content": json.dumps({"objective_history": [current], "current": "facts"})}]
+    runtime = object()
+    payload = {"action_bindings": [{"action_name": "read_context_segment",
+        "memory_workspace": str(tmp_path / "memory")}]}
+    assert _public_messages_equal_after_reference_expansion(before, after, runtime, payload)
+    current["actual_decision_history_reference"]["segment_id"] = "not-a-saved-segment"
+    after[-1]["content"] = json.dumps({"objective_history": [current], "current": "facts"})
+    assert not _public_messages_equal_after_reference_expansion(before, after, runtime, payload)
 
 
 def test_legacy_prompt_equivalence_rejects_partial_source_substrings():

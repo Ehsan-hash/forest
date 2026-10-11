@@ -286,14 +286,79 @@ def _rejected_before_generation(row):
         and not error.get("response_id") and not error.get("partial_output"))
 
 
-def _safe_context_repack(saved, current, row):
+def _public_messages_equal_after_reference_expansion(saved_messages, current_messages, runtime, payload):
+    """Compare task snapshots after resolving only registered public-memory references."""
+    if saved_messages == current_messages:
+        return True
+    if not isinstance(saved_messages, list) or not isinstance(current_messages, list):
+        return False
+    marker = "Arm-public context catalog (metadata only): "
+    def without_catalog(messages):
+        return [deepcopy(message) for message in messages if not (
+            isinstance(message, Mapping) and message.get("role") == "system"
+            and str(message.get("content", "")).startswith(marker))]
+    saved = without_catalog(saved_messages)
+    current = without_catalog(current_messages)
+    if len(saved) != len(current):
+        return False
+    try:
+        from .study_memory import StudyMemory
+        binding = next(row for row in payload.get("action_bindings", [])
+            if isinstance(row, Mapping) and row.get("action_name") == "read_context_segment"
+            and row.get("memory_workspace"))
+        workspace = Path(str(binding["memory_workspace"])).resolve()
+        if workspace.name == ".forest-context":
+            workspace = workspace.parent
+        memory = StudyMemory(workspace)
+        for before, after in zip(saved, current):
+            if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+                return False
+            if before.get("role") != after.get("role"):
+                return False
+            left, right = before.get("content"), after.get("content")
+            if before.get("role") == "user" and isinstance(left, str) and isinstance(right, str):
+                try:
+                    left_value, right_value = json.loads(left), json.loads(right)
+                except ValueError:
+                    if left != right:
+                        return False
+                    continue
+                old_history = left_value.get("objective_history") if isinstance(left_value, Mapping) else None
+                new_history = right_value.get("objective_history") if isinstance(right_value, Mapping) else None
+                if not isinstance(old_history, list) or not isinstance(new_history, list) or len(old_history) != len(new_history):
+                    if left_value != right_value:
+                        return False
+                    continue
+                expanded = deepcopy(right_value)
+                for old_revision, new_revision in zip(old_history, expanded["objective_history"]):
+                    reference = new_revision.pop("actual_decision_history_reference", None)
+                    if reference is None:
+                        continue
+                    if "actual_decision_history" in old_revision:
+                        page = memory.read_json(str(reference["segment_id"]),
+                            pointer=str(reference.get("pointer", "")), offset=0,
+                            limit=max(1, int(reference.get("characters", 0)) + 1))
+                        if page.get("complete") is not True or not isinstance(page.get("content"), str):
+                            return False
+                        new_revision["actual_decision_history"] = json.loads(page["content"])
+                if left_value != expanded:
+                    return False
+            elif left != right:
+                return False
+        return True
+    except (StopIteration, OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def _safe_context_repack(saved, current, row, runtime, payload):
     """Permit a new native request identity only for a lossless, smaller re-encoding."""
     if not _rejected_before_generation(row):
         return False
+    same_public_source = _public_messages_equal_after_reference_expansion(
+        saved.get("original_task_messages"), current.get("original_task_messages"), runtime, payload)
     if (not isinstance(saved.get("original_task_messages"), list)
-            or saved.get("original_task_messages") != current.get("original_task_messages")
             or saved.get("task_context_content") == current.get("task_context_content")
-            or not _legacy_native_prompt_equivalent(saved, current)):
+            or not (same_public_source or _legacy_native_prompt_equivalent(saved, current))):
         return False
     stable_fields = ("native_node_id", "native_phase", "provider_id", "model",
         "reasoning_effort", "provider_snapshot", "requested_temperature",
@@ -338,9 +403,17 @@ def _repack_pending_task_context(runtime, work_id, state, payload):
     original = state.get("original_task_messages")
     if not isinstance(original, list):
         return False
-    source, content, encoding = _prepare_aide_task_context(original)
-    if content == state.get("task_context_content"):
+    rebuilt = payload
+    from .end_to_end_runtime import is_end_to_end
+    if is_end_to_end(payload):
+        rebuilt = runtime.build_episode_request({**payload, "work_id": str(work_id)})
+        if not _public_messages_equal_after_reference_expansion(original, rebuilt.get("messages"), runtime, rebuilt):
+            return False
+    source, content, encoding = _prepare_aide_task_context(rebuilt.get("messages", original))
+    if content == state.get("task_context_content") or len(content) >= len(str(state.get("task_context_content", ""))):
         return False
+    payload.clear()
+    payload.update(rebuilt)
     state["task_desc"]["Registered scientific task and public observations"] = content
     state["original_task_messages"] = source
     state["task_context_content"] = content
@@ -613,7 +686,8 @@ class NativeBackend:
                         all(saved.get(name) == request.get(name) for name in stable_fields) and
                         saved_config == request_config)
                 if previous != comparison and not legacy_prompt_match and not _native_serialization_equivalent(saved, request):
-                    if _safe_context_repack(saved, request, row):
+                    if _safe_context_repack(saved, request, row, self.runtime,
+                            self.item.get("payload", {})):
                         previous_request_id = str(row["request_id"])
                         key = f"{key}/context-repack/{previous_request_id}"
                         request["native_key"] = key
