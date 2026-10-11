@@ -33,8 +33,9 @@ change these conditions. No mutation label selects a special implementation.
 
 The initial model view omits the controller mutation label and private answers.
 It does not include the validator's affected, invalidated or reusable sets.
-Large ordered lists remain complete in persisted source conditions; model views
-carry their counts, bounded endpoints and references to the original sources.
+Large ordered lists remain complete in both persisted source conditions and
+model views. Public projection removes controller answers while preserving
+every declared scientific input value in its original order.
 
 ## Virtual operations and scientific status
 

@@ -1198,7 +1198,7 @@ class StudyRuntime:
         return copy.copy(client)
 
     def _replay_request_client(self, item: Mapping[str, Any], client: Any) -> Any:
-        """Persist and enforce the replay protocol's physical-request budget.
+        """Persist every replay physical request and its actual usage.
 
         Provider output recovery and transport retries call ``request_guard``
         once per actual provider request. Counting at that boundary avoids
@@ -1219,7 +1219,7 @@ class StudyRuntime:
                 with self.ledger.connect() as db:
                     db.execute("BEGIN IMMEDIATE")
                     # Retain each physical request and its eventual usage for
-                    # audit; quotas are optional manifest policy, not defaults.
+                    # audit without a cumulative episode request quota.
                     input_bytes = int(event.get("input_bytes") or 0)
                     db.execute("INSERT INTO forest_study_replay_requests VALUES(?,?,?,?,?,?,?,?,?)",
                         (request_id, self.campaign_id, work_id, "requested",

@@ -83,7 +83,7 @@ After a proven coordinator process exit:
 The runtime retains all original requests, responses, decisions, action bindings,
 negative results, and usage. Scheduler shutdown/restart does not reset a work ID,
 GPU receipt, or accounting ledger. In-process claims receive heartbeat updates.
-Actual model request timeouts are bounded by the current remaining wall allowance;
+Actual model requests retain their provider's individual transport timeout;
 GPU execution and cancellation retain the supervisor's real hard limits.
 
 ## Timing and readback
