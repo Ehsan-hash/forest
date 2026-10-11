@@ -80,20 +80,108 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
+_SOURCE_FRONTIER_REF = "source_frontier_ref_turn"
+
+
+def _compact_action_history_frontiers(history: Sequence[Any]) -> list[Any]:
+    """Store each unchanged public evidence frontier once, with lossless turn references."""
+    compacted = []
+    representatives: list[tuple[int, Any]] = []
+    for index, value in enumerate(history):
+        if not isinstance(value, Mapping):
+            compacted.append(value)
+            continue
+        turn = dict(value)
+        frontier = turn.pop("source_frontier", None)
+        if frontier is not None:
+            reference = next((prior_index for prior_index, prior_frontier in reversed(representatives)
+                              if prior_frontier is frontier or prior_frontier == frontier), None)
+            if reference is None:
+                turn["source_frontier"] = frontier
+                representatives.append((index, frontier))
+            else:
+                turn[_SOURCE_FRONTIER_REF] = reference
+        compacted.append(turn)
+    return compacted
+
+
+def _expand_action_history_frontiers(history: Sequence[Any]) -> list[Any]:
+    """Reconstruct complete history while sharing immutable frontier objects in memory."""
+    expanded = []
+    representatives: dict[int, Any] = {}
+    for index, value in enumerate(history):
+        if not isinstance(value, Mapping):
+            expanded.append(value)
+            continue
+        turn = dict(value)
+        reference = turn.pop(_SOURCE_FRONTIER_REF, None)
+        if reference is not None:
+            if isinstance(reference, bool) or not isinstance(reference, int) or reference not in representatives:
+                raise ValueError("Study history contains an invalid source-frontier reference")
+            turn["source_frontier"] = representatives[reference]
+        elif "source_frontier" in turn:
+            frontier = turn["source_frontier"]
+            same = next((prior_index for prior_index, prior_frontier in reversed(list(representatives.items()))
+                         if prior_frontier is frontier or prior_frontier == frontier), None)
+            if same is not None:
+                turn["source_frontier"] = representatives[same]
+            else:
+                representatives[index] = frontier
+        expanded.append(turn)
+    return expanded
+
+
+def _compact_study_result(result: Mapping[str, Any]) -> dict[str, Any]:
+    compact = dict(result)
+    history = compact.get("action_history")
+    if isinstance(history, list):
+        compact["action_history"] = _compact_action_history_frontiers(history)
+    return compact
+
+
+def _decode_study_result_json(raw: str | None) -> dict[str, Any]:
+    value = json.loads(raw or "{}")
+    if not isinstance(value, dict):
+        return {}
+    history = value.get("action_history")
+    if isinstance(history, list):
+        value["action_history"] = _expand_action_history_frontiers(history)
+    return value
+
+
+def _matching_frontier_turns(history: Sequence[Mapping[str, Any]], frontier: Mapping[str, Any]) -> set[int]:
+    """Compare once per distinct frontier epoch, not once for every repeated history turn."""
+    matched_frontiers = set()
+    for index, turn in enumerate(history):
+        if not isinstance(turn, Mapping):
+            continue
+        previous = turn.get("source_frontier")
+        if previous is None or id(previous) in matched_frontiers:
+            continue
+        if previous is frontier or previous == frontier:
+            matched_frontiers.add(id(previous))
+    return {index for index, turn in enumerate(history)
+            if isinstance(turn, Mapping) and isinstance(turn.get("source_frontier"), Mapping)
+            and id(turn["source_frontier"]) in matched_frontiers}
+
+
 def _result_event_delta(result: Mapping[str, Any], previous_history: Sequence[Any]) -> dict[str, Any]:
-    """Keep cumulative history in the checkpoint; append only its changed suffix to the event."""
+    """Append only changed history and reference unchanged frontiers from earlier turns."""
     history = result.get("action_history")
     if not isinstance(history, list):
         return dict(result)
     previous = list(previous_history) if isinstance(previous_history, Sequence) else []
     shared = 0
-    while shared < min(len(previous), len(history)) and previous[shared] == history[shared]:
-        shared += 1
+    while shared < min(len(previous), len(history)):
+        if previous[shared] is history[shared] or previous[shared] == history[shared]:
+            shared += 1
+        else:
+            break
     compact = {key: value for key, value in result.items() if key != "action_history"}
     compact["action_history_delta"] = {
         "replace_from_turn": shared,
         "turn_count": len(history),
-        "turns": history[shared:],
+        "turns": _compact_action_history_frontiers(history)[shared:],
     }
     return compact
 
@@ -471,6 +559,7 @@ class StudyLedger:
                     value["lease_owner"] = owner
                     value["lease_at"] = now
                     value["payload"] = json.loads(value.pop("payload_json"))
+                    value["result"] = _decode_study_result_json(value.get("result_json"))
                     return value
         return None
 
@@ -502,7 +591,7 @@ class StudyLedger:
             if not row:
                 raise ValueError(f"Unknown study work ID: {work_id}")
             db.execute("UPDATE forest_study_work SET state=?,result_json=COALESCE(?,result_json),error=?,supervisor_work_id=COALESCE(?,supervisor_work_id),decision_json=COALESCE(?,decision_json),updated_at=? WHERE work_id=?",
-                       (state, _json(result) if result is not None else None, error, supervisor_work_id,
+                       (state, _json(_compact_study_result(result)) if result is not None else None, error, supervisor_work_id,
                         _json(decision) if decision is not None else None, now, work_id))
         self.event(campaign_id, "work_state", {"state": state, "error": error,
             "supervisor_work_id": supervisor_work_id,
@@ -529,12 +618,15 @@ class StudyLedger:
                     (campaign_id, work_id)).fetchone()
                 if session:
                     state = json.loads(session["state_json"])
+                    state["action_history"] = _expand_action_history_frontiers(state.get("action_history", []))
                     pending = state.get("pending")
                     if isinstance(pending, Mapping) and (pending.get("execution") or {}).get("state") == "paused_no_progress":
                         pending = dict(pending)
                         state["pending"] = None
                         state["resume_after_no_progress"] = {"at": now, "operator": operator,
                             "previous_pending_node_id": pending.get("node_id")}
+                        state["action_history"] = _compact_action_history_frontiers(
+                            state.get("action_history", []))
                         db.execute("UPDATE forest_study_aide_sessions SET state_json=?,updated_at=? WHERE campaign_id=? AND work_id=?",
                             (_json(state), now, campaign_id, work_id))
             db.execute("INSERT INTO forest_study_events VALUES(?,?,?,?,?,?)",
@@ -1297,7 +1389,8 @@ class StudyRuntime:
                                      (self.campaign_id, str(payload.get("work_id", "")))).fetchone()
                     if row:
                         try:
-                            stored_turns = json.loads(row[0]).get("action_history", [])
+                            stored_turns = _expand_action_history_frontiers(
+                                json.loads(row[0]).get("action_history", []))
                             public_turns = []
                             for turn in stored_turns:
                                 if not isinstance(turn, Mapping):
@@ -1605,7 +1698,10 @@ class StudyRuntime:
                 row = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?",
                     (self.campaign_id, work_id)).fetchone()
                 if row:
-                    native_active_seconds = float(json.loads(row[0]).get("local_active_seconds", 0.0))
+                    native_state = json.loads(row[0])
+                    native_state["action_history"] = _expand_action_history_frontiers(
+                        native_state.get("action_history", []))
+                    native_active_seconds = float(native_state.get("local_active_seconds", 0.0))
         in_progress = max(0.0, time.monotonic() - self._active_episode_started[work_id]) if work_id in self._active_episode_started else 0.0
         active_before_compute = max(model_seconds + float(cpu_actions or 0.0),
                                     native_active_seconds + in_progress)
@@ -1805,15 +1901,17 @@ class StudyRuntime:
                 "action_work_ids": [], "pending_work_ids": [], "verified_metrics": []}
         decision = program.get("decision")
         def reject_decision(reason: str, proposed: Any = None) -> dict[str, Any]:
-            frontier = _episode_source_frontier(payload, self._aide_action_history(str(item["work_id"])))
+            prior_history = self._aide_action_history(str(item["work_id"]))
+            frontier = _episode_source_frontier(payload, prior_history)
+            frontier_turns = _matching_frontier_turns(prior_history, frontier)
             signature = _semantic_action_proposal(proposed)
             prior = []
-            for turn in self._aide_action_history(str(item["work_id"])):
+            for turn_index, turn in enumerate(prior_history):
                 execution = turn.get("execution") if isinstance(turn, Mapping) else None
                 if not isinstance(execution, Mapping) or execution.get("exc_type") != "DecisionValidationError":
                     continue
                 if execution.get("validation_reason") == reason and execution.get("semantic_proposal") == signature \
-                        and _json(turn.get("source_frontier")) == _json(frontier):
+                        and turn_index in frontier_turns:
                     prior.append(execution)
             diagnosed = bool(prior)
             observation = {"same_source_bound_results": True, "new_evidence_added": False,
@@ -1850,9 +1948,10 @@ class StudyRuntime:
             if str(payload.get("arm", "")).upper() != "FULL_NO_GATE" and validation.get("valid") is not True:
                 frontier = _episode_source_frontier(payload, self._aide_action_history(str(item["work_id"])))
                 semantic_submission = _semantic_submission(submission)
-                matching = [turn for turn in history
+                frontier_turns = _matching_frontier_turns(history, frontier)
+                matching = [turn for turn_index, turn in enumerate(history)
                     if _semantic_submission(turn.get("submission", {})) == semantic_submission
-                    and _json(turn.get("source_frontier")) == _json(frontier)
+                    and turn_index in frontier_turns
                     and isinstance(turn.get("submission_validation"), Mapping)
                     and turn["submission_validation"].get("valid") is False
                     and _json(turn["submission_validation"].get("source_validation_signature")
@@ -1905,11 +2004,12 @@ class StudyRuntime:
                     prior is not None for prior in duplicates):
                 frontier = _episode_source_frontier(payload, self._aide_action_history(str(item["work_id"])))
                 identities = sorted(str(row.get("action_work_id")) for row in duplicates)
+                prior_history = self._aide_action_history(str(item["work_id"]))
+                frontier_turns = _matching_frontier_turns(prior_history, frontier)
                 same_source_diagnostic = any(
                     isinstance(turn.get("no_progress_observation"), Mapping)
                     and turn["no_progress_observation"].get("action_work_ids") == identities
-                    and _json(turn.get("source_frontier")) == _json(frontier)
-                    for turn in self._aide_action_history(str(item["work_id"])))
+                    for turn_index, turn in enumerate(prior_history) if turn_index in frontier_turns)
                 feedback = "The requested registered action IDs already completed with the same saved source-bound results. This program added no new evidence. Choose a different available operation, use the existing evidence to submit, or state what new source-bound evidence is needed."
                 observation = {"action_work_ids": identities, "same_source_bound_results": True,
                     "new_evidence_added": False, "diagnostic_previously_delivered": same_source_diagnostic}
@@ -1994,7 +2094,7 @@ class StudyRuntime:
                 (self.campaign_id, work_id)).fetchone()
         if not row:
             return []
-        return list(json.loads(row[0]).get("action_history", []))
+        return _expand_action_history_frontiers(json.loads(row[0]).get("action_history", []))
 
     def _context_read_no_progress(self, work_id: str, payload: Mapping[str, Any],
                                   actions: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
@@ -2247,7 +2347,7 @@ class StudyRuntime:
         """
         client = self._budgeted_episode_client(item, client)
         payload = dict(item["payload"])
-        prior_result = item.get("result_json")
+        prior_result = item.get("result")
         if isinstance(prior_result, str):
             try:
                 prior_result = json.loads(prior_result)
@@ -2405,7 +2505,7 @@ class StudyRuntime:
                 same_rejection = (isinstance(prior_rejection, Mapping)
                     and prior_rejection.get("proposal") == proposal
                     and prior_rejection.get("reason") == str(validation_error)
-                    and _json(prior_rejection.get("source_frontier")) == _json(frontier))
+                    and prior_rejection.get("source_frontier") == frontier)
                 diagnosed = bool(same_rejection and prior_rejection.get("diagnostic_delivered"))
                 feedback = {"error_type": type(validation_error).__name__, "reason": str(validation_error),
                             "request_id": request_id, "raw_response_persisted": True}
@@ -2417,11 +2517,11 @@ class StudyRuntime:
                 with self.ledger.connect() as db:
                     db.execute("UPDATE forest_study_work SET state=?,result_json=?,decision_json=NULL,updated_at=? WHERE campaign_id=? AND work_id=?",
                         ("paused_no_progress" if diagnosed else "retryable",
-                         _json({"request_id": request_id,
+                         _json(_compact_study_result({"request_id": request_id,
                                 "response_validation_feedback": None if diagnosed else feedback,
                                 "validation_rejection": rejection,
                                 "no_progress_observation": no_progress if diagnosed else None,
-                                "prepared_episode_payload": payload, "action_history": list(history)}),
+                                "prepared_episode_payload": payload, "action_history": list(history)})),
                          finished_at, self.campaign_id, str(item["work_id"])))
                 return {"request_id": request_id, "decision": {}, "usage": usage,
                         "model": result.get("model"), "response_id": result.get("response_id"),
@@ -2438,8 +2538,8 @@ class StudyRuntime:
                 db.execute("UPDATE forest_study_model_calls SET response_json=?,usage_json=?,status='completed',finished_at=?,elapsed_seconds=? WHERE request_id=?",
                     (_json(response_record), _json(usage), finished_at, elapsed_seconds, request_id))
                 db.execute("UPDATE forest_study_work SET state='running',result_json=?,decision_json=?,updated_at=? WHERE campaign_id=? AND work_id=?",
-                    (_json({"request_id": request_id, "decision_received": True, "action_history": list(history),
-                            "prepared_episode_payload": payload}),
+                    (_json(_compact_study_result({"request_id": request_id, "decision_received": True,
+                            "action_history": list(history), "prepared_episode_payload": payload})),
                      _json(decision), finished_at, self.campaign_id, str(item["work_id"])))
             if decision.get("mode") == "submit":
                 submission = decision.get("submission") if isinstance(decision.get("submission"), Mapping) else {}
@@ -2451,9 +2551,10 @@ class StudyRuntime:
                 if payload.get("arm") != "FULL_NO_GATE" and action_result.get("valid") is not True:
                     frontier = _episode_source_frontier(payload, history)
                     semantic_submission = _semantic_submission(submission)
-                    repeated_prior = [turn for turn in history
+                    frontier_turns = _matching_frontier_turns(history, frontier)
+                    repeated_prior = [turn for turn_index, turn in enumerate(history)
                         if _semantic_submission(turn.get("submission", {})) == semantic_submission
-                        and _json(turn.get("source_frontier")) == _json(frontier)
+                        and turn_index in frontier_turns
                         and isinstance(turn.get("submission_validation"), Mapping)
                         and turn["submission_validation"].get("valid") is False
                         and _json(turn["submission_validation"].get("source_validation_signature")
@@ -2463,7 +2564,6 @@ class StudyRuntime:
                         already_diagnosed = any(
                             isinstance(turn.get("no_progress_observation"), Mapping)
                             and _semantic_submission(turn["no_progress_observation"].get("repeated_submission", {})) == semantic_submission
-                            and _json(turn.get("source_frontier")) == _json(frontier)
                             for turn in repeated_prior)
                         feedback = ("The same final proposal received the same source-validation result against unchanged evidence. "
                             "Revise the submission using the validation feedback, execute a different available action, "
@@ -2506,11 +2606,11 @@ class StudyRuntime:
                 if current_rows and repeated and len(repeated) == len(current_rows):
                     identities = sorted(str(row.get("action_work_id")) for row in repeated)
                     frontier = _episode_source_frontier(payload, history)
+                    frontier_turns = _matching_frontier_turns(history, frontier)
                     already_diagnosed = any(
                         isinstance(turn.get("no_progress_observation"), Mapping)
                         and turn["no_progress_observation"].get("action_work_ids") == identities
-                        and _json(turn.get("source_frontier")) == _json(frontier)
-                        for turn in history)
+                        for turn_index, turn in enumerate(history) if turn_index in frontier_turns)
                     feedback = ("These registered actions already completed with the same source-bound results: "
                         + ", ".join(identities)
                         + ". Repeating them produced no new evidence. Choose a different currently available action, "
@@ -2802,7 +2902,7 @@ class StudyRuntime:
             binding = saved
             if prior["state"] == "completed":
                 return {"action_work_id": work_id, "kind": binding["kind"], "state": "completed",
-                        "result": json.loads(prior["result_json"] or "{}")}
+                        "result": _decode_study_result_json(prior["result_json"])}
         else:
             budget = self.episode_budget_status(episode)
             if binding["kind"] in {"fit", "infer"}:
@@ -2842,13 +2942,13 @@ class StudyRuntime:
                     "reason": "MISSING_PREREQUISITES", "request_new_decision": True, "result": prerequisite}
         if prior and prior["state"] in {"failed", "cancelled", "budget_exhausted"}:
             return {"action_work_id": work_id, "kind": binding["kind"], "state": prior["state"],
-                    "result": json.loads(prior["result_json"] or "{}")}
+                    "result": _decode_study_result_json(prior["result_json"])}
         if binding.get("analysis_operation") == "compare" and binding.get("selection_work_id"):
             with self.ledger.connect() as db:
                 selection = db.execute("SELECT state,result_json FROM forest_study_work WHERE campaign_id=? AND work_id=?",
                     (self.campaign_id, str(binding["selection_work_id"]))).fetchone()
             target = (binding.get("compared_configuration_ids") or [None, None])[-1]
-            selected = json.loads(selection["result_json"] or "{}") if selection and selection["state"] == "completed" else {}
+            selected = _decode_study_result_json(selection["result_json"]) if selection and selection["state"] == "completed" else {}
             def action_selectors(entry):
                 return {"action_work_id": entry["work_id"],
                     "kind": entry.get("action_name", entry.get("analysis_operation", action)),
@@ -3403,7 +3503,7 @@ class StudyRuntime:
                         error=outcome.get("reason") if state in {"failed", "budget_exhausted"} else None)
                     return {"work_id": item["work_id"], "kind": item["kind"], **outcome}
                 prior_decision = json.loads(item["decision_json"]) if item.get("decision_json") else None
-                prior_result = json.loads(item["result_json"]) if item.get("result_json") else {}
+                prior_result = item.get("result") or _decode_study_result_json(item.get("result_json"))
                 history = list(prior_result.get("action_history", []))
                 previous_action_result = prior_result.get("action_result") or {}
                 nested_replan = any(isinstance(action, Mapping) and action.get("request_new_decision") is True
@@ -3667,9 +3767,9 @@ def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
                                   frontier: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]:
     """Return covered read ranges and whether this turn returned any new source characters."""
     intervals: dict[tuple[str, str], list[tuple[int, int]]] = {}
-    frontier_json = _json(frontier)
-    for turn in history:
-        if not isinstance(turn, Mapping) or _json(turn.get("source_frontier")) != frontier_json:
+    frontier_turns = _matching_frontier_turns(history, frontier)
+    for turn_index, turn in enumerate(history):
+        if not isinstance(turn, Mapping) or turn_index not in frontier_turns:
             continue
         for prior in turn.get("actions", []):
             if not isinstance(prior, Mapping) or not _is_context_read_action(prior):
@@ -3721,10 +3821,10 @@ def _context_page_no_progress(actions: Sequence[Mapping[str, Any]],
     normalized_requests = [{"segment_id": segment, "pointer": pointer,
         "offset": offset, "requested_limit": limit}
         for segment, pointer, offset, limit in requests]
+    frontier_turns = _matching_frontier_turns(history, frontier)
     already_diagnosed = any(isinstance(turn.get("no_progress_observation"), Mapping)
         and turn["no_progress_observation"].get("context_page_requests") == normalized_requests
-        and _json(turn.get("source_frontier")) == _json(frontier)
-        for turn in history if isinstance(turn, Mapping))
+        for index, turn in enumerate(history) if index in frontier_turns)
     return {"state": "paused_no_progress" if already_diagnosed else "retryable",
         "request_new_decision": not already_diagnosed,
         "reason": "repeated_context_page_without_new_source_characters",

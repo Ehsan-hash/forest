@@ -13,6 +13,8 @@ import time
 from typing import Any, Mapping, Sequence
 import uuid
 
+from .study_runtime import _decode_study_result_json
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS forest_study_end_to_end (
  campaign_id TEXT NOT NULL, work_id TEXT NOT NULL, state_json TEXT NOT NULL,
@@ -159,7 +161,7 @@ def _episode_history(runtime, work_id):
                          (runtime.campaign_id, work_id)).fetchone()
         calls = db.execute("SELECT request_id,status FROM forest_study_model_calls WHERE campaign_id=? AND work_id=? ORDER BY recorded_at,request_id",
                            (runtime.campaign_id, work_id)).fetchall()
-    result = json.loads(row["result_json"] or "{}") if row else {}
+    result = _decode_study_result_json(row["result_json"]) if row else {}
     return {"last_actual_decision": json.loads(row["decision_json"]) if row and row["decision_json"] else None,
             "actual_action_history": result.get("action_history", []),
             "model_response_records": [dict(call) for call in calls]}
@@ -267,7 +269,7 @@ def _checked_scores(runtime, state, observations):
         if row is None or row["state"] != "completed":
             pending.append(binding)
             continue
-        result = json.loads(row["result_json"] or "{}")
+        result = _decode_study_result_json(row["result_json"])
         observation = next(value for value in observations if value["receipt_path"] == binding["reference_receipt_path"])
         actual = result.get("metrics") or result.get("validation_metrics") or {}
         if result.get("status") != "SUCCEEDED" or not isinstance(actual, Mapping):
@@ -318,7 +320,7 @@ def build_end_to_end_episode_request(runtime, payload: Mapping[str, Any]) -> dic
     known_rows = _work_rows(runtime, [value["work_id"] for value in state["bindings"].values()])
     select_values = [(binding, known_rows.get(binding["work_id"])) for binding in state["bindings"].values()
                      if binding.get("analysis_operation") == "end_to_end_select"]
-    completed_selects = [(binding, json.loads(row["result_json"] or "{}")) for binding, row in select_values
+    completed_selects = [(binding, _decode_study_result_json(row["result_json"])) for binding, row in select_values
                          if row and row["state"] == "completed"]
     recorded_selection_ids = {value["selection_work_id"] for value in state["comparison_records"]}
     new_selections = [(binding, result) for binding, result in completed_selects
@@ -556,7 +558,7 @@ def verify_end_to_end_submission(runtime, payload, history, submission):
         row = rows.get(binding["work_id"], {})
         if row.get("state") != "completed" or json.loads(row["payload_json"]) != binding:
             continue
-        result = json.loads(row["result_json"] or "{}")
+        result = _decode_study_result_json(row["result_json"])
         differences = result.get("paired_differences_right_minus_left") or []
         if (result.get("status") != "SUCCEEDED" or result.get("operation") != "compare"
                 or result.get("comparison_record") != current or result.get("metric") != binding["metric"]

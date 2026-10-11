@@ -31,7 +31,8 @@ import time
 import uuid
 
 from research.agents.processes import ManagedProcesses, artifact_matches, atomic_json, is_alive
-from .study_runtime import BLOCKING_RELATIONS, SETTLEMENT_RELATIONS, StudyLedger, StudyRuntime, load_saved_codex_client
+from .study_runtime import (BLOCKING_RELATIONS, SETTLEMENT_RELATIONS, StudyLedger, StudyRuntime,
+    _decode_study_result_json, _expand_action_history_frontiers, load_saved_codex_client)
 
 
 MODEL_KINDS = ('episode', 'replay', 'calibration_decision')
@@ -110,6 +111,9 @@ def _controller_checkpoint(runtime, item):
                     (runtime.campaign_id, item['work_id'])).fetchone()
                 if value:
                     saved[table] = json.loads(value[0])
+                    if table == 'forest_study_aide_sessions':
+                        saved[table]['action_history'] = _expand_action_history_frontiers(
+                            saved[table].get('action_history', []))
     return {'work': work, 'children': children, 'model_calls': calls, 'ordinary_state': saved}
 
 
@@ -117,7 +121,7 @@ def _checkpoint_reload_proof(checkpoint):
     """Actually reconstruct native Journal/tree/RNG without requesting a model."""
     native = checkpoint['ordinary_state'].get('forest_study_aide_sessions')
     if native is None:
-        return {'arm': 'FULL', 'action_history': json.loads(checkpoint['work']['result_json'] or '{}').get('action_history', []),
+        return {'arm': 'FULL', 'action_history': _decode_study_result_json(checkpoint['work']['result_json']).get('action_history', []),
             'model_request_ids': [value['request_id'] for value in checkpoint['model_calls']]}
     from .aide_runtime import load_upstream, _tuple_tree, _node_record
     from omegaconf import OmegaConf
@@ -238,7 +242,7 @@ def _request_controller_restart(runtime, item, dispatch, worker):
     native = checkpoint['ordinary_state'].get('forest_study_aide_sessions')
     if native and native.get('pending') is not None:
         return None
-    history = native.get('action_history', []) if native else json.loads(checkpoint['work']['result_json'] or '{}').get('action_history', [])
+    history = native.get('action_history', []) if native else _decode_study_result_json(checkpoint['work']['result_json']).get('action_history', [])
     if (comparison['selection_work_id'] not in _history_work_ids(history) or
             not any(value['status'] == 'completed' for value in checkpoint['model_calls']) or
             any(value['status'] == 'requested' for value in checkpoint['model_calls'])):

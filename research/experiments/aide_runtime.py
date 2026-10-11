@@ -847,10 +847,14 @@ def _restore_node(record, journal, upstream):
 
 
 def _save(runtime, work_id, state, *, event_type=None, event_payload=None):
+    from .study_runtime import _compact_action_history_frontiers
+    stored_state = dict(state)
+    if isinstance(stored_state.get("action_history"), list):
+        stored_state["action_history"] = _compact_action_history_frontiers(stored_state["action_history"])
     with runtime.ledger.connect() as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute("INSERT INTO forest_study_aide_sessions VALUES(?,?,?,?) ON CONFLICT(campaign_id,work_id) DO UPDATE SET state_json=excluded.state_json,updated_at=excluded.updated_at",
-                   (runtime.campaign_id, work_id, _json(state), time.time()))
+                   (runtime.campaign_id, work_id, _json(stored_state), time.time()))
         if event_type is not None:
             db.execute("INSERT INTO forest_study_events VALUES(?,?,?,?,?,?)",
                 (str(uuid.uuid4()), runtime.campaign_id, work_id, event_type,
@@ -915,6 +919,9 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
         row = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?",
                          (runtime.campaign_id, work_id)).fetchone()
     state = json.loads(row[0]) if row else None
+    if state is not None:
+        from .study_runtime import _expand_action_history_frontiers
+        state["action_history"] = _expand_action_history_frontiers(state.get("action_history", []))
     if state is not None and state.get("finished"):
         return dict(state["final_outcome"])
     _restore_pending_task_context(state, payload)
