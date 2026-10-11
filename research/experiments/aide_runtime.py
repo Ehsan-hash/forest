@@ -356,15 +356,20 @@ def _safe_context_repack(saved, current, row, runtime, payload):
         return False
     same_public_source = _public_messages_equal_after_reference_expansion(
         saved.get("original_task_messages"), current.get("original_task_messages"), runtime, payload)
+    legacy_prompt_match = _legacy_native_prompt_equivalent(saved, current)
     if (not isinstance(saved.get("original_task_messages"), list)
             or saved.get("task_context_content") == current.get("task_context_content")
-            or not (same_public_source or _legacy_native_prompt_equivalent(saved, current))):
+            # Legacy requests may have embedded the registered task in their
+            # system message. Rebase that identity only when both the current
+            # task's public evidence and the complete old/new delivered prompt
+            # are independently proven equivalent. Either check alone is too
+            # weak to authorize a new external inference.
+            or not (same_public_source and legacy_prompt_match)):
         return False
     stable_fields = ("native_node_id", "native_phase", "provider_id", "model",
         "reasoning_effort", "provider_snapshot", "requested_temperature",
         "temperature_supported_by_transport", "native_requested_max_tokens",
-        "registered_max_output_tokens", "native_function_spec", "response_schema",
-        "native_system_message")
+        "registered_max_output_tokens", "native_function_spec", "response_schema")
     if any(saved.get(name) != current.get(name) for name in stable_fields):
         return False
     saved_config = dict(saved.get("effective_provider_config") or {})

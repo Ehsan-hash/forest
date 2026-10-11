@@ -611,6 +611,9 @@ def test_native_request_rebases_only_after_lossless_preinference_size_rejection(
 
     saved = json.loads(rows[0]["request_json"])
     current = json.loads(rows[1]["request_json"])
+    assert _safe_context_repack(saved, current, {"status": "failed", "usage_json": None,
+        "response_json": json.dumps({"transport_error": {"code": "input_too_large",
+            "ambiguous": False, "partial_output": []}})}, runtime, item["payload"])
     assert not _safe_context_repack(saved, current, {"status": "failed", "usage_json": None,
         "response_json": json.dumps({"transport_error": {"code": "timeout", "ambiguous": True}})},
         runtime, item["payload"])
