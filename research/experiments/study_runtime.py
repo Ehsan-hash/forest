@@ -246,6 +246,22 @@ def _validate_action_bindings(payload: Mapping[str, Any], actions: Sequence[Any]
             and (action.get("configuration_id") is None or binding.get("configuration_id") == action.get("configuration_id"))
             and (action.get("seed") is None or binding.get("seed") == action.get("seed"))]
         if len(candidates) != 1:
+            identified = [binding for binding in bindings if isinstance(binding, Mapping)
+                and action.get("action_work_id") is not None
+                and str(binding.get("work_id")) == str(action["action_work_id"])]
+            if len(identified) == 1:
+                binding = identified[0]
+                expected = {"kind": binding.get("action_name", name),
+                    "configuration_id": binding.get("configuration_id"), "seed": binding.get("seed")}
+                conflicts = {field: {"supplied": name if field == "kind" else action.get(field),
+                    "expected": value} for field, value in expected.items()
+                    if (field == "kind" and name != value)
+                    or (field != "kind" and action.get(field) is not None and action[field] != value)}
+                if conflicts:
+                    raise ValueError(f"Action {index} names registered action_work_id {_json(action['action_work_id'])} "
+                        f"but its selectors conflict: {_json(conflicts)}. Registered selectors: {_json(expected)}. "
+                        "Copy kind from the binding's action_name. Optional configuration_id and seed must copy "
+                        "the binding values exactly, or be null/omitted when selecting by action_work_id.")
             raise ValueError(f"Action {index} must identify exactly one registered binding")
         binding_id = str(candidates[0].get("work_id", ""))
         if not binding_id:
@@ -1786,7 +1802,7 @@ class StudyRuntime:
             response = {"node_id": str(node_id), "state": "paused_no_progress" if diagnosed else "completed",
                 "stdout": base["stdout"] + "\n" + _json({"decision_validation_error": reason,
                     "no_progress_observation": observation}), "exec_time": base["exec_time"],
-                "exc_type": "DecisionValidationError", "exc_info": reason, "validation_reason": reason,
+                "exc_type": "DecisionValidationError", "exc_info": {"args": [reason]}, "validation_reason": reason,
                 "decision": copy.deepcopy(proposed), "semantic_proposal": signature,
                 "source_frontier": frontier, "no_progress_observation": observation,
                 "action_results": [], "action_work_ids": [], "pending_work_ids": [], "verified_metrics": []}

@@ -539,7 +539,7 @@ def test_aide_python_node_uses_common_bound_action_executor_and_caches_emission(
         'print(json.dumps(decision))\n')
     invalid = runtime.execute_aide_node(episode, node_id="node-invalid", code=invalid_code)
     assert invalid["exc_type"] == "DecisionValidationError"
-    assert "exactly one registered binding" in invalid["exc_info"]
+    assert "exactly one registered binding" in invalid["exc_info"]["args"][0]
     assert len(calls) == 2
     with runtime.ledger.connect() as db:
         assert db.execute("SELECT count(*) FROM forest_study_aide_programs WHERE node_id='node-1'").fetchone()[0] == 1
