@@ -15,7 +15,9 @@ import threading
 import pytest
 
 from research.experiments.aide_runtime import (
-    NativeBackend, SCHEMA, _bound_backend, _query_router, _RandomRouter, load_upstream,
+    NativeBackend, SCHEMA, _bound_backend, _current_page_from_stdout, _journal_with_prompt_page_refs,
+    _prepare_aide_task_context, _restore_pending_task_context, _review_task_description,
+    _legacy_native_prompt_equivalent, _query_router, _RandomRouter, load_upstream,
     run_action_program, run_aide_episode,
 )
 from research.experiments.study_runtime import StudyRuntime
@@ -93,12 +95,13 @@ class NonformalClient:
         self.real = ModelClient(provider, request_guard=lambda _event: None)
         self.provider = provider
         self.config = dict(provider["config"])
-        self.responses, self.calls = list(responses), []
+        self.responses, self.calls, self.trace_paths = list(responses), [], []
     def build_request(self, messages, **kwargs):
         self.real.config = dict(self.config)
         return self.real.build_request(messages, **kwargs)
     def complete(self, messages, **kwargs):
         self.calls.append((messages, kwargs))
+        self.trace_paths.append(self.config.get("_forest_transport_trace_path"))
         return {"text": self.responses.pop(0), "usage": {"cost": None, "cost_source": "nonformal_scripted_fixture"},
                 "model": "gpt-6-luna", "status": "completed", "response_id": None}
 
@@ -124,6 +127,39 @@ def _runtime(tmp_path, upstream):
 def _review(metric=1.25, buggy=False):
     return json.dumps({"is_bug": buggy, "summary": "Nonformal fixture review of actual CPU operation output.",
                        "metric": metric, "lower_is_better": True})
+
+
+def test_native_page_review_receives_full_page_and_prompt_projection_keeps_raw_receipt(native_upstream):
+    """AIDE may clip terminal display, but exact retrieved source stays reviewable and durable."""
+    from types import SimpleNamespace
+
+    upstream = load_upstream(native_upstream)
+    content = "unique middle source value: " + ("source-row-value/" * 7000)
+    page = {"operation": "read_context_segment", "segment_id": "public-segment",
+        "pointer": "/source", "offset": 0, "next_offset": len(content),
+        "total_characters": len(content), "returned_characters": len(content),
+        "requested_limit": len(content), "complete": True, "content": content}
+    stdout = "program output\n" + json.dumps({"requested_decision": {"mode": "action"},
+        "observed_action_results": [{"action_work_id": "read-1", "result": page}]},
+        ensure_ascii=False)
+    assert _current_page_from_stdout(stdout) == {key: page[key] for key in (
+        "segment_id", "pointer", "offset", "next_offset", "total_characters",
+        "returned_characters", "requested_limit", "complete", "content")}
+    native = SimpleNamespace(task_desc={"registered task": "nonformal fixture"})
+    projected = _review_task_description(native, stdout)
+    assert content in projected["Exact source page retrieved by this action"]
+    assert "Exact source page retrieved by this action" not in native.task_desc
+
+    node = upstream["journal"].Node(code="print('fixture')", id="page-node", _term_out=[stdout])
+    journal = upstream["journal"].Journal(nodes=[node])
+    history = [{"node_id": "page-node", "actions": [{"result": page}]}]
+    prompt_journal = _journal_with_prompt_page_refs(journal, history, upstream)
+    # The persistent source journal remains complete; only the disposable
+    # prompt projection replaces an older page with its exact continuation ref.
+    assert journal.nodes[0]._term_out == [stdout]
+    projected_output = "".join(prompt_journal.nodes[0]._term_out)
+    assert content not in projected_output
+    assert "Exact source page retained" in projected_output
 
 
 def test_native_pending_node_resumes_without_regeneration_then_improves(tmp_path, native_upstream):
@@ -162,6 +198,9 @@ def test_native_pending_node_resumes_without_regeneration_then_improves(tmp_path
     assert first["pending_action"] is True and first["native_completed_steps"] == 0
     node_id = first["node_id"]
     assert len(client.calls) == 1 and cpu_runs == [node_id]
+    with runtime.ledger.connect() as db:
+        initial_state = json.loads(db.execute("SELECT state_json FROM forest_study_aide_sessions").fetchone()[0])
+    assert list(initial_state["task_desc"]) == sorted(initial_state["task_desc"])
     # Reconstruct the actual StudyRuntime from the same original SQLite file.
     reconstructed, resumed_item = _runtime(tmp_path, native_upstream)
     reconstructed.execute_aide_node = hook
@@ -237,6 +276,11 @@ def test_completed_native_request_replays_and_unsettled_request_never_repeats(tm
     client = NonformalClient(["nonformal response"])
     first = NativeBackend(runtime, item, client, upstream, "fixture-native-node", "generate")
     assert first.query(system_message="Nonformal query fixture", model="gpt-6-luna") == "nonformal response"
+    with runtime.ledger.connect() as db:
+        saved_call = db.execute("SELECT request_id,request_json FROM forest_study_model_calls").fetchone()
+    saved_request = json.loads(saved_call[1])
+    assert saved_request["transport_trace_path"] == client.trace_paths[0]
+    assert saved_request["transport_trace_path"].endswith(f"{saved_call[0]}.json")
     def exhausted(_item, _client):
         raise RuntimeError("nonformal remaining inference allowance exhausted")
     runtime._budgeted_episode_client = exhausted
@@ -249,6 +293,102 @@ def test_completed_native_request_replays_and_unsettled_request_never_repeats(tm
     with pytest.raises(RuntimeError, match="requires reconciliation"):
         unsettled.query(system_message="Nonformal query fixture", model="gpt-6-luna")
     assert len(client.calls) == 1
+
+
+def test_native_prompt_interns_large_original_message_content_losslessly(tmp_path, native_upstream):
+    from research.experiments.study_context import restore_json
+    runtime, item = _runtime(tmp_path, native_upstream)
+    sample_ids = list(range(10_000))
+    repeated_rows = [{"sample_ids": sample_ids, "effective_config": {"window": 96, "channels": [32, 64, 128]},
+                      "source_reference": "public-fixture-manifest"} for _ in range(6)]
+    original_messages = [{"role": "system", "content": "Nonformal task contract."},
+        {"role": "user", "content": json.dumps({"observations": repeated_rows}, separators=(",", ":"))}]
+    source, task_context_content, context_encoding = _prepare_aide_task_context(original_messages)
+    assert source == original_messages
+    assert context_encoding["message_content"]
+    encoded_message = context_encoding["message_content"][0]
+    assert encoded_message["saved_characters"] > 0
+    delivered_messages = json.loads(task_context_content)
+    content_prefix = "COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows."
+    assert delivered_messages[1]["content"].startswith(content_prefix)
+    document_text = delivered_messages[1]["content"].split("\n", 1)[1]
+    document, _ = json.JSONDecoder().raw_decode(document_text)
+    restored_observations = restore_json(document)
+    assert restored_observations == json.loads(original_messages[1]["content"])
+
+    item["payload"]["messages"] = original_messages
+    item["payload"]["aide_task_context_encoding"] = context_encoding
+    user_message = json.dumps({"Registered scientific task and public observations": task_context_content,
+        "Public action program contract": "Nonformal program contract."}, separators=(",", ":"))
+    client = NonformalClient(["nonformal native prompt fixture"])
+    with runtime.ledger.connect() as db:
+        db.executescript(SCHEMA)
+    NativeBackend(runtime, item, client, load_upstream(native_upstream), "intern-node", "generate").query(
+        system_message="Nonformal system wrapper.", user_message=user_message, model="gpt-6-luna")
+    with runtime.ledger.connect() as db:
+        request = json.loads(db.execute("SELECT request_json FROM forest_study_model_calls").fetchone()[0])
+    assert request["original_task_messages"] == original_messages
+    assert request["task_context_encoding"] == context_encoding
+    assert len(json.dumps(request["request_payload"], ensure_ascii=False)) < 1_048_576
+
+
+def test_completed_legacy_native_request_replays_after_lossless_prompt_interning(tmp_path, native_upstream):
+    runtime, item = _runtime(tmp_path, native_upstream)
+    sample_ids = list(range(2_000))
+    rows = [{"sample_ids": sample_ids, "public_config": {"window": 96}} for _ in range(5)]
+    original_messages = [{"role": "user", "content": json.dumps({"rows": rows}, separators=(",", ":"))}]
+    item["payload"]["messages"] = original_messages
+    legacy_user_message = json.dumps({"registered_task": json.dumps(original_messages, ensure_ascii=False, sort_keys=True)}, separators=(",", ":"))
+    client = NonformalClient(["legacy completed response"])
+    upstream = load_upstream(native_upstream)
+    with runtime.ledger.connect() as db:
+        db.executescript(SCHEMA)
+    assert NativeBackend(runtime, item, client, upstream, "legacy-node", "generate").query(
+        user_message=legacy_user_message, model="gpt-6-luna") == "legacy completed response"
+    with runtime.ledger.connect() as db:
+        row = db.execute("SELECT request_id,request_json FROM forest_study_model_calls").fetchone()
+        saved = json.loads(row[1])
+        saved.pop("original_task_messages", None)
+        saved.pop("original_messages", None)
+        saved.pop("context_encoding", None)
+        saved.pop("task_context_encoding", None)
+        saved.pop("task_context_content", None)
+        saved.pop("transport_response_schema", None)
+        db.execute("UPDATE forest_study_model_calls SET request_json=? WHERE request_id=?",
+                   (json.dumps(saved, ensure_ascii=False), row[0]))
+
+    _, encoded_content, encoding = _prepare_aide_task_context(original_messages)
+    item["payload"]["aide_task_context_content"] = encoded_content
+    item["payload"]["aide_task_context_encoding"] = encoding
+    compact_user_message = json.dumps({"registered_task": encoded_content}, separators=(",", ":"))
+    assert NativeBackend(runtime, item, client, upstream, "legacy-node", "generate").query(
+        user_message=compact_user_message, model="gpt-6-luna") == "legacy completed response"
+    assert len(client.calls) == 1
+    with pytest.raises(ValueError, match="different full messages/settings"):
+        NativeBackend(runtime, item, client, upstream, "legacy-node", "generate").query(
+            user_message=compact_user_message + " changed parent feedback", model="gpt-6-luna")
+
+
+def test_pending_legacy_aide_context_is_restored_from_saved_task_description():
+    original = [{"role": "user", "content": "Exact saved scientific facts."}]
+    state = {"pending": {"node_id": "durable-node", "stage": "draft"},
+        "task_desc": {"Registered scientific task and public observations": json.dumps(original)}}
+    payload = {"messages": [{"role": "user", "content": "newer external frontier"}]}
+    _restore_pending_task_context(state, payload)
+    assert payload["messages"] == original
+    assert payload["aide_task_context_content"] == state["task_desc"]["Registered scientific task and public observations"]
+    assert state["original_task_messages"] == original and state["task_context_encoding"] == []
+
+
+def test_legacy_prompt_equivalence_rejects_partial_source_substrings():
+    current_messages = [{"role": "user", "content": "old public source item"},
+        {"role": "user", "content": "new registered conditions"}]
+    task_content = json.dumps(current_messages, ensure_ascii=False, sort_keys=True)
+    saved = {"messages": [{"role": "user", "content": "old public source item"}]}
+    current = {"original_task_messages": current_messages,
+        "task_context_content": task_content,
+        "messages": [{"role": "user", "content": task_content}]}
+    assert _legacy_native_prompt_equivalent(saved, current) is False
 
 
 def test_actual_study_dispatch_uses_native_agent_and_common_cpu_analysis(tmp_path, native_upstream):

@@ -44,6 +44,233 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
+def _prepare_aide_task_context(messages):
+    """Losslessly intern repeated trees before AIDE serializes the task as prose."""
+    from .study_runtime import _intern_delivered_messages
+    original = deepcopy(messages)
+    public_messages, content_encoding = _intern_delivered_messages(original)
+    wrapped, description_encoding = _intern_delivered_messages([
+        {"role": "user", "content": _json(public_messages)}])
+    return original, wrapped[0]["content"], {
+        "message_content": content_encoding,
+        "task_description": description_encoding,
+    }
+
+
+def _restore_pending_task_context(state, payload):
+    """Keep pending AIDE requests bound to their saved pre-upgrade task text."""
+    if not isinstance(state, Mapping) or state.get("pending") is None:
+        return
+    if isinstance(state.get("original_task_messages"), list):
+        payload["messages"] = deepcopy(state["original_task_messages"])
+        payload["aide_task_context_content"] = state.get("task_context_content")
+        payload["aide_task_context_encoding"] = deepcopy(state.get("task_context_encoding", []))
+        return
+    stored = (state.get("task_desc") or {}).get("Registered scientific task and public observations")
+    if not isinstance(stored, str):
+        return
+    try:
+        original = json.loads(stored)
+    except (ValueError, TypeError):
+        return
+    if not isinstance(original, list):
+        return
+    # This is a migration annotation only. The original prompt text and all
+    # saved requests stay intact; replay can use its completed response.
+    payload["messages"] = deepcopy(original)
+    payload["aide_task_context_content"] = stored
+    payload["aide_task_context_encoding"] = []
+    state["original_task_messages"] = deepcopy(original)
+    state["task_context_content"] = stored
+    state["task_context_encoding"] = []
+
+
+def _prior_context_page_references(action_history):
+    references = []
+    for turn in action_history or []:
+        if not isinstance(turn, Mapping):
+            continue
+        for action in turn.get("actions", []):
+            if not isinstance(action, Mapping):
+                continue
+            result = action.get("result") or {}
+            if not isinstance(result, Mapping) or result.get("operation") != "read_context_segment":
+                continue
+            references.append({key: result[key] for key in (
+                "segment_id", "pointer", "offset", "next_offset", "total_characters",
+                "returned_characters", "complete") if key in result})
+    return references
+
+
+def _add_prior_context_page_references(payload, action_history):
+    marker = "Previously retrieved exact source pages (references only): "
+    messages = [deepcopy(row) for row in payload.get("messages", []) if not (
+        isinstance(row, Mapping) and row.get("role") == "system"
+        and str(row.get("content", "")).startswith(marker))]
+    references = _prior_context_page_references(action_history)
+    if references:
+        messages.insert(max(0, len(messages) - 1), {"role": "system",
+            "content": marker + json.dumps(references, ensure_ascii=False, sort_keys=True) +
+            "\nUse the same segment and pointer with next_offset to continue reading. Retrieval is observational."})
+    payload["messages"] = messages
+
+
+def _replace_prior_page_bodies(journal, action_history):
+    """Keep complete pages in action receipts; use exact continuation refs in older prompts."""
+    by_node = {str(turn.get("node_id")): turn for turn in (action_history or [])
+               if isinstance(turn, Mapping) and turn.get("node_id")}
+    for node in journal.nodes:
+        turn = by_node.get(str(node.id))
+        if not turn:
+            continue
+        # Work on a prompt-only journal clone. Node.term_out is deliberately
+        # clipped by upstream AIDE; _term_out retains the exact original output.
+        output = "".join(node._term_out or [])
+        for action in turn.get("actions", []):
+            result = action.get("result") if isinstance(action, Mapping) else None
+            if not isinstance(result, Mapping) or result.get("operation") != "read_context_segment":
+                continue
+            content = result.get("content")
+            if not isinstance(content, str):
+                continue
+            reference = {key: result[key] for key in (
+                "segment_id", "pointer", "offset", "next_offset", "total_characters",
+                "returned_characters", "complete") if key in result}
+            reference_text = "[Exact source page retained in the episode receipt; retrieve it by reference: " + \
+                json.dumps(reference, ensure_ascii=False, sort_keys=True) + "]"
+            output = output.replace(json.dumps(content, ensure_ascii=False),
+                                    json.dumps(reference_text, ensure_ascii=False))
+        node._term_out = [output]
+
+
+def _journal_with_prompt_page_refs(journal, action_history, upstream):
+    """Build a disposable native prompt journal without mutating durable receipts."""
+    clone = upstream["serialize"].loads_json(
+        upstream["serialize"].dumps_json(journal), upstream["journal"].Journal)
+    _replace_prior_page_bodies(clone, action_history)
+    return clone
+
+
+def _current_page_from_stdout(stdout):
+    """Return the exact current read page embedded in the common action result."""
+    for line in reversed(str(stdout).splitlines()):
+        try:
+            payload = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        for action in reversed(payload.get("observed_action_results", [])):
+            if not isinstance(action, Mapping):
+                continue
+            result = action.get("result")
+            if isinstance(result, Mapping) and result.get("operation") == "read_context_segment":
+                if result.get("delivery_status") == "not_delivered":
+                    return None
+                content = result.get("content")
+                if isinstance(content, str):
+                    return {key: result.get(key) for key in (
+                        "segment_id", "pointer", "offset", "next_offset", "total_characters",
+                        "returned_characters", "requested_limit", "complete") if key in result} | {
+                            "content": content}
+    return None
+
+
+def _review_task_description(native, stdout):
+    """Add the complete latest retrieval to this review only; never persist it in AIDE state."""
+    task_desc = deepcopy(native.task_desc)
+    page = _current_page_from_stdout(stdout)
+    if page is not None:
+        task_desc["Exact source page retrieved by this action"] = json.dumps(
+            page, ensure_ascii=False, sort_keys=True)
+    else:
+        for line in reversed(str(stdout).splitlines()):
+            try:
+                rendered = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(rendered, Mapping):
+                continue
+            undelivered = next((action.get("result") for action in reversed(
+                rendered.get("observed_action_results", [])) if isinstance(action, Mapping)
+                and isinstance(action.get("result"), Mapping)
+                and action["result"].get("delivery_status") == "not_delivered"), None)
+            if isinstance(undelivered, Mapping):
+                task_desc["Exact source page delivery status"] = {
+                    key: undelivered.get(key) for key in ("segment_id", "pointer", "offset",
+                        "next_offset", "total_characters", "delivery_status", "delivery_reason",
+                        "response_capacity", "minimum_response_characters") if key in undelivered}
+                break
+    return task_desc
+
+
+def _legacy_native_prompt_equivalent(saved, current):
+    """Verify an old full-context prompt matches after reversible interning."""
+    from .study_context import restore_json
+    original = current.get("original_task_messages")
+    if not isinstance(original, list):
+        return False
+    source_text = _json(original)
+    saved_messages = saved.get("messages")
+    current_messages = current.get("original_messages", current.get("messages"))
+    task_context = current.get("task_context_content")
+    if not isinstance(saved_messages, list) or not isinstance(current_messages, list) or not isinstance(task_context, str):
+        return False
+
+    def replace_exact(messages, needles):
+        rendered = deepcopy(messages)
+        replacements = 0
+        for message in rendered:
+            if not isinstance(message, Mapping) or not isinstance(message.get("content"), str):
+                continue
+            content = message["content"]
+            for needle in sorted((value for value in needles if isinstance(value, str) and value),
+                                 key=len, reverse=True):
+                if needle in content:
+                    content = content.replace(needle, "<EXACT_REGISTERED_TASK_CONTEXT>", 1)
+                    replacements += 1
+                    break
+            message["content"] = content
+        return rendered, replacements
+
+    # Match the whole original task snapshot. Matching a single user-message
+    # substring would incorrectly accept a prompt missing newly added source
+    # conditions or observations.
+    old_needles = [source_text, json.dumps(source_text, ensure_ascii=False)]
+    new_needles = [task_context, json.dumps(task_context, ensure_ascii=False)]
+    try:
+        # The outer task serialization is ordinary JSON; selected user message
+        # bodies may contain their own reversible tagged documents.
+        if task_context.startswith("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows."):
+            _, outer_document_text = task_context.split("\n", 1)
+            outer_document, _ = json.JSONDecoder().raw_decode(outer_document_text)
+            delivered_task = restore_json(outer_document)
+        else:
+            delivered_task = json.loads(task_context)
+        if not isinstance(delivered_task, list) or len(delivered_task) != len(original):
+            return False
+        for before, after in zip(original, delivered_task):
+            if not isinstance(before, Mapping) or not isinstance(after, Mapping) or before.get("role") != after.get("role"):
+                return False
+            before_content, after_content = before.get("content"), after.get("content")
+            if not isinstance(before_content, str) or not isinstance(after_content, str):
+                if before_content != after_content:
+                    return False
+                continue
+            if after_content.startswith("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows."):
+                _, encoded = after_content.split("\n", 1)
+                document, _ = json.JSONDecoder().raw_decode(encoded)
+                if restore_json(document) != json.loads(before_content):
+                    return False
+            elif after_content != before_content:
+                return False
+        old_normalized, old_count = replace_exact(saved_messages, old_needles)
+        new_normalized, new_count = replace_exact(current_messages, new_needles)
+    except (ValueError, TypeError, RecursionError):
+        return False
+    return old_count > 0 and new_count > 0 and old_normalized == new_normalized
+
+
 def _query_router(*args, **kwargs):
     backend = _BACKEND.get()
     if backend is None:
@@ -223,12 +450,15 @@ class NativeBackend:
             if "metric" in schema.get("properties", {}):
                 schema["properties"]["metric"]["type"] = ["number", "null"]
             messages.append({"role": "user", "content": "Return only the requested JSON object.\n" + _json(schema)})
-        from .study_runtime import _assemble_model_messages
+        from .study_runtime import _assemble_model_messages, _codex_strict_schema, _intern_delivered_messages
         delivered = _assemble_model_messages(self.client, messages, "experiment")
+        original_delivered = deepcopy(delivered)
+        delivered, context_encoding = _intern_delivered_messages(delivered)
         client = copy(self.client)
         client.config = dict(self.client.config)
+        transport_schema = _codex_strict_schema(schema) if schema is not None else None
         if schema is not None:
-            client.config["_forest_action_schema"] = schema
+            client.config["_forest_action_schema"] = transport_schema
         else:
             client.config.pop("_forest_action_schema", None)
         from research.agents.output_budget import output_allocation
@@ -247,12 +477,22 @@ class NativeBackend:
             "effective_timeout_seconds": getattr(client, "timeout", None),
             "requested_temperature": temperature, "temperature_supported_by_transport": False,
             "max_output_tokens": maximum, "native_system_message": system_message,
-            "source_output_allocation": allocation, "native_requested_max_tokens": max_tokens,
+            "source_output_allocation": allocation, "context_encoding": context_encoding,
+            "native_requested_max_tokens": max_tokens,
             "registered_max_output_tokens": explicit,
             "native_user_message": user_message, "messages": delivered,
+            "original_messages": original_delivered,
+            "original_task_messages": deepcopy(self.item.get("payload", {}).get("messages", [])),
+            "task_context_content": self.item.get("payload", {}).get("aide_task_context_content"),
+            "task_context_encoding": deepcopy(self.item.get("payload", {}).get("aide_task_context_encoding", [])),
             "endpoint": endpoint, "request_payload": payload,
             "native_function_spec": func_spec.to_dict() if func_spec is not None else None,
-            "response_schema": schema}
+            "response_schema": schema, "transport_response_schema": transport_schema}
+        if getattr(self, "measure_only", False):
+            self.measured_wire_characters.append(len(json.dumps(payload, ensure_ascii=False,
+                sort_keys=True, separators=(",", ":"))))
+            return {"is_bug": True, "summary": "measurement fixture", "metric": None,
+                    "lower_is_better": True}
         ledger, campaign, work = self.runtime.ledger, self.runtime.campaign_id, str(self.item["work_id"])
         with ledger.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -263,10 +503,34 @@ class NativeBackend:
                 # A completed request keeps its actual earlier timeout. Resume
                 # can have a smaller remaining allowance but consumes no new
                 # inference; source messages/model/payload must still match.
-                dynamic = {"effective_timeout_seconds", "max_output_tokens"}
+                dynamic = {"effective_timeout_seconds", "max_output_tokens", "transport_trace_path"}
                 comparison = {name: value for name, value in request.items() if name not in dynamic}
                 previous = {name: value for name, value in saved.items() if name not in dynamic}
-                if previous != comparison:
+                legacy_prompt_match = False
+                if "original_task_messages" not in saved and "original_task_messages" in request:
+                    legacy_prompt_match = _legacy_native_prompt_equivalent(saved, request)
+                if legacy_prompt_match:
+                    # Older AIDE requests placed the full scientific message in
+                    # the prompt directly. New requests may losslessly intern
+                    # repeated JSON subtrees, so compare their source evidence
+                    # exactly and compare all stable non-presentation settings.
+                    stable_fields = (
+                        "native_key", "native_node_id", "native_phase", "provider_id", "model",
+                        "reasoning_effort", "provider_snapshot",
+                        "requested_temperature", "temperature_supported_by_transport",
+                        "native_requested_max_tokens", "registered_max_output_tokens",
+                        "native_function_spec", "response_schema",
+                        "native_system_message",
+                    )
+                    saved_config = dict(saved.get("effective_provider_config") or {})
+                    request_config = dict(request.get("effective_provider_config") or {})
+                    for private_key in ("_forest_action_schema", "_forest_transport_trace_path"):
+                        saved_config.pop(private_key, None)
+                        request_config.pop(private_key, None)
+                    legacy_prompt_match = (legacy_prompt_match and
+                        all(saved.get(name) == request.get(name) for name in stable_fields) and
+                        saved_config == request_config)
+                if previous != comparison and not legacy_prompt_match:
                     raise ValueError("A native request identity was reused with different full messages/settings")
                 if row["status"] != "completed" or not row["response_json"]:
                     raise RuntimeError("Unsettled native model request requires reconciliation; it cannot be repeated")
@@ -283,6 +547,12 @@ class NativeBackend:
                 # provider's adaptive allocation and persist actual usage.
                 pass
             request_id = str(uuid.uuid4())
+            from .study_runtime import _transport_trace_reference
+            trace_reference = _transport_trace_reference(
+                self.runtime.campaign, request_id, client.provider)
+            if trace_reference:
+                client.config["_forest_transport_trace_path"] = trace_reference
+                request["transport_trace_path"] = trace_reference
             started_at = time.time()
             db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)",
                 (request_id, campaign, work, _json(request), "requested", started_at, started_at))
@@ -298,11 +568,25 @@ class NativeBackend:
                          "native_node_id": self.node_id, "phase": self.phase}, work)
             return self._output(response, schema)
         except Exception as exc:
+            error_record = {"error_type": type(exc).__name__, "message": str(exc)}
+            for name in ("code", "request_id", "response_id", "http_status", "retryable", "ambiguous",
+                         "incomplete_reason", "requested_output_tokens", "partial_output",
+                         "transport_diagnostics", "return_code", "transport_trace_path"):
+                value = getattr(exc, name, None)
+                if value is not None:
+                    error_record[name] = value
+            error_usage = getattr(exc, "usage", None)
+            finished_at = time.time()
+            elapsed_seconds = time.monotonic() - started
             with ledger.connect() as db:
-                db.execute("UPDATE forest_study_model_calls SET status=CASE WHEN status='requested' THEN 'failed' ELSE status END,finished_at=?,elapsed_seconds=? WHERE request_id=?",
-                           (time.time(), time.monotonic()-started, request_id))
+                saved = db.execute("SELECT status,response_json FROM forest_study_model_calls WHERE request_id=?",
+                                   (request_id,)).fetchone()
+                if not (saved and saved["status"] == "completed" and saved["response_json"] is not None):
+                    db.execute("UPDATE forest_study_model_calls SET response_json=?,usage_json=COALESCE(?,usage_json),status='failed',finished_at=?,elapsed_seconds=? WHERE request_id=?",
+                        (_json({"transport_error": error_record}), _json(error_usage) if error_usage is not None else None,
+                         finished_at, elapsed_seconds, request_id))
             ledger.event(campaign, "aide_model_failure", {"request_id": request_id,
-                         "native_key": key, "error": f"{type(exc).__name__}: {exc}"}, work)
+                         "native_key": key, "error": error_record}, work)
             raise
 
     @staticmethod
@@ -313,6 +597,8 @@ class NativeBackend:
         if schema is None:
             return text
         output = json.loads(text)
+        from .study_runtime import _restore_strict_optional_nulls
+        output = _restore_strict_optional_nulls(output, schema)
         import jsonschema
         jsonschema.validate(output, schema)
         return output
@@ -331,6 +617,30 @@ def _bound_backend(backend, rng):
 
 def _tuple_tree(value):
     return tuple(_tuple_tree(child) for child in value) if isinstance(value, list) else value
+
+
+def _measure_review_wire(runtime, item, client, upstream, native, node, stdout):
+    """Measure the exact native review query without recording or sending it."""
+    backend = NativeBackend(runtime, item, client, upstream, node.id, "review")
+    backend.measure_only = True
+    backend.measured_wire_characters = []
+    # parse_exec_result mutates only execution/review fields on the node. Keep
+    # its parent and children references shared; copying the entire search tree
+    # at every page-sizing probe would scale with all prior native work.
+    node_copy = copy(node)
+    node_copy._term_out = list(node._term_out or [])
+    result = upstream["execution"].ExecutionResult(term_out=[str(stdout)], exec_time=0.0, exc_type=None,
+        exc_info=None, exc_stack=None)
+    saved_task_desc = native.task_desc
+    native.task_desc = _review_task_description(native, stdout)
+    try:
+        with _bound_backend(backend, random.Random(0)):
+            native.parse_exec_result(node_copy, result)
+    finally:
+        native.task_desc = saved_task_desc
+    if len(backend.measured_wire_characters) != 1:
+        raise ValueError("Native review measurement did not produce exactly one request")
+    return int(backend.measured_wire_characters[0])
 
 
 def _node_record(node):
@@ -423,6 +733,7 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
     state = json.loads(row[0]) if row else None
     if state is not None and state.get("finished"):
         return dict(state["final_outcome"])
+    _restore_pending_task_context(state, payload)
     if not payload.get("action_bindings"):
         payload = runtime.build_episode_request({**payload, "work_id": work_id})
     item["payload"] = payload
@@ -436,8 +747,11 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
         cfg.agent.k_fold_validation = 1
         cfg.agent.data_preview = False
         cfg.workspace_dir = str(runtime.campaign / "runs" / "episodes" / work_id / "aide")
-        task_desc = {"Registered scientific task and public observations": _json(payload.get("messages", [])),
-            "Public action program contract": (
+        original_task_messages, task_context_content, task_context_encoding = _prepare_aide_task_context(
+            payload.get("messages", []))
+        payload["aide_task_context_content"] = task_context_content
+        payload["aide_task_context_encoding"] = task_context_encoding
+        task_desc = {"Public action program contract": (
                 "Write a self-contained Python program that prints exactly one JSON object satisfying "
                 "the supplied public decision schema. Use only import json, public literal dictionary/list "
                 "construction, variable assignment, and print(json.dumps(decision)). The program requests "
@@ -446,11 +760,15 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
                 "output. Do not implement training directly, access files, call external services, invent "
                 "metrics, or print a metric before that executor returns it. Draft, debug and improve "
                 "your scientific action program using the actual output. A final measured answer uses "
-                "mode submit and the required scientific submission fields.")}
+                "mode submit and the required scientific submission fields."),
+            "Registered scientific task and public observations": task_context_content}
         from omegaconf import OmegaConf
         rng = random.Random(int(payload.get("search_seed", payload.get("seed", payload.get("repeat", 0)))))
         state = {"version": 1, "upstream_root": str(Path(upstream_root).resolve()),
             "configuration": OmegaConf.to_container(cfg, resolve=True), "task_desc": task_desc,
+            "original_task_messages": original_task_messages,
+            "task_context_content": task_context_content,
+            "task_context_encoding": task_context_encoding,
             "native_steps_setting_is_inactive": True,
             "journal": upstream["serialize"].dumps_json(upstream["journal"].Journal()),
             "rng_state": rng.getstate(), "completed_steps": 0, "pending": None,
@@ -458,17 +776,33 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
         _save(runtime, work_id, state)
     elif state["upstream_root"] != str(Path(upstream_root).resolve()):
         raise ValueError("AIDE episode cannot resume against a different native clone")
+    if state is not None:
+        payload["aide_task_context_content"] = state.get("task_context_content")
+        payload["aide_task_context_encoding"] = deepcopy(state.get("task_context_encoding", []))
     if state.get("pending") is None:
+        _add_prior_context_page_references(payload, state.get("action_history", []))
         # A contract revision or newly available receipt reaches the next native
         # node through the same public request builder used by the other arm.
-        state["task_desc"]["Registered scientific task and public observations"] = _json(payload.get("messages", []))
+        original_task_messages, task_context_content, task_context_encoding = _prepare_aide_task_context(
+            payload.get("messages", []))
+        payload["aide_task_context_content"] = task_context_content
+        payload["aide_task_context_encoding"] = task_context_encoding
+        state["task_desc"]["Registered scientific task and public observations"] = task_context_content
+        state["original_task_messages"] = original_task_messages
+        state["task_context_content"] = task_context_content
+        state["task_context_encoding"] = task_context_encoding
         _save(runtime, work_id, state)
+    item["payload"] = payload
     from omegaconf import OmegaConf
     cfg = OmegaConf.create(state["configuration"])
     journal = upstream["serialize"].loads_json(state["journal"], upstream["journal"].Journal)
+    # Reconstruct the same reference-only prompt tree for every generation
+    # retry, including a completed-but-not-yet-checkpointed native request.
+    # The serialized durable journal continues to retain each exact output.
+    prompt_journal = _journal_with_prompt_page_refs(journal, state.get("action_history", []), upstream)
     rng = random.Random()
     rng.setstate(_tuple_tree(state["rng_state"]))
-    native = upstream["agent"].Agent(task_desc=state["task_desc"], cfg=cfg, journal=journal)
+    native = upstream["agent"].Agent(task_desc=state["task_desc"], cfg=cfg, journal=prompt_journal)
     native.data_preview = "Only the public registered task/evidence above is available."
     # The algorithm and all draft/debug/improve templates remain native. The
     # execution guideline reflects the common tool capacity instead of native
@@ -496,7 +830,10 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
             state["rng_state"] = rng.getstate()
             _save(runtime, work_id, state)
         if pending["node"] is None:
-            parent = next((node for node in journal.nodes if node.id == pending["parent_id"]), None)
+            # Fresh native generation must see the same prompt-only page
+            # references that were used to form the task context. The durable
+            # journal remains untouched and is reconstructed before commit.
+            parent = next((node for node in prompt_journal.nodes if node.id == pending["parent_id"]), None)
             if pending["parent_id"] and parent is None:
                 raise ValueError("Saved native search parent is missing from the journal")
             rng.setstate(_tuple_tree(pending["generation_rng"]))
@@ -519,7 +856,9 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
         execution = pending.get("execution")
         if execution is None or execution.get("state") in {"retryable", "awaiting_reconciliation", "pending", "running"}:
             execution = runtime.execute_aide_node(item, node_id=node.id, code=node.code,
-                client=client, gpu_devices=gpu_devices, defer_gpu=defer_gpu)
+                client=client, gpu_devices=gpu_devices, defer_gpu=defer_gpu,
+                context_read_measure=lambda stdout: _measure_review_wire(
+                    runtime, item, client, upstream, native, node, stdout))
             if str(execution.get("node_id", "")) != node.id:
                 raise ValueError("Scientific execution returned a different native node identity")
             pending["execution"] = deepcopy(execution)
@@ -560,8 +899,13 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
             exc_type=execution.get("exc_type") or (None if execution.get("state") == "completed" else "ScientificActionError"),
             exc_info=execution.get("exc_info"), exc_stack=execution.get("exc_stack"))
         backend = NativeBackend(runtime, item, client, upstream, node.id, "review")
-        with _bound_backend(backend, rng):
-            native.parse_exec_result(node, result)
+        saved_task_desc = native.task_desc
+        native.task_desc = _review_task_description(native, "".join(stdout))
+        try:
+            with _bound_backend(backend, rng):
+                native.parse_exec_result(node, result)
+        finally:
+            native.task_desc = saved_task_desc
         # Native feedback supplies the journal metric; independently checked
         # observations constrain it. Never substitute an oracle best metric.
         verified = execution.get("verified_metrics", [])
@@ -574,7 +918,11 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
                 node.is_buggy = True
                 node.metric = upstream["metric"].WorstMetricValue()
                 node.analysis = str(node.analysis) + "\nThe reported metric did not match an independently verified common-executor observation."
-        journal.append(node)
+        # The working Agent sees a prompt-only journal with old page bodies
+        # replaced by exact references. Keep source-bound stdout byte-for-byte
+        # in the durable journal used for recovery and audit.
+        durable_node = _restore_node(_node_record(node), journal, upstream)
+        journal.append(durable_node)
         history = list(state.get("action_history", []))
         turn_record = {"node_id": node.id, "stage": pending["stage"],
             "actions": execution.get("action_results", []), "execution": execution}
@@ -599,13 +947,13 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
                      pending=None, completed_steps=len(journal), action_history=history)
         completed_event = {
             "node_id": node.id, "parent_id": pending["parent_id"], "stage": pending["stage"],
-            "completed_step": node.step, "native_completed_steps": len(journal),
-            "is_buggy": node.is_buggy, "metric": node.metric.to_dict()}
+            "completed_step": durable_node.step, "native_completed_steps": len(journal),
+            "is_buggy": durable_node.is_buggy, "metric": durable_node.metric.to_dict()}
         submission = execution.get("submission_validation") or execution.get("submission_result")
         if isinstance(submission, Mapping):
             outcome = {"state": "completed" if submission.get("valid") is True else "retryable",
                 "valid": submission.get("valid") is True, "submission_validation": dict(submission),
-                "node_id": node.id, "native_completed_steps": len(journal), "pending_work_ids": [],
+                "node_id": durable_node.id, "native_completed_steps": len(journal), "pending_work_ids": [],
                 "pending_action": False, "action_result": execution, "action_history": history}
             if submission.get("valid") is True:
                 state.update(finished=True, final_outcome=outcome)
@@ -613,7 +961,7 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
             return outcome
         _save(runtime, work_id, state, event_type="aide_native_step_completed", event_payload=completed_event)
         return {"state": "retryable", "pending_action": False, "pending_work_ids": [],
-                "node_id": node.id, "native_completed_steps": len(journal),
+                "node_id": durable_node.id, "native_completed_steps": len(journal),
                 "action_result": execution, "action_history": history}
     finally:
         state["local_active_seconds"] = float(state.get("local_active_seconds", 0)) + time.monotonic()-started
