@@ -12,6 +12,7 @@ import uuid
 import pytest
 
 from research.experiments.study_runtime import StudyLedger
+import research.experiments.study_scheduler as scheduler_module
 from research.experiments.study_scheduler import (
     CoordinatorBusy, StudyScheduler, interval_measure, intersect_intervals, measured_concurrency)
 
@@ -142,6 +143,33 @@ def test_current_formal_progress_excludes_historical_and_withdrawn_cells(tmp_pat
         assert value['paused_no_progress_work_ids'] == ['paused']
         assert 'paused' not in service._ready_ids(('replay',), {})
         assert value['work_states']['completed'] == 1  # Historical resource/readback record persists.
+    finally:
+        service.close()
+
+
+def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, monkeypatch):
+    history = 'retained research evidence ' * 10000
+    runtime = ChildRuntime(tmp_path, [
+        {'work_id': 'large-queued', 'kind': 'replay', 'context': history},
+        {'work_id': 'large-retryable', 'kind': 'replay', 'context': history}])
+    runtime.ledger.set_state(runtime.campaign_id, 'large-retryable', 'retryable',
+        result={'pending_work_ids': [], 'history': history})
+    service = scheduler(runtime)
+    original_loads = scheduler_module.json.loads
+
+    def reject_full_record(value, *args, **kwargs):
+        if isinstance(value, str) and ('"context"' in value or '"history"' in value):
+            raise AssertionError('queue polling materialized a full durable research record')
+        return original_loads(value, *args, **kwargs)
+
+    monkeypatch.setattr(scheduler_module.json, 'loads', reject_full_record)
+    try:
+        assert service._ready_ids(('replay',), {}) == ['large-queued', 'large-retryable']
+        with runtime.ledger.connect() as db:
+            assert original_loads(db.execute('SELECT payload_json FROM forest_study_work WHERE work_id=?',
+                ('large-queued',)).fetchone()[0])['context'] == history
+            assert original_loads(db.execute('SELECT result_json FROM forest_study_work WHERE work_id=?',
+                ('large-retryable',)).fetchone()[0])['history'] == history
     finally:
         service.close()
 

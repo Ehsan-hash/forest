@@ -780,33 +780,46 @@ class StudyScheduler:
 
     def _ready_ids(self, kinds, compute):
         with self.ledger.connect() as db:
-            rows = db.execute("SELECT * FROM forest_study_work WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id", (self.campaign_id,)).fetchall()
+            # Queue polling is frequent.  Do not materialize each candidate's
+            # complete payload and result (which can contain the full durable
+            # research history) just to decide whether its identity is ready.
+            # Read those JSON subdocuments only after the cheap dependency
+            # checks need them, and pass only the provider profile to circuit
+            # classification.  The full payload remains untouched for the
+            # eventual execution claim.
+            rows = db.execute("SELECT work_id,kind,state,supervisor_work_id,decision_json FROM forest_study_work WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id", (self.campaign_id,)).fetchall()
             states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
             edges = db.execute('SELECT source_id,target_id,relation FROM forest_study_edges WHERE campaign_id=?', (self.campaign_id,)).fetchall()
-        active = {entry['item']['work_id'] for entry in self._futures.values()}
-        ready = []
-        for row in rows:
-            if row['kind'] not in kinds or row['work_id'] in active:
-                continue
-            if any(edge['target_id'] == row['work_id'] and (
-                    edge['relation'] in BLOCKING_RELATIONS and states.get(edge['source_id']) != 'completed' or
-                    edge['relation'] in SETTLEMENT_RELATIONS and states.get(edge['source_id']) not in TERMINAL) for edge in edges):
-                continue
-            if row['state'] == 'retryable':
-                original = compute.get(row['supervisor_work_id'] or row['work_id'])
-                if original and original['status'] not in ('completed', 'failed', 'cancelled', 'budget_exhausted', 'reconciliation'):
+            active = {entry['item']['work_id'] for entry in self._futures.values()}
+            ready = []
+            for row in rows:
+                if row['kind'] not in kinds or row['work_id'] in active:
                     continue
-                children = [edge['target_id'] for edge in edges if edge['source_id'] == row['work_id'] and edge['relation'] == 'derived_from']
-                if row['decision_json'] and any(states.get(child) not in TERMINAL for child in children):
+                if any(edge['target_id'] == row['work_id'] and (
+                        edge['relation'] in BLOCKING_RELATIONS and states.get(edge['source_id']) != 'completed' or
+                        edge['relation'] in SETTLEMENT_RELATIONS and states.get(edge['source_id']) not in TERMINAL) for edge in edges):
                     continue
-                saved = json.loads(row['result_json']) if row['result_json'] else {}
-                pending = saved.get('pending_work_ids') or []
-                if any(states.get(work) not in TERMINAL for work in pending):
-                    continue
-            item = {**dict(row), 'payload': json.loads(row['payload_json'])}
-            if not self._source_blocked(item):
-                ready.append(row['work_id'])
-        return ready
+                if row['state'] == 'retryable':
+                    original = compute.get(row['supervisor_work_id'] or row['work_id'])
+                    if original and original['status'] not in ('completed', 'failed', 'cancelled', 'budget_exhausted', 'reconciliation'):
+                        continue
+                    children = [edge['target_id'] for edge in edges if edge['source_id'] == row['work_id'] and edge['relation'] == 'derived_from']
+                    if row['decision_json'] and any(states.get(child) not in TERMINAL for child in children):
+                        continue
+                    pending_json = db.execute(
+                        "SELECT json_extract(result_json,'$.pending_work_ids') FROM forest_study_work WHERE work_id=?",
+                        (row['work_id'],)).fetchone()[0]
+                    pending = json.loads(pending_json) if pending_json else []
+                    if any(states.get(work) not in TERMINAL for work in pending):
+                        continue
+                provider_json = db.execute(
+                    "SELECT json_extract(payload_json,'$.model_provider') FROM forest_study_work WHERE work_id=?",
+                    (row['work_id'],)).fetchone()[0]
+                provider = json.loads(provider_json) if provider_json else None
+                item = {'work_id': row['work_id'], 'kind': row['kind'], 'payload': {'model_provider': provider}}
+                if not self._source_blocked(item):
+                    ready.append(row['work_id'])
+            return ready
 
     def _make_client(self, item):
         if self.client_factory:
