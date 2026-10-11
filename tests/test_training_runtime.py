@@ -188,6 +188,87 @@ def test_pilot_requires_noneligible_marker() -> None:
                          "train_sample_ids": [1], "validation_sample_ids": [2]})
 
 
+@pytest.mark.parametrize("phase", ["pilot", "calibration", "runtime_regression"])
+@pytest.mark.parametrize("marker", [True, None])
+def test_development_and_calibration_cannot_become_formal_results(phase, marker) -> None:
+    config = {"work_id": "development", "phase": phase,
+              "task_id": "D_DEV", "configuration_id": "D_DEV", "dataset_version_id": "synthetic",
+              "family": "darcy", "seed": 1, "optimizer_updates": 1, "batch_size": 1}
+    if marker is not None:
+        config["formal_score_eligible"] = marker
+    with pytest.raises(ValueError, match="formal_score_eligible=false"):
+        validate_config(config)
+
+
+@pytest.mark.parametrize("tf32", [False, True])
+def test_actual_fit_preserves_backend_recipe_and_full_batches(tmp_path, monkeypatch, tf32) -> None:
+    data = PreparedData(torch.randn(5, 8, 7), torch.randn(5, 3), torch.randn(2, 8, 7), torch.randn(2, 3), {
+        "train_sample_ids": [str(i) for i in range(5)], "validation_sample_ids": ["v0", "v1"],
+        "normalization_mean": [0.0] * 7, "normalization_std_population": [1.0] * 7})
+    config = {"work_id": "small-cohort", "phase": "runtime_regression", "formal_score_eligible": False,
+              "task_id": "synthetic-T", "configuration_id": "synthetic-c0", "dataset_version_id": "synthetic-v1",
+              "family": "etth1", "seed": 31, "optimizer_updates": 2, "batch_size": 12, "effective_batch_size": 12,
+              "context_length": 8, "feature_set": "all_7", "forecast_horizon": 3, "dropout": 0.0,
+              "loss_name": "mse", "allow_cpu_regression": True, "tf32": tf32, "log_every_updates": 1}
+    original = runtime._objective
+    observations = []
+    def observed_objective(family, model, prediction, target, *args):
+        observations.append((len(target), torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32))
+        return original(family, model, prediction, target, *args)
+    monkeypatch.setattr(runtime, "_objective", observed_objective)
+    initial_flags = (torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+    try:
+        receipt = fit(config, data, tmp_path / "small", device="cpu")
+        assert observations == [(12, tf32, tf32), (12, tf32, tf32)]
+        assert receipt["effective_config"] == config
+        checkpoint = torch.load(tmp_path / "small/checkpoint.pt", map_location="cpu", weights_only=False)
+        assert 0 <= checkpoint["sampler_cursor"] <= len(data.x)
+        # Restoring a completed fit keeps its exact sampler/RNG and adds no update.
+        fit(config, data, tmp_path / "small", device="cpu", resume=True)
+        assert len(observations) == 2
+    finally:
+        torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32 = initial_flags
+
+
+def test_partial_cuda_checkpoint_restores_cpu_and_cuda_rng(tmp_path, monkeypatch) -> None:
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
+    data = PreparedData(torch.randn(5, 8, 7), torch.randn(5, 3), torch.randn(2, 8, 7), torch.randn(2, 3), {
+        "train_sample_ids": [str(i) for i in range(5)], "validation_sample_ids": ["v0", "v1"],
+        "normalization_mean": [0.0] * 7, "normalization_std_population": [1.0] * 7})
+    config = {"work_id": "cuda-resume-regression", "phase": "runtime_regression", "formal_score_eligible": False,
+              "task_id": "synthetic-T", "configuration_id": "synthetic-c0", "dataset_version_id": "synthetic-v1",
+              "family": "etth1", "seed": 31, "optimizer_updates": 2, "batch_size": 12,
+              "context_length": 8, "feature_set": "all_7", "forecast_horizon": 3, "dropout": 0.1,
+              "loss_name": "mse", "log_every_updates": 1, "tf32": False}
+    original, calls = runtime._objective, 0
+    def interrupted_objective(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("interruption after actual CUDA update one")
+        return original(*args, **kwargs)
+    monkeypatch.setattr(runtime, "_objective", interrupted_objective)
+    out = tmp_path / "interrupted"
+    with pytest.raises(RuntimeError, match="actual CUDA update"):
+        fit(config, data, out, device="cuda")
+    saved = torch.load(out / "checkpoint.pt", map_location="cuda", weights_only=False)
+    assert saved["completed_updates"] == 1
+    assert saved["rng"]["torch_cpu"].is_cuda
+    monkeypatch.setattr(runtime, "_objective", original)
+    resumed = fit(config, data, out, device="cuda", resume=True)
+    uninterrupted = fit(config, data, tmp_path / "uninterrupted", device="cuda")
+    assert resumed["completed_updates"] == uninterrupted["completed_updates"] == 2
+    assert resumed["formal_score_eligible"] is False
+    a = torch.load(out / "checkpoint.pt", map_location="cpu", weights_only=False)
+    b = torch.load(tmp_path / "uninterrupted/checkpoint.pt", map_location="cpu", weights_only=False)
+    assert a["observations"] == b["observations"]
+    assert a["sampler_cursor"] == b["sampler_cursor"]
+    torch.testing.assert_close(a["sampler_permutation"], b["sampler_permutation"], rtol=0, atol=0)
+    for key in a["model"]:
+        torch.testing.assert_close(a["model"][key], b["model"][key], rtol=0, atol=0)
+
+
 def test_calibration_bundle_requires_explicit_anchor_slowest_and_revisions() -> None:
     required = ("anchor", "slowest_candidate", "C3_revision", "C4_revision")
     configs = [{
@@ -286,6 +367,32 @@ def test_calibration_builder_uses_deterministic_c3_and_emits_four_roles_per_fami
     validate_calibration_bundle(configs, {family: ["anchor", "slowest_candidate", "C3_revision", "C4_revision"] for family in selections})
     assert next(c for c in configs if c["calibration_role"] == "C4_revision" and c["family"] == "darcy")["c4_gradient_mse_weight"] == 0.02
     assert all(c["formal_score_eligible"] is False for c in configs)
+
+
+def test_calibration_c3_removes_only_the_actual_anchor_cohort_without_replacement(tmp_path) -> None:
+    source = _write_builder_spec(tmp_path)
+    models = json.loads((source / "models.json").read_text())
+    models["models"][0]["default_recipe"]["training_sample_count"] = 100
+    (source / "models.json").write_text(json.dumps(models))
+    selections = {"darcy": {"train_sample_ids": list(range(200)), "validation_sample_ids": [1000]},
+                  "bloodmnist": {"train_sample_ids": list(range(2000, 2080)), "validation_sample_ids": [3000]},
+                  "etth1": {"train_origins": list(range(192, 8617)), "validation_origins": [8640]}}
+    configs = build_calibration_fit_configs(source_spec_dir=source,
+        dataset_version_ids={family: "synthetic-" + family for family in selections},
+        data_ids_by_family=selections, update_counts_by_family={family: 200 for family in selections},
+        c3_labels_by_family={"bloodmnist": {i: (i - 2000) // 10 for i in range(2000, 2080)}})
+    anchor = next(c for c in configs if c["family"] == "darcy" and c["calibration_role"] == "anchor")
+    changed = next(c for c in configs if c["family"] == "darcy" and c["calibration_role"] == "C3_revision")
+    root = tmp_path / "researcher"
+    root.mkdir()
+    rng = np.random.default_rng(1)
+    np.savez(root / "darcy64_train.npz", sample_id=np.arange(200), x=rng.normal(size=(200, 4, 4)), y=rng.normal(size=(200, 4, 4)))
+    np.savez(root / "darcy64_validation.npz", sample_id=np.asarray([1000]), x=rng.normal(size=(1, 4, 4)), y=rng.normal(size=(1, 4, 4)))
+    anchor_data, changed_data = prepare_data("darcy", root, anchor), prepare_data("darcy", root, changed)
+    assert anchor_data.metadata["train_sample_ids"] == list(range(100))
+    assert len(changed_data.x) == changed["training_sample_count"] == 95
+    assert set(changed_data.metadata["train_sample_ids"]) < set(anchor_data.metadata["train_sample_ids"])
+    assert len(changed["mutation_selection"]["removed_sample_ids"]) == 5
 
 
 def test_pcg64_c3_selection_is_deterministic_stratified_and_keeps_temporal_gap() -> None:

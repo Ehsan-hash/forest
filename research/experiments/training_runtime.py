@@ -572,9 +572,11 @@ def _rng_state() -> dict[str, Any]:
 def _restore_rng(state: Mapping[str, Any]) -> None:
     random.setstate(state["python"])
     np.random.set_state(state["numpy"])
-    torch.set_rng_state(state["torch_cpu"])
+    # map_location also moves RNG tensors; both generator APIs require the
+    # saved ByteTensor on the CPU even when model/optimizer state is on CUDA.
+    torch.set_rng_state(state["torch_cpu"].cpu())
     if torch.cuda.is_available() and state.get("torch_cuda"):
-        torch.cuda.set_rng_state_all(state["torch_cuda"])
+        torch.cuda.set_rng_state_all([value.cpu() for value in state["torch_cuda"]])
 
 
 def validate_config(config: Mapping[str, Any]) -> None:
@@ -582,10 +584,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
     missing = [key for key in required if key not in config]
     if missing:
         raise ValueError(f"Training config is missing required explicit fields: {missing}")
-    if config["phase"] == "pilot" and config.get("formal_score_eligible") is not False:
-        raise ValueError("Pilot work must explicitly declare formal_score_eligible=false")
-        if config["phase"] == "calibration" and config.get("formal_score_eligible") is not False:
-            raise ValueError("Calibration work must explicitly declare formal_score_eligible=false")
+    if config["phase"] in {"pilot", "calibration", "runtime_regression"} and config.get("formal_score_eligible") is not False:
+        raise ValueError(f"{config['phase'].capitalize()} work must explicitly declare formal_score_eligible=false")
     if config["phase"] not in {"pilot", "calibration", "formal", "runtime_regression"}:
         raise ValueError(f"Unsupported fit phase: {config['phase']}")
     if int(config["optimizer_updates"]) < 1 or int(config["batch_size"]) < 1:
@@ -898,13 +898,21 @@ def build_calibration_fit_configs(
             c3 = copy.deepcopy(dict(c3_overrides_by_family[family]))
             c3_metadata = {"method": "explicit_selection", "mutation_seed": int(mutation_seed)}
         else:
+            c3_source = copy.deepcopy(data_doc[family])
+            if family == "darcy":
+                anchor_count = int(anchor_recipe.get("training_sample_count", len(c3_source["train_sample_ids"])))
+                c3_source["train_sample_ids"] = list(c3_source["train_sample_ids"][:anchor_count])
             c3, c3_metadata = derive_c3_revision(
-                family, data_doc[family], mutation_seed=mutation_seed,
+                family, c3_source, mutation_seed=mutation_seed,
                 class_labels=(c3_labels_by_family or {}).get(family),
             )
         if family in ("darcy", "bloodmnist"):
             if "train_sample_ids" not in c3:
                 raise ValueError(f"C3 for {family} needs an explicit retained train_sample_ids list")
+            if family == "darcy":
+                # Use exactly the retained cohort; otherwise prepare_darcy's
+                # training_sample_count slice would append removed fields back.
+                c3["training_sample_count"] = len(c3["train_sample_ids"])
         elif "excluded_training_row_interval" not in c3:
             raise ValueError("ETTh1 C3 needs an explicit excluded_training_row_interval")
         c3 = {**copy.deepcopy(anchor_recipe), **c3}
@@ -1089,9 +1097,6 @@ def fit(config: Mapping[str, Any], data: PreparedData, output: Path, *, device: 
     if device == "cpu" and not bool(config.get("allow_cpu_regression", False)):
         raise RuntimeError("CPU fitting is reserved for explicit synthetic code-regression configs")
     target_device = torch.device(device)
-    if torch.cuda.is_available():
-        torch.backends.cuda.matmul.allow_tf32 = bool(config.get("tf32", False))
-        torch.backends.cudnn.allow_tf32 = bool(config.get("tf32", False))
     output.mkdir(parents=True, exist_ok=True)
     config_path = output / "effective_config.json"
     checkpoint_path = output / "checkpoint.pt"
@@ -1105,6 +1110,10 @@ def fit(config: Mapping[str, Any], data: PreparedData, output: Path, *, device: 
     elif any(p.exists() for p in (config_path, checkpoint_path, output / "execution_receipt.json")):
         raise FileExistsError(f"Output already contains a fit; choose a new run directory or use --resume: {output}")
     seed_everything(int(config["seed"]))
+    # Seeding establishes deterministic defaults; the accepted recipe then
+    # selects the actual backend arithmetic, including explicitly enabled TF32.
+    torch.backends.cuda.matmul.allow_tf32 = bool(config.get("tf32", False))
+    torch.backends.cudnn.allow_tf32 = bool(config.get("tf32", False))
     model = build_model(str(config["family"]), config).to(target_device)
     optimizer_cfg = dict(config.get("optimizer", {}))
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(optimizer_cfg.get("lr", 1e-3)),
@@ -1118,6 +1127,8 @@ def fit(config: Mapping[str, Any], data: PreparedData, output: Path, *, device: 
         eta_min=initial_lr * float(config.get("scheduler", {}).get("final_lr_fraction", 0.1)),
     )
     x, y = data.x.to(target_device), data.y.to(target_device)
+    if not len(x):
+        raise ValueError("The actual training cohort is empty")
     completed, permutation, cursor = 0, torch.randperm(len(x), device=target_device), 0
     observations: list[dict[str, float]] = []
     elapsed_before = 0.0
@@ -1138,15 +1149,19 @@ def fit(config: Mapping[str, Any], data: PreparedData, output: Path, *, device: 
     with log_path.open("a" if resume else "w", encoding="utf-8", newline="\n") as log:
         while completed < total_updates:
             batch_size = int(config["batch_size"])
-            if cursor + batch_size <= len(x):
-                indices = permutation[cursor:cursor + batch_size]
-                cursor += batch_size
-            else:
-                tail = permutation[cursor:]
-                permutation = torch.randperm(len(x), device=target_device)
-                needed = batch_size - len(tail)
-                indices = torch.cat((tail, permutation[:needed]))
-                cursor = needed
+            # A legal revised cohort can be smaller than its registered batch.
+            # Traverse as many seeded permutations as needed, preserving the
+            # physical batch and the exact cursor for interrupted execution.
+            parts, remaining = [], batch_size
+            while remaining:
+                if cursor >= len(permutation):
+                    permutation = torch.randperm(len(x), device=target_device)
+                    cursor = 0
+                take = min(remaining, len(permutation) - cursor)
+                parts.append(permutation[cursor:cursor + take])
+                cursor += take
+                remaining -= take
+            indices = parts[0] if len(parts) == 1 else torch.cat(parts)
             xb, yb = x[indices], y[indices]
             if config["family"] == "bloodmnist" and config.get("augmentation", "none") in ("rot90", "rot90_hflip"):
                 turns = torch.randint(0, 4, (len(xb),), device=target_device)
@@ -1190,7 +1205,7 @@ def fit(config: Mapping[str, Any], data: PreparedData, output: Path, *, device: 
     })
     receipt = {
         "status": "SUCCEEDED", "work_id": config["work_id"], "phase": config["phase"],
-        "formal_score_eligible": bool(config.get("formal_score_eligible", config["phase"] != "pilot")),
+        "formal_score_eligible": bool(config.get("formal_score_eligible", config["phase"] == "formal")),
         "task_id": config["task_id"], "configuration_id": config["configuration_id"],
         "dataset_version_id": config["dataset_version_id"], "seed": int(config["seed"]),
         "completed_updates": completed, "optimizer_updates_required": total_updates,
@@ -1377,7 +1392,7 @@ def cli(argv: Sequence[str] | None = None) -> int:
         print(json.dumps({"shape_check": "PASS", "phase": args.phase, "task_id": config["task_id"],
                           "train_shape": list(data.x.shape), "validation_shape": list(data.validation_x.shape),
                           "model_output_shape": list(result.shape), "optimizer_updates": 0,
-                          "formal_score_eligible": config.get("formal_score_eligible", args.phase != "pilot")}, sort_keys=True))
+                          "formal_score_eligible": config.get("formal_score_eligible", args.phase == "formal")}, sort_keys=True))
         return 0
     if args.device == "cpu" and config.get("phase") != "runtime_regression":
         raise RuntimeError("CPU fits are restricted to synthetic runtime regression")
