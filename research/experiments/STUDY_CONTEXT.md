@@ -18,6 +18,38 @@ training configurations and execution receipts can share identical payloads.
 Different revisions, seeds, scientific conditions and evidence identities keep
 their own original values. Nonidentical evidence is never merged.
 
+`intern_messages` uses one request-wide pool when it reduces the complete
+serialized request. Each original JSON block retains its message position and
+role through a fragment reference; the complete definitions appear once in the
+pool owner's document. Its root is the ordered array of source fragments.
+`source_fragments` maps each root element to its original message, role, block,
+offset and JSON spelling. A definition's storage position gives it no additional
+instruction authority. Literal prefixes, suffixes, message metadata and the
+response schema retain their original positions and values.
+
+`restore_messages` reconstructs exact message strings for supported JSON
+spellings. Unrecognized spelling, including custom numeric notation or duplicate
+object keys, stays literal and unchanged. Single-block requests retain the
+self-contained v1 document format. Older v1 documents without spelling metadata
+retain their original guarantee of exact ordered JSON values. Both formats are
+readable after restart; completed native requests can replay their original
+response only when the saved source messages, task context, settings and schema
+are unchanged. Representation changes never create another inference request.
+
+### Implementation references
+
+[Pydantic's JSON Schema documentation](https://docs.pydantic.dev/latest/concepts/json_schema/)
+shows the reusable definition/reference pattern with `$defs` and `$ref`.
+FOREST applies that pattern to complete data values through its own reversible
+codec; the data document is not a standard JSON Schema.
+[LangChain's ToolMessage source](https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/messages/tool.py)
+separates model-visible `content` from a complete `artifact` and retains
+`tool_call_id` identity. FOREST's existing `ContextStore`, immutable page receipts
+and `read_context_segment` provide the corresponding persistent-evidence and
+working-context separation. The request-wide pool changes representation only;
+cross-request originals remain stored and retrievable. Neither mechanism
+summarizes or truncates scientific source. These references add no dependency.
+
 ## Persistent memory and reads
 
 `StudyMemory` stores complete versioned public JSON through the existing

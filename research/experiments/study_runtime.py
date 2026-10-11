@@ -217,43 +217,9 @@ def _restore_strict_optional_nulls(value: Any, schema: Mapping[str, Any]) -> Any
 
 
 def _intern_delivered_messages(messages: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Losslessly intern repeated subtrees in large structured user messages."""
-    from .study_context import intern_json_with_stats
-    delivered = copy.deepcopy([dict(message) for message in messages])
-    records = []
-    for index, message in enumerate(delivered):
-        if message.get("role") != "user" or not isinstance(message.get("content"), str):
-            continue
-        content = message["content"]
-        decoder = json.JSONDecoder()
-        starts = {0}
-        for match in re.finditer(r"\n[ \t]*[\[{]", content):
-            starts.add(match.end() - 1)
-        for match in re.finditer(r":[ \t]*[\[{]", content):
-            starts.add(match.end() - 1)
-        best = None
-        consumed_until = -1
-        for start in sorted(starts):
-            if start < consumed_until:
-                continue
-            try:
-                value, end = decoder.raw_decode(content[start:])
-                document, stats = intern_json_with_stats(value)
-            except (ValueError, TypeError, RecursionError):
-                continue
-            consumed_until = start + end
-            if stats["saved_characters"] > 0 and (best is None or stats["saved_characters"] > best[0]):
-                best = (stats["saved_characters"], start, end, document, stats)
-        if best is None:
-            continue
-        _, start, end, document, stats = best
-        suffix = content[start + end:]
-        introduction = ("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows. Read its instructions and expand every reference "
-            "that matters for your decision. All original keys, list order, values and source positions are preserved.\n")
-        message["content"] = content[:start] + introduction + _json(document) + suffix
-        records.append({"message_index": index, **stats,
-            "delivered_content_characters": len(message["content"])})
-    return delivered, records
+    """Use one lossless reference pool across the complete delivered request."""
+    from .study_context import intern_messages
+    return intern_messages(messages)
 
 
 def _validate_action_bindings(payload: Mapping[str, Any], actions: Sequence[Any]) -> None:
@@ -2782,9 +2748,6 @@ class StudyRuntime:
             if prior["state"] == "completed":
                 return {"action_work_id": work_id, "kind": binding["kind"], "state": "completed",
                         "result": json.loads(prior["result_json"] or "{}")}
-            if prior["state"] in {"failed", "cancelled", "budget_exhausted"}:
-                return {"action_work_id": work_id, "kind": binding["kind"], "state": prior["state"],
-                        "result": json.loads(prior["result_json"] or "{}")}
         else:
             budget = self.episode_budget_status(episode)
             if binding["kind"] in {"fit", "infer"}:
@@ -2803,6 +2766,28 @@ class StudyRuntime:
                     spec["fit_timeout_seconds"] = min(float(spec.get("fit_timeout_seconds", remaining_gpu)),
                         remaining_gpu)
                     binding["inference_spec"] = spec
+        if binding.get("kind") == "analysis" and binding.get("analysis_operation") in {"select", "compare"}:
+            from .study_prerequisites import inspect_analysis_prerequisites
+            with self.ledger.connect() as db:
+                def source_work(source_id):
+                    row = db.execute("SELECT * FROM forest_study_work WHERE campaign_id=? AND work_id=?",
+                        (self.campaign_id, source_id)).fetchone()
+                    return dict(row) if row else None
+                compute_exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_compute_work'").fetchone()
+                def supervisor_work(source_id):
+                    if not compute_exists:
+                        return None
+                    row = db.execute("SELECT work_id,state FROM forest_compute_work WHERE ledger_id=? AND work_id=?",
+                        (self.ledger_id, source_id)).fetchone()
+                    return dict(row) if row else None
+                prerequisite = inspect_analysis_prerequisites(binding, registered_actions=bindings,
+                    study_work_lookup=source_work, supervisor_work_lookup=supervisor_work)
+            if prerequisite is not None:
+                return {"action_work_id": work_id, "kind": "analysis", "state": "retryable",
+                    "reason": "MISSING_PREREQUISITES", "request_new_decision": True, "result": prerequisite}
+        if prior and prior["state"] in {"failed", "cancelled", "budget_exhausted"}:
+            return {"action_work_id": work_id, "kind": binding["kind"], "state": prior["state"],
+                    "result": json.loads(prior["result_json"] or "{}")}
         if binding.get("analysis_operation") == "compare" and binding.get("selection_work_id"):
             with self.ledger.connect() as db:
                 selection = db.execute("SELECT state,result_json FROM forest_study_work WHERE campaign_id=? AND work_id=?",

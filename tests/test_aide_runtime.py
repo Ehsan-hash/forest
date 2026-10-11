@@ -271,6 +271,15 @@ def test_native_debugs_actual_failed_cpu_action_program(tmp_path, native_upstrea
 def test_native_replans_after_unqueued_source_precondition_feedback(tmp_path, native_upstream):
     runtime, item = _runtime(tmp_path, native_upstream)
     compare_id = "native-compare-before-select"
+    anchor_receipt, candidate_receipt = tmp_path / "anchor.json", tmp_path / "candidate.json"
+    for path, work_id, configuration_id, value in (
+        (anchor_receipt, "native-anchor-evidence", "anchor", 1.0),
+        (candidate_receipt, "native-candidate-evidence", "candidate", 0.8),
+    ):
+        path.write_text(json.dumps({"status": "SUCCEEDED", "work_id": work_id,
+            "configuration_id": configuration_id, "seed": 11,
+            "validation_metrics": {"mae": value}, "hidden_test_opened": False,
+            "formal_score_eligible": False, "test_fixture": "nonformal"}), encoding="utf-8")
     item["payload"]["decision_schema"] = {"type": "object",
         "required": ["mode", "actions", "submission", "rationale"],
         "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
@@ -281,8 +290,11 @@ def test_native_replans_after_unqueued_source_precondition_feedback(tmp_path, na
     item["payload"]["action_bindings"] = [{"work_id": compare_id, "kind": "analysis",
         "action_name": "compare", "analysis_operation": "compare",
         "selection_work_id": "selection-not-yet-run", "compared_configuration_ids": ["anchor", "candidate"],
-        "evidence": [{"work_id": "candidate-evidence", "configuration_id": "candidate",
-            "seed": 11, "state": "not_run", "receipt_path": str(tmp_path / "missing.json")}]}]
+        "evidence": [{"work_id": "native-anchor-evidence", "configuration_id": "anchor",
+            "seed": 11, "receipt_path": str(anchor_receipt)},
+            {"work_id": "native-candidate-evidence", "configuration_id": "candidate",
+                "seed": 11, "receipt_path": str(candidate_receipt)}],
+        "pairs": [{"left": "native-anchor-evidence", "right": "native-candidate-evidence"}]}]
     decision = {"mode": "action", "actions": [{"kind": "compare", "action_work_id": compare_id}],
         "submission": {}, "rationale": "Nonformal native replan fixture."}
     code = "import json\ndecision = " + repr(decision) + "\nprint(json.dumps(decision))\n"
@@ -315,6 +327,77 @@ def test_native_replans_after_unqueued_source_precondition_feedback(tmp_path, na
     recovered_item["payload"] = dict(item["payload"])
     resumed = run_aide_episode(recovered, recovered_item, client=client)
     assert resumed["native_completed_steps"] == 2
+    assert len(client.calls) == 4
+
+
+def test_native_missing_analysis_prerequisite_replans_without_phantom_pending_child(tmp_path, native_upstream):
+    runtime, item = _runtime(tmp_path, native_upstream)
+    candidate_receipt = tmp_path / "not-yet-run-inference.json"
+    anchor_receipt = tmp_path / "existing-anchor-inference.json"
+    anchor_receipt.write_text(json.dumps({"status": "SUCCEEDED", "work_id": "anchor-infer-11",
+        "configuration_id": "anchor", "seed": 11, "validation_metrics": {"mae": 1.0},
+        "hidden_test_opened": False, "formal_score_eligible": False,
+        "test_fixture": "nonformal"}), encoding="utf-8")
+    compare_id, infer_id, inspect_id = "native-select-missing", "native-candidate-infer", "native-inspect"
+    item["payload"]["allowed_decisions"] = ["compare", "inspect", "infer"]
+    item["payload"]["decision_schema"] = {"type": "object",
+        "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
+            "type": "object", "required": ["kind", "action_work_id"], "properties": {
+                "kind": {"type": "string"}, "action_work_id": {"type": "string"}}}},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    item["payload"]["action_bindings"] = [
+        {"work_id": infer_id, "kind": "infer", "action_name": "infer", "configuration_id": "candidate",
+            "seed": 11, "inference_spec": {"config_path": str(tmp_path / "candidate.json"),
+                "checkpoint_path": str(tmp_path / "candidate.pt"),
+                "output_directory": str(candidate_receipt.parent / "candidate-output")}},
+        {"work_id": compare_id, "kind": "analysis", "action_name": "compare",
+            "analysis_operation": "compare", "selection_work_id": "selection-not-yet-run",
+            "compared_configuration_ids": ["anchor", "candidate"], "evidence": [
+                {"work_id": "anchor-infer-11", "configuration_id": "anchor", "seed": 11,
+                    "receipt_path": str(anchor_receipt)},
+                {"work_id": infer_id, "configuration_id": "candidate", "seed": 11,
+                    "receipt_path": str(candidate_receipt)}],
+            "pairs": [{"left": "anchor-infer-11", "right": infer_id}]},
+        {"work_id": inspect_id, "kind": "analysis", "action_name": "inspect",
+            "analysis_operation": "inspect", "evidence": [{"work_id": infer_id,
+                "configuration_id": "candidate", "seed": 11, "state": "not_run", "metrics": {}}],
+            "output_path": str(tmp_path / "inspect.json")},
+    ]
+
+    def action_program(kind, work_id):
+        decision = {"mode": "action", "actions": [{"kind": kind, "action_work_id": work_id}],
+            "submission": {}, "rationale": "Nonformal native prerequisite fixture."}
+        return "import json\ndecision = " + repr(decision) + "\nprint(json.dumps(decision))\n"
+
+    def draft(kind, work_id):
+        return "Nonformal native prerequisite draft.\n```python\n" + action_program(kind, work_id) + "```"
+
+    client = NonformalClient([draft("compare", compare_id), _review(buggy=True),
+        draft("inspect", inspect_id), _review(buggy=True)])
+    first = run_aide_episode(runtime, item, client=client)
+
+    assert first["state"] == "retryable"
+    assert first["pending_action"] is False
+    assert first["pending_work_ids"] == []
+    assert first["native_completed_steps"] == 1
+    result = first["action_result"]
+    assert result["exc_type"] == "ScientificActionNeedsReplan"
+    prerequisite_action = result["action_results"][0]
+    assert prerequisite_action["request_new_decision"] is True
+    assert prerequisite_action["result"]["status"] == "MISSING_PREREQUISITES"
+    assert prerequisite_action["result"]["missing_work_ids"] == [infer_id]
+
+    with runtime.ledger.connect() as db:
+        assert db.execute("SELECT 1 FROM forest_study_work WHERE work_id=?", (compare_id,)).fetchone() is None
+        session = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE work_id='native-episode'").fetchone()
+    assert json.loads(session[0])["pending"] is None
+
+    recovered, recovered_item = _runtime(tmp_path, native_upstream)
+    recovered_item["payload"] = dict(item["payload"])
+    resumed = run_aide_episode(recovered, recovered_item, client=client)
+    assert resumed["native_completed_steps"] == 2
+    assert resumed["action_result"]["action_results"][0]["action_work_id"] == inspect_id
     assert len(client.calls) == 4
 
 

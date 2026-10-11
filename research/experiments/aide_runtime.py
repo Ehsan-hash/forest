@@ -206,7 +206,7 @@ def _review_task_description(native, stdout):
 
 def _legacy_native_prompt_equivalent(saved, current):
     """Verify an old full-context prompt matches after reversible interning."""
-    from .study_context import restore_json
+    from .study_context import restore_messages
     original = current.get("original_task_messages")
     if not isinstance(original, list):
         return False
@@ -241,34 +241,36 @@ def _legacy_native_prompt_equivalent(saved, current):
     try:
         # The outer task serialization is ordinary JSON; selected user message
         # bodies may contain their own reversible tagged documents.
-        if task_context.startswith("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows."):
-            _, outer_document_text = task_context.split("\n", 1)
-            outer_document, _ = json.JSONDecoder().raw_decode(outer_document_text)
-            delivered_task = restore_json(outer_document)
-        else:
-            delivered_task = json.loads(task_context)
-        if not isinstance(delivered_task, list) or len(delivered_task) != len(original):
+        outer = restore_messages([{"role": "user", "content": task_context}])[0]["content"]
+        delivered_task = json.loads(outer)
+        if not isinstance(delivered_task, list) or restore_messages(delivered_task) != original:
             return False
-        for before, after in zip(original, delivered_task):
-            if not isinstance(before, Mapping) or not isinstance(after, Mapping) or before.get("role") != after.get("role"):
-                return False
-            before_content, after_content = before.get("content"), after.get("content")
-            if not isinstance(before_content, str) or not isinstance(after_content, str):
-                if before_content != after_content:
-                    return False
-                continue
-            if after_content.startswith("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows."):
-                _, encoded = after_content.split("\n", 1)
-                document, _ = json.JSONDecoder().raw_decode(encoded)
-                if restore_json(document) != json.loads(before_content):
-                    return False
-            elif after_content != before_content:
-                return False
         old_normalized, old_count = replace_exact(saved_messages, old_needles)
         new_normalized, new_count = replace_exact(current_messages, new_needles)
     except (ValueError, TypeError, RecursionError):
         return False
     return old_count > 0 and new_count > 0 and old_normalized == new_normalized
+
+
+def _native_serialization_equivalent(saved, current):
+    """Replay an unchanged saved native source after a representation upgrade."""
+    if (not isinstance(saved.get("original_messages"), list)
+            or saved["original_messages"] != current.get("original_messages")):
+        return False
+    # These fields derive from the delivered representation or the current
+    # remaining allowance. Every original source, setting and schema must match.
+    presentation = {"messages", "context_encoding", "request_payload", "source_output_allocation",
+        "effective_timeout_seconds", "max_output_tokens", "transport_trace_path"}
+    if ({key: value for key, value in saved.items() if key not in presentation}
+            != {key: value for key, value in current.items() if key not in presentation}):
+        return False
+    before, after = deepcopy(saved.get("request_payload")), deepcopy(current.get("request_payload"))
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return before == after
+    for payload in (before, after):
+        payload.pop("messages", None)
+        payload.pop("max_output_tokens", None)
+    return before == after
 
 
 def _query_router(*args, **kwargs):
@@ -530,7 +532,7 @@ class NativeBackend:
                     legacy_prompt_match = (legacy_prompt_match and
                         all(saved.get(name) == request.get(name) for name in stable_fields) and
                         saved_config == request_config)
-                if previous != comparison and not legacy_prompt_match:
+                if previous != comparison and not legacy_prompt_match and not _native_serialization_equivalent(saved, request):
                     raise ValueError("A native request identity was reused with different full messages/settings")
                 if row["status"] != "completed" or not row["response_json"]:
                     raise RuntimeError("Unsettled native model request requires reconciliation; it cannot be repeated")

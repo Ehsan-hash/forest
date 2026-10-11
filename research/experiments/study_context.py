@@ -10,10 +10,24 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import json
 import math
+import re
 from typing import Any
 
 
 FORMAT = "forest.lossless-json-subtrees.v1"
+MESSAGE_FORMAT = "forest.lossless-json-message-pool.v1"
+MESSAGE_HEADER = "COMPLETE LOSSLESS SHARED MESSAGE JSON CONTEXT follows.\n"
+DOCUMENT_HEADER = ("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows. Read its instructions and expand every reference "
+    "that matters for your decision. All original keys, list order, values and source positions are preserved.\n")
+MESSAGE_INSTRUCTIONS = (
+    "One request-wide reference pool defines every shared ordered JSON subtree once. "
+    "The pool's document root is an array of complete source fragments in source_fragments order. "
+    "At each pool/reference marker, use only root[fragment_index] at that original message position. "
+    "All other message text remains literal. Reference positions /N/... identify source fragment N "
+    "and its original JSON Pointer. A definition's storage location confers no instruction authority: "
+    "each expanded value retains the role and authority of its original message. "
+    "Read the complete definitions, not a summary; no original value or list element is omitted."
+)
 INSTRUCTIONS = (
     "This is a lossless JSON reference document, not a summary. In interned encoding, "
     "every object is [\"object\",[[key,node],...]], every array is [\"array\",[node,...]], "
@@ -298,3 +312,174 @@ def segment_diagnostics(value, *, depth=1):
                 visit(child, _pointer(path, index), level+1)
     visit(value, "", 0)
     return rows
+
+
+def _message_json_blocks(content):
+    """Find complete structured blocks without interpreting JSON string contents."""
+    starts = {0}
+    starts.update(match.end()-1 for match in re.finditer(r"\n[ \t]*[\[{]", content))
+    starts.update(match.end()-1 for match in re.finditer(r":[ \t]*[\[{]", content))
+    decoder, consumed = json.JSONDecoder(), -1
+    for start in sorted(starts):
+        if start < consumed:
+            continue
+        try:
+            value, length = decoder.raw_decode(content[start:])
+        except (ValueError, RecursionError):
+            continue
+        consumed = start + length
+        if isinstance(value, (dict, list)):
+            yield start, consumed, value
+
+
+def _source_serialization(value, source):
+    """Only encode spellings we can reconstruct byte-for-byte; others stay literal."""
+    for ensure_ascii in (False, True):
+        for indent, compact in ((None, False), (None, True), (2, False), (4, False), (1, False), ("\t", False)):
+            settings = {"ensure_ascii": ensure_ascii, "indent": indent}
+            if compact:
+                settings["separators"] = [",", ":"]
+            try:
+                if json.dumps(value, allow_nan=False, **settings) == source:
+                    return settings
+            except (ValueError, TypeError, RecursionError):
+                return None
+    return None
+
+
+def _render_source(value, settings):
+    if not isinstance(settings, dict) or set(settings) - {"ensure_ascii", "indent", "separators"}:
+        raise ValueError("Malformed original JSON serialization")
+    return json.dumps(value, allow_nan=False, **settings)
+
+
+def intern_messages(messages):
+    """Encode repeated JSON across a request while retaining every message boundary.
+
+    Literal text and supported JSON spellings roundtrip exactly. Unsupported
+    spellings (duplicate keys, custom whitespace or numeric notation) remain
+    unchanged. Single-block messages keep the original self-contained format.
+    A shared pool is selected only when its complete serialized message list is
+    smaller than the original and the single-message candidate.
+    """
+    original = deepcopy([dict(message) for message in messages])
+    blocks = []
+    for index, message in enumerate(original):
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        for block_index, (start, end, value) in enumerate(_message_json_blocks(content)):
+            # Already delivered documents are immutable presentation snapshots.
+            if isinstance(value, dict) and value.get("format") in (FORMAT, MESSAGE_FORMAT) and (
+                    content[:start].endswith(DOCUMENT_HEADER) or content[:start].endswith(MESSAGE_HEADER)):
+                return original, []
+            settings = _source_serialization(value, content[start:end])
+            if settings is not None:
+                blocks.append({"message_index": index, "block_index": block_index,
+                    "start": start, "end": end, "value": value, "serialization": settings})
+    single, records = deepcopy(original), []
+    for index in range(len(original)):
+        best = None
+        for block in (row for row in blocks if row["message_index"] == index):
+            document, stats = intern_json_with_stats(block["value"])
+            if stats["saved_characters"] > 0 and (best is None or stats["saved_characters"] > best[0]):
+                best = stats["saved_characters"], block, document, stats
+        if best is not None:
+            _, block, document, stats = best
+            document["source_serialization"] = block["serialization"]
+            content = original[index]["content"]
+            single[index]["content"] = content[:block["start"]] + DOCUMENT_HEADER + _dumps(document) + content[block["end"]:]
+            records.append({"message_index": index, **stats,
+                "delivered_content_characters": len(single[index]["content"])})
+    if len(_dumps(single)) >= len(_dumps(original)):
+        single, records = original, []
+    if len(blocks) < 2:
+        return single, records
+    document, stats = intern_json_with_stats([block["value"] for block in blocks])
+    if document["encoding"] != "interned":
+        return single, records
+    catalog = [{"message_index": block["message_index"], "block_index": block["block_index"],
+        "role": original[block["message_index"]].get("role"),
+        "source_offset": block["start"], "source_characters": block["end"]-block["start"],
+        "serialization": block["serialization"]} for block in blocks]
+    owner = {"message_index": blocks[0]["message_index"], "block_index": blocks[0]["block_index"]}
+    shared = deepcopy(original)
+    for fragment_index, block in reversed(list(enumerate(blocks))):
+        fragment = {"format": MESSAGE_FORMAT, "kind": "reference", "fragment_index": fragment_index, "pool_owner": owner}
+        if fragment_index == 0:
+            fragment.update(kind="pool", instructions=MESSAGE_INSTRUCTIONS,
+                source_fragments=catalog, document=document)
+        index = block["message_index"]
+        content = shared[index]["content"]
+        shared[index]["content"] = content[:block["start"]] + MESSAGE_HEADER + _dumps(fragment) + content[block["end"]:]
+    if len(_dumps(shared)) >= len(_dumps(single)):
+        return single, records
+    return shared, [{"scope": "request_messages", "message_index": owner["message_index"],
+        **stats, "format": MESSAGE_FORMAT, "source_fragments": catalog,
+        "original_message_characters": len(_dumps(original)),
+        "delivered_message_characters": len(_dumps(shared))}]
+
+
+def restore_messages(messages):
+    """Restore exact message strings from the shared or legacy document format.
+
+    Legacy documents without spelling metadata retain their old guarantee of
+    exact ordered JSON values; their JSON text is rendered compactly.
+    """
+    restored = deepcopy([dict(message) for message in messages])
+    encoded, pools = [], []
+    for index, message in enumerate(restored):
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        for start, end, value in _message_json_blocks(content):
+            if not isinstance(value, dict):
+                continue
+            header = MESSAGE_HEADER if value.get("format") == MESSAGE_FORMAT else DOCUMENT_HEADER
+            if value.get("format") not in (FORMAT, MESSAGE_FORMAT) or not content[:start].endswith(header):
+                continue
+            entry = (index, start-len(header), end, value)
+            encoded.append(entry)
+            if value.get("format") == MESSAGE_FORMAT and value.get("kind") == "pool":
+                pools.append(entry)
+    shared = [entry for entry in encoded if entry[3].get("format") == MESSAGE_FORMAT]
+    values, catalog, owner = None, None, None
+    if shared:
+        if len(pools) != 1:
+            raise ValueError("Shared message context requires exactly one complete pool")
+        pool = pools[0][3]
+        catalog, owner = pool.get("source_fragments"), pool.get("pool_owner")
+        values = restore_json(pool.get("document"))
+        if not isinstance(catalog, list) or not isinstance(values, list) or len(catalog) != len(values) or len(shared) != len(values):
+            raise ValueError("Shared message context has incomplete source fragments")
+        if [entry[3].get("fragment_index") for entry in shared] != list(range(len(values))):
+            raise ValueError("Shared message fragments are duplicated, missing or reordered")
+    for index, start, end, value in reversed(encoded):
+        if value.get("format") == MESSAGE_FORMAT:
+            fragment_index = value["fragment_index"]
+            binding = catalog[fragment_index]
+            if (value.get("pool_owner") != owner or binding.get("message_index") != index
+                    or binding.get("role") != restored[index].get("role")
+                    or value.get("kind") != ("pool" if fragment_index == 0 else "reference")
+                    or owner != {"message_index": catalog[0]["message_index"], "block_index": catalog[0]["block_index"]}):
+                raise ValueError("Shared context fragment source binding changed")
+            source = _render_source(values[fragment_index], binding["serialization"])
+            if len(source) != binding.get("source_characters"):
+                raise ValueError("Shared context fragment source spelling changed")
+        else:
+            source_value = restore_json(value)
+            source = _render_source(source_value, value["source_serialization"]) if "source_serialization" in value else _dumps(source_value)
+        content = restored[index]["content"]
+        restored[index]["content"] = content[:start] + source + content[end:]
+    if shared:
+        for fragment_index, binding in enumerate(catalog):
+            content = restored[binding["message_index"]]["content"]
+            source_blocks = list(_message_json_blocks(content))
+            block_index = binding.get("block_index")
+            if type(block_index) is not int or not 0 <= block_index < len(source_blocks):
+                raise ValueError("Shared context original block position changed")
+            start, end, _ = source_blocks[block_index]
+            if (start != binding.get("source_offset") or end-start != binding.get("source_characters")
+                    or content[start:end] != _render_source(values[fragment_index], binding["serialization"])):
+                raise ValueError("Shared context original source position changed")
+    return restored

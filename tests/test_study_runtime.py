@@ -953,8 +953,8 @@ def test_scripted_client_infrastructure_dispatch_runs_manifest_bound_analysis(tm
     campaign.mkdir()
     left = campaign / "left.json"
     right = campaign / "right.json"
-    left.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
-    right.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
+    left.write_text('{"status":"SUCCEEDED","work_id":"left","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
+    right.write_text('{"status":"SUCCEEDED","work_id":"right","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
     analysis = {"work_id": "analysis-child", "kind": "analysis", "analysis_operation": "select",
         "metric": "mae", "direction": "minimize", "require_formal": True,
         "evidence": [{"work_id": "left", "receipt_path": str(left)}, {"work_id": "right", "receipt_path": str(right)}]}
@@ -999,8 +999,8 @@ def test_repeated_cached_action_returns_semantic_no_progress_feedback(tmp_path):
     campaign.mkdir()
     left = campaign / "left.json"
     right = campaign / "right.json"
-    left.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
-    right.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
+    left.write_text('{"status":"SUCCEEDED","work_id":"left","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
+    right.write_text('{"status":"SUCCEEDED","work_id":"right","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
     analysis = {"work_id": "analysis-child", "kind": "analysis", "analysis_operation": "select",
         "metric": "mae", "direction": "minimize", "require_formal": True,
         "evidence": [{"work_id": "left", "receipt_path": str(left)}, {"work_id": "right", "receipt_path": str(right)}]}
@@ -1385,11 +1385,23 @@ def test_invalid_actual_response_is_saved_and_gets_one_evidence_bound_repair_tur
 def test_source_precondition_replan_survives_restart_and_uses_fresh_model_decision(tmp_path, arm):
     campaign = tmp_path / "campaign"
     campaign.mkdir()
+    anchor_receipt, candidate_receipt = campaign / "anchor.json", campaign / "candidate.json"
+    for path, work_id, configuration_id, value in (
+        (anchor_receipt, "anchor-evidence", "anchor", 1.0),
+        (candidate_receipt, "candidate-evidence", "candidate", 0.8),
+    ):
+        path.write_text(json.dumps({"status": "SUCCEEDED", "work_id": work_id,
+            "configuration_id": configuration_id, "seed": 11,
+            "validation_metrics": {"mae": value}, "hidden_test_opened": False,
+            "formal_score_eligible": False, "test_fixture": "nonformal"}), encoding="utf-8")
     compare = {"work_id": "compare-before-select", "kind": "analysis", "action_name": "compare",
         "analysis_operation": "compare", "selection_work_id": "selection-not-yet-run",
         "compared_configuration_ids": ["anchor", "candidate"], "evidence": [
+            {"work_id": "anchor-evidence", "configuration_id": "anchor", "seed": 11,
+             "receipt_path": str(anchor_receipt)},
             {"work_id": "candidate-evidence", "configuration_id": "candidate", "seed": 11,
-             "state": "not_run", "receipt_path": str(campaign / "missing-candidate-receipt.json")}]}
+             "receipt_path": str(candidate_receipt)}],
+        "pairs": [{"left": "anchor-evidence", "right": "candidate-evidence"}]}
     inspect = {"work_id": "inspect-current-state", "kind": "analysis", "action_name": "inspect",
         "analysis_operation": "inspect", "evidence": [{"work_id": "candidate-evidence",
             "configuration_id": "candidate", "seed": 11, "state": "not_run", "metrics": {}}],
