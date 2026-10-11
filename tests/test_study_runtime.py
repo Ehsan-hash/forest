@@ -1,0 +1,1172 @@
+import json
+import sqlite3
+
+import pytest
+
+from research.experiments.study_runtime import (StudyLedger, StudyRuntime,
+    _manifest_work_items, _manifest_edges, _known_source_preflight_failure,
+    numpy_score_predictions, _normalize_episode_payload, _episode_mutation_id,
+    _c2_evaluation_overrides, _episode_metric_contract, verify_episode_submission,
+    execute_registered_analysis)
+
+
+def manifest(items, edges=(), *, version=1):
+    return {
+        "campaign_id": "campaign-test", "manifest_id": "manifest-test",
+        "manifest_version": version, "external_ledger_id": "ledger-test",
+        "execution_state": {"task_queue": items},
+        "graph": {"edges": [dict(source=s, target=t, relation=r) for s, t, r in edges]},
+    }
+
+
+def item(work_id, **extra):
+    return {"work_id": work_id, "phase": "formal", "kind": "fit",
+            "configuration_path": f"/tmp/{work_id}.json", "fit_timeout_seconds": 10,
+            "output_directory": f"/tmp/out-{work_id}", **extra}
+
+
+def test_manifest_registration_versions_only_unlaunched_work_revisions(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    data = manifest([item("fit-1")])
+    assert ledger.register(data) == {"inserted": 1, "unchanged": 0, "revised": 0, "work_items_seen": 1}
+    assert ledger.register(data) == {"inserted": 0, "unchanged": 1, "revised": 0, "work_items_seen": 1}
+    changed = manifest([item("fit-1", optimizer_updates=100)], version=2)
+    assert ledger.register(changed) == {"inserted": 0, "unchanged": 0, "revised": 1, "work_items_seen": 1}
+    with ledger.connect() as db:
+        current = json.loads(db.execute("SELECT payload_json FROM forest_study_work WHERE work_id='fit-1'").fetchone()[0])
+        prior = db.execute("SELECT manifest_version,old_payload_json,new_payload_json FROM forest_study_work_revisions WHERE work_id='fit-1'").fetchone()
+        event = db.execute("SELECT count(*) FROM forest_study_events WHERE work_id='fit-1' AND event_type='planned_work_revised'").fetchone()[0]
+    assert current["optimizer_updates"] == 100
+    assert prior[0] == 2 and json.loads(prior[1]).get("optimizer_updates") is None
+    assert json.loads(prior[2])["optimizer_updates"] == 100
+    assert event == 1
+    changed_again = manifest([item("fit-1", optimizer_updates=200)], version=2)
+    with pytest.raises(ValueError, match="changed conditions"):
+        ledger.register(changed_again)
+    with ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM forest_study_work").fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("external_evidence", ["claim", "released_claim", "supervisor", "model_call", "fit_attempt"])
+def test_manifest_revision_rejected_after_claim_or_external_execution_evidence(tmp_path, external_evidence):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([item("fit-1")]))
+    if external_evidence == "claim":
+        claimed = ledger.claim("campaign-test", "worker")
+        assert claimed["work_id"] == "fit-1"
+    elif external_evidence == "released_claim":
+        claimed = ledger.claim("campaign-test", "worker")
+        ledger.release_claim("campaign-test", "fit-1", "worker")
+    elif external_evidence == "supervisor":
+        with ledger.connect() as db:
+            db.execute("CREATE TABLE forest_compute_work(work_id TEXT PRIMARY KEY)")
+            db.execute("INSERT INTO forest_compute_work VALUES('fit-1')")
+    elif external_evidence == "model_call":
+        with ledger.connect() as db:
+            db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at) VALUES('req','campaign-test','fit-1','{}','completed',1)")
+    else:
+        with ledger.connect() as db:
+            db.execute("INSERT INTO forest_study_fit_attempts VALUES(?,?,?,?,?,?,?,?,?)",
+                ("campaign-test", "fit-1", 0, "fit-1", "/tmp/out", "prepared", None, 1.0, 1.0))
+    changed = manifest([item("fit-1", optimizer_updates=100)], version=2)
+    with pytest.raises(ValueError, match="changed conditions after claim/execution"):
+        ledger.register(changed)
+
+
+def test_runtime_manifest_reload_skips_unchanged_document_and_registers_new_revision(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    path = campaign / "manifest.json"
+    data = manifest([item("fit-1")])
+    path.write_text(json.dumps(data), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                          ledger_id="ledger-test", manifest=path)
+    with runtime.ledger.connect() as db:
+        events_before = db.execute("SELECT count(*) FROM forest_study_events WHERE event_type='manifest_registered'").fetchone()[0]
+    runtime.reload_manifest()
+    with runtime.ledger.connect() as db:
+        events_after = db.execute("SELECT count(*) FROM forest_study_events WHERE event_type='manifest_registered'").fetchone()[0]
+    assert events_after == events_before
+    data["manifest_version"] = 2
+    data["execution_state"]["task_queue"].append(item("fit-2"))
+    path.write_text(json.dumps(data), encoding="utf-8")
+    runtime.reload_manifest()
+    assert runtime.ledger.counts("campaign-test")["queued"] == 2
+
+
+def test_claim_waits_for_required_edge_but_derived_from_is_nonblocking(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    data = manifest([item("parent"), item("child-requires"), item("child-derived")], [
+        ("parent", "child-requires", "requires_valid_execution"),
+        ("parent", "child-derived", "derived_from"),
+    ])
+    ledger.register(data)
+    first = ledger.claim("campaign-test", "worker")
+    parent_id = first["work_id"]
+    assert parent_id in {"parent", "child-derived"}
+    ledger.set_state("campaign-test", parent_id, "running")
+    # Derived lineage does not create a scheduling deadlock.
+    next_item = ledger.claim("campaign-test", "worker")
+    if parent_id == "parent":
+        assert next_item["work_id"] == "child-derived"
+        ledger.set_state("campaign-test", "child-derived", "completed")
+        assert ledger.claim("campaign-test", "worker") is None
+        ledger.set_state("campaign-test", "parent", "completed")
+        assert ledger.claim("campaign-test", "worker")["work_id"] == "child-requires"
+    else:
+        assert next_item["work_id"] == "child-requires" or next_item["work_id"] == "child-derived"
+
+
+def test_claim_heartbeat_and_release_preserve_retryable_work(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([item("fit-1")]))
+    claimed = ledger.claim("campaign-test", "scheduler")
+    assert claimed["state"] == "claimed" and claimed["lease_owner"] == "scheduler"
+    ledger.heartbeat("campaign-test", "fit-1", "scheduler")
+    ledger.release_claim("campaign-test", "fit-1", "scheduler", state="retryable")
+    again = ledger.claim("campaign-test", "gpu-worker")
+    assert again["work_id"] == "fit-1" and again["lease_owner"] == "gpu-worker"
+
+
+def test_requires_settled_barrier_unlocks_after_failed_parent_without_calling_it_success(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    data = manifest([item("fit-1"), {"work_id": "calibrate", "kind": "calibration_decision"}], [
+        ("fit-1", "calibrate", "requires_settled")])
+    ledger.register(data)
+    assert ledger.claim("campaign-test", "worker", work_ids=["calibrate"]) is None
+    ledger.set_state("campaign-test", "fit-1", "failed", error="fit timeout")
+    decision = ledger.claim("campaign-test", "worker", work_ids=["calibrate"])
+    assert decision["work_id"] == "calibrate"
+    with ledger.connect() as db:
+        state = db.execute("SELECT state FROM forest_study_work WHERE work_id='fit-1'").fetchone()[0]
+    assert state == "failed"
+
+
+def test_episode_model_timeout_keeps_provider_request_timeout_without_cell_wall_cap(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                          ledger_id="ledger-test", manifest=path)
+    with runtime.ledger.connect() as db:
+        db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,elapsed_seconds) VALUES(?,?,?,?,?,?,?)",
+            ("req", "campaign-test", "ep-1", "{}", "completed", 1.0, 119.0))
+    client = type("Client", (), {"timeout": 120.0, "config": {}})()
+    item = {"work_id": "ep-1", "kind": "episode", "payload": {
+        "resource_budgets": {"active_wall_seconds": 1800, "gpu_seconds": 480}}}
+    bounded = runtime._budgeted_episode_client(item, client)
+    assert bounded is not client and bounded.timeout == 120.0
+    with runtime.ledger.connect() as db:
+        db.execute("UPDATE forest_study_model_calls SET elapsed_seconds=1799 WHERE request_id='req'")
+    bounded = runtime._budgeted_episode_client(item, client)
+    assert bounded.timeout == 120.0 and client.timeout == 120.0
+    with runtime.ledger.connect() as db:
+        db.execute("UPDATE forest_study_model_calls SET elapsed_seconds=1800 WHERE request_id='req'")
+    assert runtime._budgeted_episode_client(item, client).timeout == 120.0
+
+
+def test_actual_manifest_episode_envelope_normalizes_without_losing_factual_or_source_fields():
+    payload = {"episode": {"episode_id": "cell-1", "category": "LIVE_MAIN",
+        "arm": "FULL", "stream": "EVAL_UPDATE", "task_id": "D01", "family": "darcy",
+        "repeat": 0, "mutation": {"notice_fields": ["primary_metric", "validation_inputs"]}},
+        "factual_changes": {"evaluation_contract": {"revised_primary_metric": "relative_gradient_l2",
+            "revised_direction": "minimize"}, "validation_input_config": {
+                "validation_noise_seed": 20261012, "validation_noise_std": 0.02}},
+        "source_snapshot_plan": "/campaign/snapshot-plan.json",
+        "source_snapshot_result_directory": "/campaign/runs/shared_snapshot",
+        "source_data_root": "/campaign/data/researcher", "source_spec_dir": "/campaign/frozen/source_spec",
+        "data_ids_reference": "/campaign/data-selection.json", "dataset_version_ids": {"darcy": "data-v1"},
+        "resolved_updates_path": "/campaign/resolved-updates.json",
+        "resource_policy": {"active_wall_seconds": 1800, "actual_gpu_seconds": 480, "replay_only": False}}
+    normalized = _normalize_episode_payload(payload)
+    assert (normalized["task_id"], normalized["family"], normalized["arm"], normalized["stream"]) == (
+        "D01", "darcy", "FULL", "EVAL_UPDATE")
+    assert normalized["snapshot_plan_path"] == payload["source_snapshot_plan"]
+    assert normalized["dataset_root"] == payload["source_data_root"]
+    assert _episode_mutation_id(normalized) == "C5"
+    assert _c2_evaluation_overrides("darcy", normalized["factual_changes"]["validation_input_config"],
+        normalized["factual_changes"], "C1") == {
+            "validation_noise_std": 0.02, "validation_noise_seed": 20261012,
+            "evaluation_revision_id": "C1"}
+
+
+def test_manifest_replay_rejects_incomplete_snapshot_and_allows_zero_gpu_budget(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    doc = manifest([])
+    doc["tasks"] = [{"task_id": "D01", "family_id": "darcy", "anchor_configuration_id": "anchor",
+        "C1_revision": {"revised_primary_metric": "relative_l2", "revised_direction": "minimize"}}]
+    manifest_path.write_text(json.dumps(doc), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    monkeypatch.setattr(runtime, "_episode_candidate_rows", lambda *_args: [{
+        "config": {"work_id": "snapshot-fit", "task_id": "D01", "configuration_id": "anchor", "seed": 1001},
+        "receipt_path": None, "receipt": None, "state": "not_run", "output_directory": campaign / "snapshot"}])
+    # This adapter-only fixture does not represent completed snapshots. Keep it
+    # focused on envelope normalization and zero-GPU replay budgeting.
+    monkeypatch.setattr(runtime, "_select_original_pair", lambda _task, rows, _episode: {
+        "rows": [], "record": {"status": "fixture_only", "task_id": "D01",
+            "anchor_configuration_id": "anchor", "selected_non_anchor_configuration_id": None,
+            "paired_seeds": []}})
+    payload = {"work_id": "replay-1", "episode": {"episode_id": "replay-1", "category": "REPLAY",
+        "arm": "ID_ONLY", "task_id": "D01", "family": "darcy", "case_id": "case-c2",
+        "repeat": 0, "controller_mutation_id": "C2"},
+        "factual_changes": {"validation_input_config": {"validation_noise_seed": 7, "validation_noise_std": 0.02}},
+        "resource_policy": {"active_wall_seconds": 300, "actual_gpu_seconds": 0, "replay_only": True}}
+    with pytest.raises(ValueError, match="incomplete or uncertified original record"):
+        runtime.build_episode_request(payload)
+    budget = runtime.episode_budget_status({"work_id": "replay-1", "kind": "replay", "payload": payload})
+    assert budget["remaining"]["gpu_seconds"] == 0 and budget["state"] == "within_budget"
+    assert budget["remaining"]["active_wall_seconds"] is None
+    second = {**payload, "episode": {**payload["episode"], "category": "SECOND_MODEL_REPLAY"},
+              "model_provider": {"id": "saved-secondary", "model": "gpt-6.1-sol",
+                                 "config": {"reasoning_effort": "low"}}}
+    normalized_second = _normalize_episode_payload(second)
+    assert normalized_second["kind"] == "replay"
+    assert normalized_second["category"] == "SECOND_MODEL_REPLAY"
+    assert normalized_second["model_provider"]["id"] == "saved-secondary"
+    second_budget = runtime.episode_budget_status(
+        {"work_id": "replay-secondary", "kind": "episode", "payload": second})
+    assert second_budget["limits"]["gpu_seconds"] == 0
+    assert second_budget["limits"]["active_wall_seconds"] is None
+    assert second_budget["limits"]["model_seconds"] is None
+
+
+def test_aide_python_node_uses_common_bound_action_executor_and_caches_emission(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                          ledger_id="ledger-test", manifest=path)
+    episode = {"work_id": "ep-aide", "kind": "episode", "payload": {
+        "arm": "AIDE", "resource_policy": {"active_wall_seconds": 1800, "actual_gpu_seconds": 480},
+        "task_contract": {"primary_metric": "mae", "primary_direction": "minimize"},
+        "allowed_decisions": ["select"],
+        "decision_schema": {"required": ["mode", "actions", "submission", "rationale"]},
+        "action_bindings": [{"kind": "analysis", "action_name": "select", "work_id": "select-1",
+            "configuration_id": "task-1", "seed": 7,
+            "evidence": [{"configuration_id": "cfg-1", "receipt_path": str(campaign / "receipt.json")}]}]}}
+    with runtime.ledger.connect() as db:
+        db.execute("CREATE TABLE forest_study_aide_sessions(campaign_id TEXT,work_id TEXT,state_json TEXT,updated_at REAL,PRIMARY KEY(campaign_id,work_id))")
+        db.execute("INSERT INTO forest_study_aide_sessions VALUES(?,?,?,?)",
+            ("campaign-test", "ep-aide", json.dumps({"action_history": []}), 1.0))
+    calls = []
+    def action_runner(_episode, actions, **kwargs):
+        calls.append((actions, kwargs))
+        return {"state": "completed", "actions": [{"action_work_id": "select-1", "kind": "analysis",
+            "action_name": "select", "configuration_id": "task-1", "seed": 7, "state": "completed",
+            "result": {"operation": "select", "metric": "mae", "selected_configuration_id": "cfg-1",
+                "selected_value": 0.4}}], "submission": {}}
+    monkeypatch.setattr(runtime, "execute_decision_actions", action_runner)
+    code = ('import json\n'
+            'decision = {"mode":"action","actions":[{"kind":"select"}],"submission":{},"rationale":"Use the registered selector."}\n'
+            'print(json.dumps(decision))\n')
+    first = runtime.execute_aide_node(episode, node_id="node-1", code=code)
+    second = runtime.execute_aide_node(episode, node_id="node-1", code=code)
+    assert first["state"] == second["state"] == "completed"
+    assert len(calls) == 2
+    # The selector result is useful as a controller action, but this fixture
+    # deliberately has no source-bound receipt. It must not be reported to the
+    # native journal as an independently verified scientific metric.
+    assert first["verified_metrics"] == []
+    invalid_code = ('import json\n'
+        'decision = {"mode":"action","actions":[{"kind":"select","action_work_id":"unknown-id"}],"submission":{},"rationale":"Use an unregistered ID."}\n'
+        'print(json.dumps(decision))\n')
+    invalid = runtime.execute_aide_node(episode, node_id="node-invalid", code=invalid_code)
+    assert invalid["exc_type"] == "DecisionValidationError"
+    assert "exactly one registered binding" in invalid["exc_info"]
+    assert len(calls) == 2
+    with runtime.ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM forest_study_aide_programs WHERE node_id='node-1'").fetchone()[0] == 1
+    with pytest.raises(ValueError, match="reused with different Python source"):
+        runtime.execute_aide_node(episode, node_id="node-1", code=code.replace("registered selector", "another action"))
+
+
+def test_aide_registered_episode_uses_native_adapter_branch(tmp_path, monkeypatch):
+    import research.experiments.aide_runtime as aide_runtime
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    episode = {"work_id": "ep-aide", "kind": "episode", "phase": "LIVE_MAIN",
+        "arm": "AIDE", "resource_policy": {"active_wall_seconds": 1800, "actual_gpu_seconds": 480},
+        "task_id": "task-1", "stream": "EVAL_UPDATE"}
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([episode])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                          ledger_id="ledger-test", manifest=path)
+    dispatched = []
+    def native_adapter(_runtime, item, *, client, gpu_devices, defer_gpu):
+        dispatched.append((item["work_id"], client.timeout, tuple(gpu_devices), defer_gpu))
+        return {"state": "retryable", "native_completed_steps": 1, "pending_work_ids": []}
+    monkeypatch.setattr(aide_runtime, "run_aide_episode", native_adapter)
+    client = type("Client", (), {"timeout": 30.0, "config": {},
+        "provider": {"id": "local", "model": "gpt-6-luna"}})()
+    outcome = runtime.run_one(owner="aide-test", client=client, defer_gpu=True)
+    assert dispatched == [("ep-aide", 30.0, (), True)]
+    assert outcome["state"] == "retryable"
+    assert runtime.ledger.counts("campaign-test")["retryable"] == 1
+
+
+@pytest.mark.parametrize("supervisor_state,expected_valid", [("completed", True), ("failed", False)])
+def test_calibration_resolution_persists_valid_gate_and_requires_completed_supervisor(
+        tmp_path, monkeypatch, supervisor_state, expected_valid):
+    import research.experiments.study_runtime as module
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    config = {"work_id": "cal-fit", "family": "darcy", "calibration_role": "anchor",
+        "optimizer_updates": 100, "configuration_id": "cfg-anchor", "seed": 17,
+        "phase": "calibration", "formal_score_eligible": False}
+    config_path = campaign / "cal.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    output = campaign / "cal-output"
+    output.mkdir()
+    (output / "predictions.npz").write_bytes(b"fixture only")
+    receipt_path = output / "execution_receipt.json"
+    receipt_path.write_text(json.dumps({"status": "SUCCEEDED", "effective_config": config,
+        "hidden_test_opened": False, "formal_score_eligible": False,
+        "validation_prediction_file": "predictions.npz"}), encoding="utf-8")
+    resolved_path = campaign / "resolved.json"
+    fit = {"work_id": "cal-fit", "kind": "fit", "phase": "calibration",
+        "configuration_path": str(config_path), "output_directory": str(output), "fit_timeout_seconds": 60}
+    decision = {"work_id": "cal-decision", "kind": "calibration_decision",
+        "allowed_update_counts": {"darcy": [100]}, "required_roles_by_family": {"darcy": ["anchor"]},
+        "primary_metric_by_family": {"darcy": {"metric": "relative_l2", "direction": "minimize"}},
+        "resolved_updates_path": str(resolved_path)}
+    doc = manifest([fit, decision])
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                          ledger_id="ledger-test", manifest=path)
+
+    class FakeSupervisor:
+        def __init__(self, *_args): pass
+        def status(self, _work_id): return {"status": supervisor_state}
+
+    monkeypatch.setattr(module, "_supervisor_has_work", lambda *_args: True)
+    from research.experiments import gpu_supervisor
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", FakeSupervisor)
+    monkeypatch.setattr(module, "rescore_binding", lambda _binding: {"metrics": {"relative_l2": 0.25}})
+    monkeypatch.setattr(module, "_calibration_decision_messages", lambda *_args: [{"role": "user", "content": "fixture"}])
+    def candidates(rows, *_args):
+        return {"darcy": [{"updates": 100}]} if rows[0]["state"] == "completed" else {}
+    monkeypatch.setattr(module, "calibration_update_candidates", candidates)
+    monkeypatch.setattr(module, "verify_calibration_choice", lambda choice, candidate_rows, *_args:
+        (bool(candidate_rows), {"observed_candidate_count": sum(map(len, candidate_rows.values()))}))
+    class ScriptedClient:
+        provider = {"id": "fixture", "model": "gpt-6-luna"}
+        config = {}
+        def complete(self, *_args, **_kwargs):
+            return {"text": json.dumps({"family_updates": {"darcy": 100}, "readiness": "continue", "rationale": "fixture"}),
+                    "usage": {"input_tokens": 1, "output_tokens": 1, "cost": None}}
+    result = runtime.execute_calibration_decision({"work_id": "cal-decision", "payload": decision},
+                                                  client=ScriptedClient())
+    assert result["source_validation"]["valid"] is expected_valid
+    if expected_valid:
+        saved = json.loads(resolved_path.read_text(encoding="utf-8"))
+        assert saved["source_validation"]["valid"] is True
+        assert saved["formal_score_eligible"] is False
+        assert result["observed_rows"][0]["state"] == "completed"
+    else:
+        assert result["observed_rows"][0]["state"] == "invalid_receipt"
+
+
+def test_abstract_cells_are_not_promoted_to_runnable_evidence():
+    doc = manifest([])
+    doc["cells"] = [{"category": "LIVE_MAIN", "status": "pending", "task_id": "D01"}]
+    assert _manifest_work_items(doc) == []
+    assert _manifest_edges(doc) == []
+
+
+def test_registered_selector_excludes_anchor_aggregates_seeds_and_uses_lexical_ties(tmp_path):
+    evidence = []
+    values = {"anchor": (0.05, 0.06), "zeta": (0.2, 0.2), "alpha": (0.2, 0.2)}
+    for config, seed_values in values.items():
+        for seed, score in zip((1001, 1002), seed_values):
+            receipt = tmp_path / f"{config}-{seed}.json"
+            receipt.write_text(json.dumps({"status": "SUCCEEDED", "formal_score_eligible": True,
+                "hidden_test_opened": False, "validation_metrics": {"mae": score}}), encoding="utf-8")
+            evidence.append({"work_id": f"{config}-{seed}", "configuration_id": config,
+                "seed": seed, "receipt_path": str(receipt)})
+    result = execute_registered_analysis({"analysis_operation": "select", "metric": "mae",
+        "direction": "minimize", "anchor_configuration_id": "anchor", "exclude_anchor": True,
+        "evidence": evidence})
+    assert result["selected_configuration_id"] == "alpha"
+    assert result["selected_configuration_ids_tied"] == ["alpha", "zeta"]
+    assert result["seed_values"] == {"1001": 0.2, "1002": 0.2}
+
+
+def test_live_verifier_rejects_inspect_only_and_incomplete_pairwise_work():
+    episode = {"kind": "episode", "stream": "EVAL_UPDATE", "mutation": "C2",
+        "action_bindings": [
+            {"kind": "infer", "action_name": "infer", "work_id": f"infer-{i}"} for i in range(4)] + [
+            {"kind": "analysis", "action_name": name, "work_id": name} for name in ("select", "compare")],
+        "task_id": "D01"}
+    inspect = [{"actions": [{"action_work_id": "inspect", "kind": "analysis", "state": "completed",
+        "result": {"operation": "inspect"}}]}]
+    result = verify_episode_submission(episode, inspect, {"selected_configuration_id": "candidate"})
+    assert result["valid"] is False
+    assert result["reason"] in {"selected_configuration_not_independently_recomputed",
+        "required_pairwise_scientific_operations_incomplete"}
+
+
+def test_full_no_gate_preserves_invalid_gate_result_as_advisory():
+    episode = {"kind": "episode", "stream": "EVAL_UPDATE", "arm": "FULL_NO_GATE",
+        "action_bindings": [], "task_id": "D01"}
+    assert verify_episode_submission(episode, [], {})["valid"] is False
+
+
+def test_legacy_ledger_rows_are_left_intact(tmp_path):
+    path = tmp_path / "study.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE original_rows (id TEXT PRIMARY KEY, note TEXT)")
+        db.execute("INSERT INTO original_rows VALUES('old-1','preserve')")
+    StudyLedger(path, "ledger-test").register(manifest([item("fit-1")]))
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT note FROM original_rows WHERE id='old-1'").fetchone()[0] == "preserve"
+
+
+def test_fit_retry_after_proven_terminal_failure_uses_new_physical_attempt(monkeypatch, tmp_path):
+    """Infrastructure fixture: no fitter or optimizer is launched."""
+    from research.experiments import gpu_supervisor
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    output = campaign / "runs" / "fit-1"
+    output.mkdir(parents=True)
+    config_path = campaign / "fit.json"
+    config = {"work_id": "fit-1", "phase": "pilot", "configuration_id": "cfg-1",
+              "seed": 7, "optimizer_updates": 80, "formal_score_eligible": False}
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    manifest_path = campaign / "study_execution_manifest.json"
+    document = manifest([item("fit-1", phase="pilot", configuration_path=str(config_path),
+                              output_directory=str(output), fit_timeout_seconds=20)])
+    document["commands"] = {"source_root": str(tmp_path), "fitter_python": "python"}
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    ledger_path = campaign / "study.sqlite"
+    with sqlite3.connect(ledger_path) as db:
+        db.execute("CREATE TABLE forest_compute_work(work_id TEXT PRIMARY KEY)")
+        db.execute("INSERT INTO forest_compute_work VALUES('fit-1')")
+
+    class FakeSupervisor:
+        states = {"fit-1": "failed"}
+        submitted = []
+        directory = campaign / ".forest-compute"
+        def __init__(self, _ledger, _ledger_id):
+            pass
+        def status(self, work_id):
+            error = ("Command source/configuration changed before execution" if work_id == "fit-1"
+                     else "fixture terminal failure")
+            return {"work_id": work_id, "status": self.states[work_id], "error": error}
+        def submit(self, command, workspace, *, work_id, **kwargs):
+            self.submitted.append((work_id, list(command), str(workspace), kwargs))
+            self.states[work_id] = "failed"
+            with sqlite3.connect(ledger_path) as db:
+                db.execute("INSERT INTO forest_compute_work VALUES(?)", (work_id,))
+            return {"work_id": work_id, "status": "failed", "error": "fixture terminal failure"}
+        def wait(self, work_id, timeout):
+            return self.status(work_id)
+
+    FakeSupervisor.submitted = []
+    preflight = FakeSupervisor.directory / "fit-1" / "processes" / "fit-1"
+    preflight.mkdir(parents=True)
+    (preflight / "completion.json").write_text(json.dumps({"status": "failed", "exit_code": 1}), encoding="utf-8")
+    (preflight / "stderr.log").write_text(
+        "RuntimeError: Command source/configuration changed before execution: source.py", encoding="utf-8")
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", FakeSupervisor)
+    runtime = StudyRuntime(campaign=campaign, ledger=ledger_path, ledger_id="ledger-test", manifest=manifest_path)
+    fit_item = {"work_id": "fit-1", "payload": document["execution_state"]["task_queue"][0]}
+    first = runtime.execute_fit(fit_item, gpu_devices=["0"])
+    assert first["supervisor_work_id"] == "fit-1--attempt-01"
+    assert first["attempt_number"] == 1
+    second = runtime.execute_fit(fit_item, gpu_devices=["0"])
+    assert second["supervisor_work_id"] == "fit-1--attempt-01"
+    assert second["attempt_number"] == 1
+    assert len(FakeSupervisor.submitted) == 1
+    first_id = FakeSupervisor.submitted[0][0]
+    assert first_id == "fit-1--attempt-01"
+    first_command = FakeSupervisor.submitted[0][1]
+    assert first_command[first_command.index("--work-id") + 1] == "fit-1"
+    with runtime.ledger.connect() as db:
+        attempts = db.execute("SELECT attempt_number,supervisor_work_id,state FROM forest_study_fit_attempts ORDER BY attempt_number").fetchall()
+        assert [tuple(row) for row in attempts] == [
+            (0, "fit-1", "failed"), (1, "fit-1--attempt-01", "failed")]
+
+
+def test_episode_candidate_resolves_latest_attempt_receipt(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    base = campaign / "runs" / "fit-1"
+    attempted = base / "attempts" / "fit-1--attempt-01"
+    attempted.mkdir(parents=True)
+    config = {"work_id": "fit-1", "task_id": "D01", "family": "darcy",
+        "configuration_id": "cfg-1", "seed": 3, "output_reference": str(base),
+        "formal_score_eligible": True}
+    config_path = campaign / "fit-config.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    (attempted / "effective_config.json").write_text(json.dumps(config), encoding="utf-8")
+    receipt = {"status": "SUCCEEDED", "work_id": "fit-1", "hidden_test_opened": False,
+        "formal_score_eligible": True, "effective_config": config,
+        "validation_metrics": {"relative_l2": 0.2}, "validation_prediction_file": "pred.npz"}
+    (attempted / "execution_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    (attempted / "pred.npz").write_bytes(b"fixture artifact")
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    with runtime.ledger.connect() as db:
+        db.execute("INSERT INTO forest_study_fit_attempts VALUES(?,?,?,?,?,?,?,?,?)",
+            ("campaign-test", "fit-1", 1, "fit-1--attempt-01", str(attempted),
+             "completed", None, 1.0, 1.0))
+    registered_config = {**config, "configuration_path": str(config_path)}
+    rows = runtime._episode_candidate_rows({"task_id": "D01", "candidate_configs": [registered_config]}, [])
+    assert len(rows) == 1 and rows[0]["state"] == "completed"
+    assert rows[0]["receipt_path"] == attempted / "execution_receipt.json"
+    config_path.write_text(json.dumps({**config, "training_data_revision": "changed"}), encoding="utf-8")
+    refreshed = runtime._episode_candidate_rows({"task_id": "D01", "candidate_configs": [registered_config]}, [])
+    assert refreshed[0]["state"] == "invalid_receipt"
+
+
+def test_replay_budget_counts_physical_provider_attempts_and_actual_usage(tmp_path):
+    from types import SimpleNamespace
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=path)
+    external_events = []
+    client = SimpleNamespace(request_guard=lambda event: external_events.append(dict(event)) or "external-token")
+    guarded = runtime._replay_request_client({"work_id": "replay-budget"}, client)
+    for index in range(6):
+        reservation = guarded.request_guard({"phase": "before", "input_bytes": 100,
+            "max_output_tokens": 1000, "attempt": 1, "api": "codex_cli", "model": "fixture"})
+        guarded.request_guard({"phase": "after", "reservation": reservation,
+            "usage": {"input_tokens": 100, "output_tokens": 500}, "request_id": f"request-{index}"})
+    assert runtime._replay_token_budget("replay-budget") == {
+        "physical_calls": 6, "input_tokens": 600, "output_tokens": 3000,
+        "usage_unknown": False, "limits": None, "within_budget": True}
+    assert runtime._replay_output_allowance("replay-budget") is None
+    reservation = guarded.request_guard({"phase": "before", "input_bytes": 100,
+        "max_output_tokens": 1000, "attempt": 1, "api": "codex_cli", "model": "fixture"})
+    assert reservation["forest_study_request_id"]
+    assert [event["phase"] for event in external_events].count("before") == 7
+
+
+def test_preflight_retry_requires_failed_completion_without_child_identity(tmp_path):
+    class Supervisor:
+        directory = tmp_path / ".forest-compute"
+    work_id = "fit-technical"
+    folder = Supervisor.directory / work_id / "processes" / work_id
+    folder.mkdir(parents=True)
+    (folder / "completion.json").write_text(json.dumps({"status": "failed", "exit_code": 1}), encoding="utf-8")
+    (folder / "stderr.log").write_text(
+        "RuntimeError: Command source/configuration changed before execution: source.py", encoding="utf-8")
+    status = {"status": "failed", "error": "Process exited without a bound completion receipt"}
+    assert _known_source_preflight_failure(Supervisor(), work_id) is True
+    (folder / "identity.json").write_text('{"pid": 123}', encoding="utf-8")
+    assert _known_source_preflight_failure(Supervisor(), work_id) is False
+
+
+def test_snapshot_stage_reports_failed_family_and_preserves_valid_branch(monkeypatch, tmp_path):
+    from research.experiments import gpu_supervisor
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    configs = []
+    for work_id, family in (("snap-ok", "darcy"), ("snap-fail", "etth1")):
+        output = campaign / "runs" / work_id
+        output.mkdir(parents=True)
+        config = {"work_id": work_id, "family": family, "formal_score_eligible": True}
+        config_path = campaign / f"{work_id}.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        configs.append({**config, "configuration_path": str(config_path), "output_directory": str(output)})
+        if work_id == "snap-ok":
+            (output / "effective_config.json").write_text(json.dumps(config), encoding="utf-8")
+            (output / "execution_receipt.json").write_text(json.dumps({
+                "status": "SUCCEEDED", "effective_config": config,
+                "hidden_test_opened": False, "formal_score_eligible": True}), encoding="utf-8")
+    plan = campaign / "snapshot.json"
+    plan.write_text(json.dumps({"configs": configs}), encoding="utf-8")
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([{"work_id": "snap-stage", "kind": "snapshot_stage",
+        "snapshot_plan_path": str(plan)}])), encoding="utf-8")
+    ledger_path = campaign / "study.sqlite"
+    with sqlite3.connect(ledger_path) as db:
+        db.execute("CREATE TABLE forest_compute_work(work_id TEXT PRIMARY KEY)")
+        db.executemany("INSERT INTO forest_compute_work VALUES(?)", [("snap-ok",), ("snap-fail",)])
+
+    class FakeSupervisor:
+        def __init__(self, _ledger, _ledger_id): pass
+        def status(self, work_id):
+            return {"work_id": work_id, "status": "completed" if work_id == "snap-ok" else "failed",
+                    "error": None if work_id == "snap-ok" else "GPU process failed"}
+
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", FakeSupervisor)
+    runtime = StudyRuntime(campaign=campaign, ledger=ledger_path, ledger_id="ledger-test", manifest=manifest_path)
+    result = runtime.execute_snapshot_stage({"payload": {"snapshot_plan_path": str(plan)}})
+    assert result["stage_state"] == "failed"
+    assert result["valid_work_ids"] == ["snap-ok"]
+    assert result["hard_failures_by_family"]["etth1"][0]["work_id"] == "snap-fail"
+
+
+def test_numpy_metric_implementation_returns_actual_multiclass_scores():
+    import numpy as np
+    logits = np.eye(8, dtype=float) * 5
+    metrics = numpy_score_predictions("bloodmnist", logits, np.arange(8), {})
+    assert metrics["accuracy"] == 1.0
+    assert metrics["balanced_accuracy"] == 1.0
+    assert metrics["nll"] > 0
+
+
+def test_numpy_darcy_metric_keeps_the_two_spatial_gradient_axes_separate():
+    import numpy as np
+    target = np.arange(2 * 1 * 4 * 5, dtype=np.float32).reshape(2, 1, 4, 5)
+    metrics = numpy_score_predictions("darcy", target.copy(), target, {"target_mean": 0.0, "target_std": 1.0})
+    assert metrics == {"relative_l2": 0.0, "relative_gradient_l2": 0.0}
+
+
+def test_scripted_client_infrastructure_dispatch_runs_manifest_bound_analysis(tmp_path):
+    """Infrastructure test only; a scripted client is not scientific model evidence."""
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    left = campaign / "left.json"
+    right = campaign / "right.json"
+    left.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
+    right.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
+    analysis = {"work_id": "analysis-child", "kind": "analysis", "analysis_operation": "select",
+        "metric": "mae", "direction": "minimize", "require_formal": True,
+        "evidence": [{"work_id": "left", "receipt_path": str(left)}, {"work_id": "right", "receipt_path": str(right)}]}
+    episode = {"work_id": "episode-1", "phase": "INFRA_TEST", "kind": "episode", "stream": "INFRA_TEST", "arm": "FULL",
+        "messages": [{"role": "user", "content": "Make a decision from the supplied evidence."}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"]},
+        "allowed_decisions": ["select"], "action_bindings": [{**analysis, "action_name": "select"}]}
+    document = manifest([episode])
+    manifest_path = campaign / "study_execution_manifest.json"
+    import json
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                           ledger_id="ledger-test", manifest=manifest_path)
+
+    class ScriptedClient:
+        provider = {"id": "fixture-provider", "model": "fixture"}
+        config = {}
+        def __init__(self): self.calls = [0]
+        def complete(self, *_args, **_kwargs):
+            self.calls[0] += 1
+            text = ('{"mode":"action","actions":[{"kind":"select","action_work_id":"analysis-child"}],"submission":{},"rationale":"Run the registered selector."}'
+                if self.calls[0] == 1 else
+                '{"mode":"submit","actions":[],"submission":{"selected_configuration_id":"right","claim":"The receipt-backed selector chose right."},"rationale":"The action result supports this submission."}')
+            return {"text": text, "usage": {"input_tokens": 10, "output_tokens": 4, "cost": None}}
+
+    client = ScriptedClient()
+    first = runtime.run_one(owner="fixture", client=client)
+    assert first["action_result"]["state"] == "completed"
+    assert runtime.ledger.counts("campaign-test")["retryable"] == 1
+    result = runtime.run_one(owner="fixture", client=client)
+    assert result["action_result"]["valid"] is True
+    assert result["action_result"]["selected_work_ids"] == ["right"]
+    assert runtime.ledger.counts("campaign-test")["completed"] == 2
+    assert client.calls == [2]
+    with runtime.ledger.connect() as db:
+        calls = db.execute("SELECT status,started_at,finished_at,elapsed_seconds FROM forest_study_model_calls").fetchall()
+        assert len(calls) == 2 and all(row[0] == "completed" and row[1] and row[2] and row[3] is not None for row in calls)
+
+
+def test_repeated_cached_action_returns_semantic_no_progress_feedback(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    left = campaign / "left.json"
+    right = campaign / "right.json"
+    left.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"left","validation_metrics":{"mae":2.0}}\n', encoding="utf-8")
+    right.write_text('{"status":"SUCCEEDED","formal_score_eligible":true,"hidden_test_opened":false,"configuration_id":"right","validation_metrics":{"mae":1.0}}\n', encoding="utf-8")
+    analysis = {"work_id": "analysis-child", "kind": "analysis", "analysis_operation": "select",
+        "metric": "mae", "direction": "minimize", "require_formal": True,
+        "evidence": [{"work_id": "left", "receipt_path": str(left)}, {"work_id": "right", "receipt_path": str(right)}]}
+    episode = {"work_id": "episode-repeat", "phase": "INFRA_TEST", "kind": "episode", "stream": "INFRA_TEST", "arm": "FULL",
+        "messages": [{"role": "user", "content": "Decide from the evidence."}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"]},
+        "allowed_decisions": ["select"], "action_bindings": [{**analysis, "action_name": "select"}]}
+    manifest_path = campaign / "study_execution_manifest.json"
+    manifest_path.write_text(json.dumps(manifest([episode])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+                           ledger_id="ledger-test", manifest=manifest_path)
+
+    class RepeatingClient:
+        provider = {"id": "fixture-provider", "model": "fixture"}
+        config = {"reasoning_effort": "low"}
+        def __init__(self): self.calls = []
+        def complete(self, *_args, **_kwargs):
+            self.calls.append(dict(self.config))
+            return {"text": '{"mode":"action","actions":[{"kind":"select","action_work_id":"analysis-child"}],"submission":{},"rationale":"Select from the registered evidence."}',
+                    "usage": {"input_tokens": 10, "output_tokens": 4}}
+
+    client = RepeatingClient()
+    first = runtime.run_one(owner="fixture", client=client)
+    assert first["action_result"]["state"] == "completed"
+    second = runtime.run_one(owner="fixture", client=client)
+    assert second["action_result"]["state"] == "retryable"
+    assert second["action_result"]["no_progress_observation"]["same_source_bound_results"] is True
+    assert "produced no new evidence" in second["action_result"]["response_validation_feedback"]
+    third = runtime.run_one(owner="fixture", client=client)
+    assert third["state"] == "paused_no_progress"
+    assert runtime.ledger.counts("campaign-test")["paused_no_progress"] == 1
+    assert len(client.calls) == 3
+    schema = episode["decision_schema"]
+    assert all(call["_forest_action_schema"] == schema for call in client.calls)
+    assert client.config == {"reasoning_effort": "low"}
+    with runtime.ledger.connect() as db:
+        request = json.loads(db.execute("SELECT request_json FROM forest_study_model_calls ORDER BY started_at LIMIT 1").fetchone()[0])
+    assert request["decision_schema"] == schema
+    assert request["provider_snapshot"]["id"] == "fixture-provider"
+    assert request["reasoning_effort"] == "low"
+
+
+def test_action_batch_is_fully_bound_before_first_operation(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    output = campaign / "inspect.json"
+    binding = {"kind": "analysis", "action_name": "inspect", "work_id": "inspect-1",
+        "analysis_operation": "inspect", "output_path": str(output), "evidence": []}
+    manifest_path = campaign / "study_execution_manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    episode = {"payload": {"allowed_decisions": ["inspect"], "action_bindings": [binding]}}
+    calls = []
+    monkeypatch.setattr(runtime, "execute_decision_action", lambda *args, **kwargs: calls.append(args))
+    with pytest.raises(ValueError, match="exactly one registered binding"):
+        runtime.execute_decision_actions(episode, [
+            {"kind": "inspect", "action_work_id": "inspect-1"},
+            {"kind": "inspect", "action_work_id": "unknown"}])
+    assert calls == []
+    assert not output.exists()
+
+
+def test_paused_no_progress_requires_explicit_resume_and_preserves_result(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([{"work_id": "paused-episode", "kind": "episode", "phase": "INFRA_TEST"}]))
+    prior_result = {"state": "paused_no_progress", "no_progress_observation": {"reason": "same evidence"}}
+    ledger.set_state("campaign-test", "paused-episode", "paused_no_progress", result=prior_result)
+    with pytest.raises(ValueError, match="operator identity"):
+        ledger.resume_no_progress("campaign-test", "paused-episode", operator=" ")
+    ledger.resume_no_progress("campaign-test", "paused-episode", operator="reviewer")
+    with ledger.connect() as db:
+        row = db.execute("SELECT state,result_json FROM forest_study_work WHERE work_id='paused-episode'").fetchone()
+    assert row["state"] == "retryable"
+    assert json.loads(row["result_json"]) == prior_result
+
+
+def test_invalid_actual_response_is_saved_and_gets_one_evidence_bound_repair_turn(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    analysis = {"work_id": "inspect-child", "kind": "analysis", "action_name": "inspect",
+        "analysis_operation": "inspect", "evidence": [{"work_id": "future-fit",
+            "configuration_id": "candidate", "seed": 7, "state": "not_run"}],
+        "output_path": str(campaign / "inspect.json")}
+    episode = {"work_id": "repair-episode", "kind": "episode", "phase": "INFRA_TEST",
+        "arm": "FULL", "messages": [{"role": "user", "content": "Inspect the registered source record."}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"]},
+        "allowed_decisions": ["inspect"], "action_bindings": [analysis],
+        "resource_policy": {"active_wall_seconds": 300, "actual_gpu_seconds": 1}}
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([episode])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+
+    class ActualResponseFixture:
+        provider = {"id": "fixture", "model": "fixture"}
+        config = {}
+        def __init__(self): self.requests = []
+        def complete(self, messages, **_kwargs):
+            self.requests.append(messages)
+            text = ('{"mode":"submit","actions":[{"kind":"inspect"}],"submission":{},"rationale":"invalid"}'
+                    if len(self.requests) == 1 else
+                    '{"mode":"action","actions":[{"kind":"inspect","action_work_id":"inspect-child"}],"submission":{},"rationale":"Run the registered inspection."}')
+            return {"text": text, "model": "fixture", "response_id": f"response-{len(self.requests)}",
+                    "usage": {"input_tokens": 11, "output_tokens": 7, "cost": None}}
+
+    client = ActualResponseFixture()
+    first = runtime.run_one(owner="response-repair", client=client)
+    assert first["action_result"]["state"] == "retryable"
+    assert first["action_result"]["raw_response_persisted"] is True
+    with runtime.ledger.connect() as db:
+        saved = db.execute("SELECT response_json,usage_json,status FROM forest_study_model_calls").fetchone()
+        work = db.execute("SELECT decision_json,result_json,state FROM forest_study_work WHERE work_id='repair-episode'").fetchone()
+    assert json.loads(saved[0])["text"].startswith('{"mode":"submit"')
+    assert json.loads(saved[1])["input_tokens"] == 11 and saved[2] == "completed"
+    assert work[0] is None and work[2] == "retryable"
+    feedback = json.loads(work[1])["response_validation_feedback"]
+    assert feedback["raw_response_persisted"] is True
+    second = runtime.run_one(owner="response-repair", client=client)
+    assert second["action_result"]["actions"][0]["state"] == "completed"
+    delivered = "\n".join(str(message.get("content", "")) for message in client.requests[1])
+    assert "previous actual response was saved" in delivered
+    assert "A submit-mode response cannot add unexecuted operations" in delivered
+
+
+@pytest.mark.parametrize("arm,expected_view", [
+    ("FULL", "typed_graph"), ("DAG_ID", "id_only_graph"), ("FLAT", "flat_artifact_index"),
+])
+def test_registered_episode_adapter_delivers_arm_specific_actual_receipt_context(tmp_path, arm, expected_view):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    configs = []
+    for configuration_id, value in (("D01_c0", 0.2), ("D01_c1", 0.15), ("D01_c2", 0.12)):
+        for seed in (1001, 1002):
+            name = f"{configuration_id}-s{seed}"
+            output = campaign / "runs" / name
+            output.mkdir(parents=True)
+            effective = {"work_id": name, "task_id": "D01", "family": "darcy",
+                "configuration_id": configuration_id, "seed": seed, "output_directory": str(output),
+                "phase": "formal", "formal_score_eligible": True,
+                "dataset_version_id": "darcy-v1", "optimizer_updates": 100,
+                "batch_size": 8, "train_sample_ids": list(range(1, 1001)),
+                "validation_sample_ids": [1001, 1002],
+                "optimizer": {"name": "AdamW", "lr": 0.001}}
+            receipt = {"status": "SUCCEEDED", "work_id": name, "task_id": "D01", "configuration_id": configuration_id,
+                "seed": seed, "formal_score_eligible": True, "hidden_test_opened": False,
+                "validation_metrics": {"relative_l2": value}, "validation_prediction_file": "validation_predictions.npz",
+                "effective_config": effective}
+            (output / "effective_config.json").write_text(json.dumps(effective), encoding="utf-8")
+            (output / "validation_predictions.npz").write_bytes(b"fixture path only; no action executed")
+            (output / "execution_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+            (output / "training.jsonl").write_text('{"update":25,"train_loss":0.1}\n', encoding="utf-8")
+            configs.append(effective)
+    document = manifest([])
+    document["tasks"] = [{"task_id": "D01", "family_id": "darcy", "anchor_configuration_id": "D01_c0",
+        "shared_snapshot_seeds": [1001, 1002],
+        "C1_revision": {"revised_primary_metric": "relative_l2", "revised_direction": "minimize",
+            "revised_side_constraints": []}}]
+    document["execution_state"]["work_items"] = [{"work_id": "episode-1", "kind": "episode", "task_id": "D01",
+        "arm": arm, "stream": "EVAL_UPDATE", "candidate_configs": configs,
+        "factual_changes": {"evaluation_contract": {"revision_id": "C1",
+            "revised_primary_metric": "relative_l2", "revised_direction": "minimize"}}}]
+    manifest_path = campaign / "study_execution_manifest.json"
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    payload = runtime.build_episode_request({**document["execution_state"]["work_items"][0], "work_id": "episode-1"})
+    user = payload["messages"][-1]["content"]
+    request_context = json.loads(user)
+    assert request_context["evidence_view"]["view"] == expected_view
+    assert {x["configuration_id"] for x in request_context["evidence_view"]["observations"]} == {"D01_c0", "D01_c1", "D01_c2"}
+    observations = request_context["evidence_view"]["observations"]
+    assert all(row["status"] == "SUCCEEDED" and row["completed_updates"] == 100 for row in observations)
+    assert all(len(row["effective_config"]["train_sample_ids"]) == 1000
+               and row["effective_config"]["validation_sample_ids"] == [1001, 1002]
+               for row in observations)
+    assert all(row["receipt"]["hidden_test_opened"] is False for row in observations)
+    if arm == "FLAT":
+        assert request_context["evidence_view"]["raw_training_logs"]
+        assert request_context["evidence_view"]["raw_training_logs"][0]["lines"] == ['{"update":25,"train_loss":0.1}']
+    assert {binding["action_name"] for binding in payload["action_bindings"]} == {"score", "select", "compare"}
+    scores = [binding for binding in payload["action_bindings"] if binding["action_name"] == "score"]
+    comparisons = [binding for binding in payload["action_bindings"] if binding["action_name"] == "compare"]
+    assert len(scores) == 6
+    assert len(comparisons) == 2
+    assert all(binding["selection_work_id"] for binding in comparisons)
+    if arm == "DAG_ID":
+        assert all(set(edge) == {"from", "to"} for edge in request_context["evidence_view"]["edges"])
+    if arm == "FLAT":
+        assert request_context["evidence_view"]["raw_training_logs"][0]["lines"] == ['{"update":25,"train_loss":0.1}']
+
+
+def test_eval_c2_binds_inference_for_all_three_configs_and_two_seeds(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    configs = []
+    for configuration_id, value in (("anchor", 0.25), ("candidate-a", 0.18), ("candidate-b", 0.14)):
+        for seed in (1001, 1002):
+            work_id = f"{configuration_id}-seed-{seed}"
+            output = campaign / "runs" / work_id
+            output.mkdir(parents=True)
+            config = {"work_id": work_id, "task_id": "D01", "family": "darcy",
+                "configuration_id": configuration_id, "seed": seed, "phase": "formal",
+                "output_directory": str(output), "formal_score_eligible": True}
+            receipt = {"status": "SUCCEEDED", "work_id": work_id, "task_id": "D01",
+                "configuration_id": configuration_id, "seed": seed, "formal_score_eligible": True,
+                "hidden_test_opened": False, "validation_metrics": {"relative_l2": value},
+                "effective_config": config}
+            (output / "effective_config.json").write_text(json.dumps(config), encoding="utf-8")
+            (output / "execution_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+            (output / "checkpoint.pt").write_bytes(b"opaque source checkpoint fixture")
+            configs.append(config)
+    data_root = campaign / "data" / "researcher"
+    document = manifest([])
+    document["tasks"] = [{"task_id": "D01", "family_id": "darcy", "anchor_configuration_id": "anchor",
+        "shared_snapshot_seeds": [1001, 1002], "primary_metric": "relative_l2", "primary_direction": "minimize",
+        "C1_revision": {"revised_primary_metric": "relative_gradient_l2", "revised_direction": "minimize",
+            "revised_side_constraints": []}}]
+    document["experiment_state"] = {"data_root": str(data_root)}
+    item = {"work_id": "episode-c2", "kind": "episode", "task_id": "D01", "family": "darcy",
+        "arm": "FULL", "stream": "EVAL_UPDATE", "candidate_configs": configs,
+        "factual_changes": {"evaluation_contract": {"revised_primary_metric": "relative_gradient_l2",
+            "revised_direction": "minimize", "revised_side_constraints": []},
+            "validation_input_config": {"validation_noise_seed": 20261012, "validation_noise_std": 0.02}}}
+    document["execution_state"]["work_items"] = [item]
+    manifest_path = campaign / "study_execution_manifest.json"
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    request = runtime.build_episode_request(item)
+    inference = [binding for binding in request["action_bindings"] if binding["kind"] == "infer"]
+    comparisons = [binding for binding in request["action_bindings"] if binding["action_name"] == "compare"]
+    selection = next(binding for binding in request["action_bindings"] if binding["action_name"] == "select")
+    assert {(binding["configuration_id"], binding["seed"]) for binding in inference} == {
+        (configuration_id, seed) for configuration_id in ("anchor", "candidate-a", "candidate-b")
+        for seed in (1001, 1002)}
+    assert len(comparisons) == 2
+    assert all(binding["selection_work_id"] == selection["work_id"] for binding in comparisons)
+    assert {row["configuration_id"] for row in selection["evidence"]} == {"anchor", "candidate-a", "candidate-b"}
+
+
+def test_training_mutations_keep_original_evaluation_objective():
+    task = {"primary_metric": "relative_l2", "primary_direction": "minimize",
+            "side_constraints": [{"metric": "runtime", "operator": "<=", "value": 20}],
+            "C1_revision": {"revised_primary_metric": "relative_gradient_l2",
+                            "revised_direction": "minimize", "revised_side_constraints": []}}
+    assert _episode_metric_contract(task, {"factual_changes": {}}, "C3") == {
+        "revised_primary_metric": "relative_l2", "revised_direction": "minimize",
+        "revised_side_constraints": task["side_constraints"]}
+    assert _episode_metric_contract(task, {"factual_changes": {}}, "C1") == task["C1_revision"]
+    assert _episode_metric_contract(task, {"factual_changes": {"evaluation_contract": {
+        "revised_primary_metric": "mae", "revised_direction": "minimize"}}}, "C2") == {
+            "revised_primary_metric": "mae", "revised_direction": "minimize"}
+
+
+def test_fresh_model_turn_rebuilds_dynamic_frontier_after_saved_preparation(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    document = manifest([{"work_id": "dynamic-episode", "kind": "episode",
+                          "resource_policy": {"active_wall_seconds": 60, "actual_gpu_seconds": 480},
+                          "payload": {}}])
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+
+    class Client:
+        provider = {"id": "fixture-provider", "model": "fixture-model"}
+        config = {"reasoning_effort": "medium"}
+        timeout = 60
+        def complete(self, _messages, **_kwargs):
+            return {"text": json.dumps({"mode": "submit", "actions": [], "submission": {}}),
+                    "usage": {"input_tokens": 4, "output_tokens": 3}}
+
+    builds = []
+    def build(_payload):
+        turn = len(builds) + 1
+        builds.append(turn)
+        return {"arm": "FULL", "messages": [{"role": "user", "content": f"frontier {turn}"}],
+                "decision_schema": {"type": "object", "required": ["mode", "actions", "submission"],
+                    "properties": {"mode": {"type": "string"}, "actions": {"type": "array"},
+                                   "submission": {"type": "object"}}},
+                "allowed_decisions": ["inspect"], "action_bindings": [],
+                "frontier_version": turn}
+    monkeypatch.setattr(runtime, "build_episode_request", build)
+    monkeypatch.setattr("research.experiments.study_runtime.verify_episode_submission",
+        lambda *_args, **_kwargs: {"state": "completed", "valid": True})
+    item = {"work_id": "dynamic-episode", "kind": "episode",
+            "payload": {"arm": "FULL",
+                        "resource_policy": {"active_wall_seconds": 60, "actual_gpu_seconds": 480}}}
+    first = runtime.execute_model_episode(item, client=Client())
+    second = runtime.execute_model_episode(item, client=Client(), history=[{"actions": []}])
+    assert first["prepared_episode_payload"]["frontier_version"] == 1
+    assert second["prepared_episode_payload"]["frontier_version"] == 2
+    assert builds == [1, 2]
+
+
+def test_existing_inference_keeps_installed_gpu_spec_while_reconciling(tmp_path, monkeypatch):
+    from research.experiments import gpu_supervisor
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    document = manifest([])
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    config_path = campaign / "config.json"
+    checkpoint_path = campaign / "checkpoint.pt"
+    output_path = campaign / "inference"
+    config_path.write_text("{}", encoding="utf-8")
+    checkpoint_path.write_bytes(b"opaque checkpoint")
+    spec_path = campaign / "development" / "execution_plans" / "infer-1-inference.json"
+    installed = {"config_path": str(config_path), "checkpoint_path": str(checkpoint_path),
+        "output_directory": str(output_path), "fit_timeout_seconds": 30,
+        "gpu_devices": ["GPU-A"], "campaign": str(campaign), "work_id": "infer-1"}
+    spec_path.parent.mkdir(parents=True)
+    spec_path.write_text(json.dumps(installed), encoding="utf-8")
+
+    class Supervisor:
+        def __init__(self, *_args): pass
+        def status(self, _work_id):
+            return {"status": "running", "configuration": {"gpu_devices": ["GPU-A"]}}
+        def wait(self, _work_id, *, timeout):
+            assert timeout == 1.0
+            return {"status": "running", "configuration": {"gpu_devices": ["GPU-A"]}}
+
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", Supervisor)
+    monkeypatch.setattr("research.experiments.study_runtime._supervisor_has_work", lambda *_args: True)
+    binding = {"work_id": "infer-1", "inference_spec": {
+        "config_path": str(config_path), "checkpoint_path": str(checkpoint_path),
+        "output_directory": str(output_path), "fit_timeout_seconds": 30}}
+    outcome = runtime.execute_inference(binding, gpu_devices=["GPU-B"])
+    assert outcome["supervisor"]["status"] == "running"
+    assert json.loads(spec_path.read_text(encoding="utf-8")) == installed
+
+    class MismatchSupervisor(Supervisor):
+        def status(self, _work_id):
+            return {"status": "running", "configuration": {"gpu_devices": ["GPU-B"]}}
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", MismatchSupervisor)
+    with pytest.raises(ValueError, match="GPU device differs"):
+        runtime.execute_inference(binding, gpu_devices=["GPU-B"])
+    assert json.loads(spec_path.read_text(encoding="utf-8")) == installed
+
+
+def test_inference_recovery_matches_original_gpu_alias_not_resolved_uuid(tmp_path, monkeypatch):
+    from research.experiments import gpu_supervisor
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    config = campaign / "config.json"
+    checkpoint = campaign / "checkpoint.pt"
+    output = campaign / "inference"
+    config.write_text("{}", encoding="utf-8")
+    checkpoint.write_bytes(b"checkpoint-reference")
+    work_id = "infer-alias"
+    spec_path = campaign / "development" / "execution_plans" / f"{work_id}-inference.json"
+    spec_path.parent.mkdir(parents=True)
+    installed = {"config_path": str(config), "checkpoint_path": str(checkpoint),
+        "output_directory": str(output), "fit_timeout_seconds": 30,
+        "gpu_devices": ["0"], "campaign": str(campaign), "work_id": work_id}
+    spec_path.write_text(json.dumps(installed), encoding="utf-8")
+    class AliasSupervisor:
+        def __init__(self, *_args): pass
+        def status(self, _work_id):
+            return {"status": "running", "configuration": {
+                "gpu_devices": ["GPU-fixture-0000"], "requested_gpu_devices": ["0"]}}
+        def wait(self, _work_id, *, timeout):
+            return self.status(_work_id)
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", AliasSupervisor)
+    monkeypatch.setattr("research.experiments.study_runtime._supervisor_has_work", lambda *_args: True)
+    result = runtime.execute_inference({"work_id": work_id, "inference_spec": {
+        "config_path": str(config), "checkpoint_path": str(checkpoint),
+        "output_directory": str(output), "fit_timeout_seconds": 30}}, gpu_devices=["0"])
+    assert result["supervisor"]["status"] == "running"
+    assert json.loads(spec_path.read_text(encoding="utf-8")) == installed
+
+
+def test_cli_leaves_mixed_campaign_provider_resolution_to_each_work_item(tmp_path, monkeypatch, capsys):
+    from research.experiments import study_runtime as module
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    document = manifest([])
+    document["model_provider"] = {"id": "primary", "model": "gpt-6-luna",
+        "config": {"reasoning_effort": "medium"}}
+    document["execution_state"]["work_items"] = [
+        {"work_id": "secondary-replay", "kind": "replay", "model_provider": {
+            "id": "secondary", "model": "gpt-6.1-sol", "config": {"reasoning_effort": "low"}}}]
+    manifest_path.write_text(json.dumps(document), encoding="utf-8")
+    captured = []
+    monkeypatch.setattr(StudyRuntime, "run_one", lambda self, **kwargs: captured.append(kwargs) or None)
+    monkeypatch.setattr(module, "load_saved_codex_client", lambda *a, **k: pytest.fail("CLI eagerly loaded a campaign-wide client"))
+    result = module.main(["run", "--campaign", str(campaign), "--ledger", str(campaign / "study.sqlite"),
+        "--ledger-id", "ledger-test", "--manifest", str(manifest_path)])
+    assert result == 0
+    assert captured and captured[0]["client"] is None
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["idle"] is True
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    assert runtime._model_provider_spec(document["execution_state"]["work_items"][0]) == document["execution_state"]["work_items"][0]["model_provider"]
+
+
+def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_path, monkeypatch):
+    from research.experiments.study_runtime import _verify_required_controller_restart
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=path)
+    policy = {"required": True, "milestone": "after_c1_checkpoint_before_confirmation"}
+    episode = {"work_id": "restart-cell", "controller_restart": policy}
+    valid_result = {"state": "completed", "valid": True}
+    missing = _verify_required_controller_restart(runtime, episode, valid_result)
+    assert missing["valid"] is False
+    checkpoint = {"work": {"result_json": json.dumps({"action_history": []})},
+        "model_calls": [], "ordinary_state": {}}
+    checkpoint_path = campaign / "controller_checkpoint.json"
+    artifact = {"original_path": str(checkpoint_path), "size": 1, "mtime_ns": 1}
+    publication = {"checkpoint": checkpoint, "policy": policy, "request_id": "request",
+        "dispatch_id": "dispatch-a", "worker": {"pid": 101, "process_created": 1.0}}
+    checkpoint_path.write_text(json.dumps(publication), encoding="utf-8")
+    monkeypatch.setattr("research.agents.processes.artifact_matches", lambda *_args: True)
+    with runtime.ledger.connect() as db:
+        db.execute("""CREATE TABLE forest_study_controller_restarts (
+            campaign_id TEXT, work_id TEXT, request_id TEXT, policy_json TEXT, state TEXT,
+            checkpoint_json TEXT, request_dispatch_id TEXT, request_pid INTEGER,
+            request_process_created REAL, resume_dispatch_id TEXT, resume_pid INTEGER,
+            resume_process_created REAL, receipt_json TEXT, requested_at REAL,
+            resumed_at REAL, PRIMARY KEY(campaign_id, work_id))""")
+        receipt = {"milestone": policy["milestone"], "previous_exit": {
+            "status": "completed", "pid": 101, "process_created": 1.0,
+            "completion_receipt": {"exit_code": 0}, "artifacts": [artifact]},
+            "previous_worker": {"pid": 101, "process_created": 1.0},
+            "resumed_worker": {"pid": 202, "process_created": 2.0},
+            "checkpoint_reloaded": True,
+            "request_id": "request", "resume_dispatch_id": "dispatch-b",
+            "reload_proof": {"arm": "FULL", "action_history": [], "model_request_ids": []},
+            "checkpoint_receipt": {"path": str(checkpoint_path), "artifact": artifact,
+                **publication}}
+        db.execute("INSERT INTO forest_study_controller_restarts VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (runtime.campaign_id, "restart-cell", "request", json.dumps(policy), "resumed", json.dumps(checkpoint),
+             "dispatch-a", 101, 1.0, "dispatch-b", 202, 2.0, json.dumps(receipt), 1.0, 2.0))
+    checked = _verify_required_controller_restart(runtime, episode, valid_result)
+    assert checked["valid"] is True
+    assert checked["controller_restart"]["previous_worker"]["pid"] != checked["controller_restart"]["resumed_worker"]["pid"]
+
+
+def test_aide_verified_metrics_accepts_actual_common_rescore_artifact_shape(tmp_path):
+    source_path = tmp_path / "execution_receipt.json"
+    score_path = tmp_path / "independent_score.json"
+    source_path.write_text(json.dumps({"status": "SUCCEEDED", "hidden_test_opened": False,
+        "configuration_id": "candidate", "seed": 1001,
+        "validation_metrics": {"relative_l2": 0.125}}), encoding="utf-8")
+    score_path.write_text(json.dumps({"status": "SUCCEEDED", "hidden_test_opened": False,
+        "metrics": {"relative_l2": 0.125}, "prediction_path": "/researcher/validation_predictions.npz"}),
+        encoding="utf-8")
+    payload = {"task_contract": {"primary_metric": "relative_l2", "primary_direction": "minimize"},
+        "action_bindings": [{"work_id": "score-1", "kind": "rescore",
+            "configuration_id": "candidate", "seed": 1001,
+            "reference_receipt_path": str(source_path), "output_path": str(score_path)}]}
+    actual_actions = [{"state": "completed", "kind": "rescore", "action_work_id": "score-1",
+        "configuration_id": "candidate", "seed": 1001,
+        "result": {"status": "SUCCEEDED", "source_config_path": "/config/effective.json",
+                   "prediction_path": "/researcher/validation_predictions.npz",
+                   "metrics": {"relative_l2": 0.125}, "hidden_test_opened": False}}]
+    assert StudyRuntime._aide_verified_metrics(payload, actual_actions) == [{
+        "value": 0.125, "maximize": False, "configuration_id": "candidate", "seed": 1001,
+        "receipt_path": str(source_path)}]
+
+
+def test_aide_verified_metrics_rejects_rescore_without_matching_source_receipt(tmp_path):
+    source_path = tmp_path / "execution_receipt.json"
+    score_path = tmp_path / "independent_score.json"
+    source_path.write_text(json.dumps({"status": "SUCCEEDED", "hidden_test_opened": False,
+        "configuration_id": "candidate", "validation_metrics": {"mae": 2.0}}), encoding="utf-8")
+    score_path.write_text(json.dumps({"status": "SUCCEEDED", "hidden_test_opened": False,
+        "metrics": {"mae": 1.0}}), encoding="utf-8")
+    payload = {"task_contract": {"primary_metric": "mae", "primary_direction": "minimize"},
+        "action_bindings": [{"work_id": "score-1", "kind": "rescore",
+            "configuration_id": "candidate", "reference_receipt_path": str(source_path),
+            "output_path": str(score_path)}]}
+    actions = [{"state": "completed", "kind": "rescore", "action_work_id": "score-1",
+                "result": {"metrics": {"mae": 1.0}}}]
+    assert StudyRuntime._aide_verified_metrics(payload, actions) == []
+
