@@ -2356,6 +2356,29 @@ class StudyRuntime:
         elif not isinstance(prior_result, Mapping):
             prior_result = {}
         validation_feedback = prior_result.get("response_validation_feedback")
+        if not validation_feedback:
+            prior_diagnostic = next((turn.get("no_progress_observation")
+                for turn in reversed(history) if isinstance(turn, Mapping)
+                and isinstance(turn.get("no_progress_observation"), Mapping)), None)
+            if prior_diagnostic:
+                action_ids = prior_diagnostic.get("action_work_ids") or []
+                if action_ids and prior_diagnostic.get("same_source_bound_results"):
+                    instruction = ("The registered action IDs listed here already completed with the same saved results "
+                        "under unchanged evidence. Do not execute those same IDs again unless their source evidence "
+                        "changes. Use the saved results to submit or analyze the evidence, or choose a different "
+                        "registered action that can add new evidence.")
+                elif prior_diagnostic.get("context_page_requests"):
+                    instruction = ("The previous context-page reads returned no new source characters. Use the source "
+                        "already retrieved, or choose a different registered page/offset that can add new evidence.")
+                else:
+                    instruction = ("The previous decision produced no new evidence. Replan from the saved action "
+                        "results and current evidence; choose an action that advances the task or submit a conclusion "
+                        "supported by the existing evidence.")
+                validation_feedback = {"reason": "NO_PROGRESS_REPLAN",
+                    "action_work_ids": list(action_ids),
+                    "same_source_bound_results": prior_diagnostic.get("same_source_bound_results") is True,
+                    "new_evidence_added": prior_diagnostic.get("new_evidence_added") is True,
+                    "observation": dict(prior_diagnostic), "instruction": instruction}
         saved_prepared = prior_result.get("prepared_episode_payload")
         if (validation_feedback and isinstance(saved_prepared, Mapping)
                 and not prior_result.get("no_progress_observation")):

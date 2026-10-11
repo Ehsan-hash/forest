@@ -1235,6 +1235,59 @@ def test_paused_no_progress_requires_explicit_resume_and_preserves_result(tmp_pa
     assert json.loads(row["result_json"]) == prior_result
 
 
+def test_resumed_episode_delivers_no_progress_diagnostic_and_uses_saved_action_results(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    payload = {"arm": "FULL", "phase": "INFRA_TEST",
+        "messages": [{"role": "user", "content": "Use the evidence already in the ledger."}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+            "properties": {"mode": {"type": "string"}, "actions": {"type": "array"},
+                "submission": {"type": "object"}, "rationale": {"type": "string"}}},
+        "allowed_decisions": ["select"], "action_bindings": []}
+    episode = {"work_id": "replanned-episode", "kind": "episode", "phase": "INFRA_TEST",
+        "payload": payload}
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([episode])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    action_id = "saved-select-result"
+    prior_result = {"action_history": [{"actions": [{"action_work_id": action_id,
+            "kind": "analysis", "state": "completed", "result": {"status": "SUCCEEDED",
+                "selected_configuration_id": "candidate"}}],
+        "no_progress_observation": {"action_work_ids": [action_id],
+            "same_source_bound_results": True, "new_evidence_added": False,
+            "diagnostic_previously_delivered": True}}]}
+    runtime.ledger.set_state("campaign-test", episode["work_id"], "paused_no_progress", result=prior_result)
+    runtime.ledger.resume_no_progress("campaign-test", episode["work_id"], operator="codex-test")
+
+    class SubmitClient:
+        provider = {"id": "fixture-provider", "model": "fixture-model"}
+        config = {"reasoning_effort": "low"}
+        def __init__(self): self.messages = []
+        def complete(self, messages, **_kwargs):
+            self.messages.append(messages)
+            return {"text": json.dumps({"mode": "submit", "actions": [],
+                "submission": {"claim": "Use the completed selector result."},
+                "rationale": "The saved source result is sufficient."}),
+                "usage": {"input_tokens": 10, "output_tokens": 5}}
+
+    monkeypatch.setattr("research.experiments.study_runtime.verify_episode_submission",
+        lambda *_args, **_kwargs: {"valid": True, "state": "completed"})
+    client = SubmitClient()
+    result = runtime.run_one(owner="codex-test", work_id=episode["work_id"], client=client)
+
+    assert result["state"] == "completed"
+    assert len(client.messages) == 1
+    delivered = "\n".join(message["content"] for message in client.messages[0])
+    assert "NO_PROGRESS_REPLAN" in delivered
+    assert action_id in delivered
+    assert "Do not execute those same IDs again unless their source evidence changes" in delivered
+    assert "selected_configuration_id" not in json.dumps(result["decision"]["submission"])
+    with runtime.ledger.connect() as db:
+        assert db.execute("SELECT state FROM forest_study_work WHERE work_id=?", (action_id,)).fetchone() is None
+        assert db.execute("SELECT state FROM forest_study_work WHERE work_id=?", (episode["work_id"],)).fetchone()[0] == "completed"
+
+
 def test_codex_transport_schema_is_strict_without_changing_runtime_schema():
     schema = {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
         "properties": {"mode": {"enum": ["action", "submit"]},
