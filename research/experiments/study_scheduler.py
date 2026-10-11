@@ -678,9 +678,9 @@ class StudyScheduler:
         from .gpu_supervisor import ComputeSupervisor
         active = {entry['item']['work_id'] for entry in self._futures.values()}
         with self.ledger.connect() as db:
-            rows = [dict(row) for row in db.execute("SELECT * FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')", (self.campaign_id,))]
+            rows = [dict(row) for row in db.execute("SELECT work_id,kind,supervisor_work_id,payload_json FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')", (self.campaign_id,))]
             attempts = {row['logical_work_id']: dict(row) for row in db.execute(
-                'SELECT * FROM forest_study_fit_attempts WHERE campaign_id=? ORDER BY attempt_number', (self.campaign_id,))}
+                'SELECT logical_work_id,supervisor_work_id,output_directory FROM forest_study_fit_attempts WHERE campaign_id=? ORDER BY attempt_number', (self.campaign_id,))}
             accepted = {row['work_id']: row['ledger_id'] for row in db.execute('SELECT work_id,ledger_id FROM forest_compute_work')} if compute else {}
         recovered = []
         for row in rows:
