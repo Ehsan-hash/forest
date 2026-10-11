@@ -100,6 +100,33 @@ def test_action_history_reuses_repeated_frontiers_losslessly():
     assert len(json.dumps(compact)) < len(json.dumps(history)) / 5
 
 
+def test_claim_losslessly_compacts_legacy_checkpoint_frontiers(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([item("legacy-replay", kind="replay")]))
+    message = "shared immutable research evidence " * 500
+    history = []
+    frontier = {"messages": [{"role": "user", "content": message}],
+        "completed_source_actions": {"source-action": {"receipt": "validated"}}}
+    for index in range(12):
+        history.append({"source_frontier": json.loads(json.dumps(frontier)),
+            "actions": [{"action_work_id": f"action-{index}"}]})
+    legacy = {"state": "retryable", "action_history": history}
+    with ledger.connect() as db:
+        db.execute("UPDATE forest_study_work SET result_json=? WHERE campaign_id=? AND work_id=?",
+            (json.dumps(legacy), "campaign-test", "legacy-replay"))
+    before = len(json.dumps(legacy))
+    claimed = ledger.claim("campaign-test", "recovery-worker")
+    assert claimed["result"]["action_history"] == history
+    assert all(turn["source_frontier"] is claimed["result"]["action_history"][0]["source_frontier"]
+        for turn in claimed["result"]["action_history"])
+    with ledger.connect() as db:
+        after = db.execute("SELECT result_json FROM forest_study_work WHERE work_id='legacy-replay'").fetchone()[0]
+        event_count = db.execute("SELECT count(*) FROM forest_study_events WHERE work_id='legacy-replay'").fetchone()[0]
+    assert len(after) < before / 5
+    assert _decode_study_result_json(after)["action_history"] == history
+    assert event_count == 1  # Compaction adds no synthetic research event.
+
+
 @pytest.mark.parametrize("external_evidence", ["claim", "released_claim", "supervisor", "model_call", "fit_attempt"])
 def test_manifest_revision_rejected_after_claim_or_external_execution_evidence(tmp_path, external_evidence):
     ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")

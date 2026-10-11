@@ -560,6 +560,16 @@ class StudyLedger:
                     value["lease_at"] = now
                     value["payload"] = json.loads(value.pop("payload_json"))
                     value["result"] = _decode_study_result_json(value.get("result_json"))
+                    # Older campaign checkpoints may predate lossless frontier
+                    # interning. Compact them as part of the existing claim
+                    # transaction so repeated immutable research context is
+                    # stored once without dropping any evidence or events.
+                    compact_result_json = _json(_compact_study_result(value["result"]))
+                    prior_result_json = value.get("result_json") or "{}"
+                    if len(compact_result_json) < len(prior_result_json):
+                        db.execute("UPDATE forest_study_work SET result_json=? WHERE campaign_id=? AND work_id=?",
+                            (compact_result_json, campaign_id, value["work_id"]))
+                        value["result_json"] = compact_result_json
                     return value
         return None
 

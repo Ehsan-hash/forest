@@ -920,8 +920,17 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
                          (runtime.campaign_id, work_id)).fetchone()
     state = json.loads(row[0]) if row else None
     if state is not None:
-        from .study_runtime import _expand_action_history_frontiers
+        from .study_runtime import _compact_action_history_frontiers, _expand_action_history_frontiers
         state["action_history"] = _expand_action_history_frontiers(state.get("action_history", []))
+        compacted = dict(state)
+        compacted["action_history"] = _compact_action_history_frontiers(state["action_history"])
+        compacted_json = _json(compacted)
+        if len(compacted_json) < len(row[0]):
+            # Migrate legacy full snapshots losslessly on recovery. Event
+            # records and the reconstructed in-memory state remain untouched.
+            with runtime.ledger.connect() as db:
+                db.execute("UPDATE forest_study_aide_sessions SET state_json=?,updated_at=? WHERE campaign_id=? AND work_id=?",
+                    (compacted_json, time.time(), runtime.campaign_id, work_id))
     if state is not None and state.get("finished"):
         return dict(state["final_outcome"])
     _restore_pending_task_context(state, payload)
