@@ -656,6 +656,23 @@ def test_legacy_prompt_equivalence_rejects_partial_source_substrings():
     assert _legacy_native_prompt_equivalent(saved, current) is False
 
 
+def test_legacy_prompt_equivalence_allows_lossless_system_context_repack():
+    task = [{"role": "user", "content": json.dumps({"evidence": [
+        {"dataset_manifest": list(range(2500)), "training_configuration": {"seed": 13}}
+    ] * 8}, separators=(",", ":"))}]
+    source, compact, encoding = _prepare_aide_task_context(task)
+    assert len(compact) < len(json.dumps(task, ensure_ascii=False))
+    saved_context = json.dumps(task, ensure_ascii=False, sort_keys=True)
+    saved = {"original_task_messages": task, "task_context_content": saved_context,
+        "messages": [{"role": "system", "content": "task=" + saved_context + "\ncontract=same"}]}
+    current = {"original_task_messages": source, "task_context_content": compact,
+        "task_context_encoding": encoding, "original_messages": [{"role": "system",
+            "content": "task=" + compact + "\ncontract=same"}]}
+    assert _legacy_native_prompt_equivalent(saved, current)
+    current["original_messages"][0]["content"] += "\ncontract=changed"
+    assert not _legacy_native_prompt_equivalent(saved, current)
+
+
 def test_actual_study_dispatch_uses_native_agent_and_common_cpu_analysis(tmp_path, native_upstream):
     """Nonformal end-to-end infrastructure path, with actual CPU children."""
     runtime, item = _runtime(tmp_path, native_upstream)

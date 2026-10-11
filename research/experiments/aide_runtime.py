@@ -208,13 +208,30 @@ def _legacy_native_prompt_equivalent(saved, current):
     """Verify an old full-context prompt matches after reversible interning."""
     from .study_context import restore_messages
     original = current.get("original_task_messages")
-    if not isinstance(original, list):
+    saved_original = saved.get("original_task_messages", original)
+    if not isinstance(original, list) or not isinstance(saved_original, list):
         return False
-    source_text = _json(original)
     saved_messages = saved.get("messages")
     current_messages = current.get("original_messages", current.get("messages"))
     task_context = current.get("task_context_content")
     if not isinstance(saved_messages, list) or not isinstance(current_messages, list) or not isinstance(task_context, str):
+        return False
+
+    def restored_source(context, expected):
+        try:
+            outer = restore_messages([{"role": "user", "content": context}])[0]["content"]
+            delivered = json.loads(outer)
+            return isinstance(delivered, list) and restore_messages(delivered) == expected
+        except (ValueError, TypeError, RecursionError):
+            return False
+
+    # AIDE's old prompt builder embeds the registered task context inside its
+    # system template. Validate each side against its own persisted source,
+    # since the lossless repack may replace inlined history with references.
+    # Then compare the complete prompts after replacing only that exact source.
+    saved_context = saved.get("task_context_content")
+    saved_context_valid = isinstance(saved_context, str) and restored_source(saved_context, saved_original)
+    if not restored_source(task_context, original):
         return False
 
     def replace_exact(messages, needles):
@@ -236,15 +253,11 @@ def _legacy_native_prompt_equivalent(saved, current):
     # Match the whole original task snapshot. Matching a single user-message
     # substring would incorrectly accept a prompt missing newly added source
     # conditions or observations.
-    old_needles = [source_text, json.dumps(source_text, ensure_ascii=False)]
+    saved_source_text = _json(saved_original)
+    old_needles = ([saved_context] if saved_context_valid else []) + [
+        saved_source_text, json.dumps(saved_source_text, ensure_ascii=False)]
     new_needles = [task_context, json.dumps(task_context, ensure_ascii=False)]
     try:
-        # The outer task serialization is ordinary JSON; selected user message
-        # bodies may contain their own reversible tagged documents.
-        outer = restore_messages([{"role": "user", "content": task_context}])[0]["content"]
-        delivered_task = json.loads(outer)
-        if not isinstance(delivered_task, list) or restore_messages(delivered_task) != original:
-            return False
         old_normalized, old_count = replace_exact(saved_messages, old_needles)
         new_normalized, new_count = replace_exact(current_messages, new_needles)
     except (ValueError, TypeError, RecursionError):
