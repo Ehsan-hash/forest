@@ -332,6 +332,63 @@ def test_native_replans_after_unqueued_source_precondition_feedback(tmp_path, na
     assert len(client.calls) == 4
 
 
+def test_native_repeated_action_feedback_roundtrips_and_resumes(tmp_path, native_upstream):
+    runtime, item = _runtime(tmp_path, native_upstream)
+    item["payload"]["allowed_decisions"] = ["inspect"]
+    item["payload"]["decision_schema"] = {"type": "object",
+        "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
+            "type": "object", "required": ["kind", "action_work_id"], "properties": {
+                "kind": {"type": "string"}, "action_work_id": {"type": "string"}}}},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    item["payload"]["action_bindings"] = [
+        {"work_id": work_id, "kind": "analysis", "action_name": "inspect",
+         "analysis_operation": "inspect", "evidence": [{"work_id": f"evidence-{index}",
+             "configuration_id": "fixture-cfg", "seed": index, "state": "completed",
+             "metrics": {"mae": 1.25}}]}
+        for index, work_id in enumerate(("inspect-1", "inspect-2"), start=1)
+    ]
+    client = NonformalClient([
+        "Nonformal inspect draft.\n```python\n" + _program(action_work_id="inspect-1") + "```",
+        _review(),
+        "Nonformal repeated inspect draft.\n```python\n" + _program(action_work_id="inspect-1") + "```",
+        _review(),
+        "Nonformal replanned inspect draft.\n```python\n" + _program(action_work_id="inspect-2") + "```",
+        _review(),
+    ])
+
+    first = run_aide_episode(runtime, item, client=client)
+    assert first["native_completed_steps"] == 1
+    repeated = run_aide_episode(runtime, item, client=client)
+    assert repeated["native_completed_steps"] == 2
+    assert repeated["action_result"]["exc_type"] == "RepeatedActionWithoutNewEvidence"
+    assert isinstance(repeated["action_result"]["exc_info"], dict)
+    assert repeated["action_result"]["exc_info"]["args"][0] in repeated["action_result"]["stdout"]
+
+    with runtime.ledger.connect() as db:
+        state = json.loads(db.execute(
+            "SELECT state_json FROM forest_study_aide_sessions WHERE work_id='native-episode'"
+        ).fetchone()[0])
+    journal = load_upstream(native_upstream)["serialize"].loads_json(
+        state["journal"], load_upstream(native_upstream)["journal"].Journal)
+    assert journal.nodes[-1].exc_info == repeated["action_result"]["exc_info"]
+
+    # Reproduce an already-persisted pre-fix checkpoint without altering the
+    # original campaign: its raw node exception was serialized as a string.
+    journal_data = json.loads(state["journal"])
+    journal_data["nodes"][-1]["exc_info"] = repeated["action_result"]["exc_info"]["args"][0]
+    state["journal"] = json.dumps(journal_data, ensure_ascii=False, separators=(",", ":"))
+    with runtime.ledger.connect() as db:
+        db.execute("UPDATE forest_study_aide_sessions SET state_json=? WHERE work_id='native-episode'",
+                   (json.dumps(state, ensure_ascii=False),))
+
+    recovered, recovered_item = _runtime(tmp_path, native_upstream)
+    recovered_item["payload"] = dict(item["payload"])
+    resumed = run_aide_episode(recovered, recovered_item, client=client)
+    assert resumed["native_completed_steps"] == 3
+    assert len(client.calls) == 6
+
+
 def test_native_missing_analysis_prerequisite_replans_without_phantom_pending_child(tmp_path, native_upstream):
     runtime, item = _runtime(tmp_path, native_upstream)
     candidate_receipt = tmp_path / "not-yet-run-inference.json"

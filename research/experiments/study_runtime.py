@@ -1896,7 +1896,7 @@ class StudyRuntime:
                     "new_evidence_added": False, "diagnostic_previously_delivered": same_source_diagnostic}
                 base.update(state="paused_no_progress" if same_source_diagnostic else "completed",
                     exc_type="RepeatedActionWithoutNewEvidence",
-                    exc_info=feedback, action_results=duplicates,
+                    exc_info={"args": [feedback]}, action_results=duplicates,
                     action_work_ids=[str(row.get("action_work_id")) for row in duplicates],
                     no_progress_observation=observation,
                     source_frontier=frontier,

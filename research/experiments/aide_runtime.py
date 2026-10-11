@@ -981,7 +981,17 @@ def run_aide_episode(runtime, episode_item: Mapping[str, Any], *, client,
     item["payload"] = payload
     from omegaconf import OmegaConf
     cfg = OmegaConf.create(state["configuration"])
-    journal = upstream["serialize"].loads_json(state["journal"], upstream["journal"].Journal)
+    journal_data = json.loads(state["journal"])
+    # Older retry diagnostics stored a plain string in AIDE's dict-typed
+    # ``Node.exc_info`` field. Preserve that text as exception args while
+    # rebuilding the in-memory journal; the original checkpoint remains intact
+    # until the next normal checkpoint write.
+    for node in journal_data.get("nodes", []) if isinstance(journal_data, Mapping) else []:
+        if isinstance(node, dict) and isinstance(node.get("exc_info"), str):
+            node["exc_info"] = {"args": [node["exc_info"]]}
+    journal = upstream["serialize"].loads_json(
+        json.dumps(journal_data, ensure_ascii=False, separators=(",", ":")),
+        upstream["journal"].Journal)
     # Reconstruct the same reference-only prompt tree for every generation
     # retry, including a completed-but-not-yet-checkpointed native request.
     # The serialized durable journal continues to retain each exact output.
