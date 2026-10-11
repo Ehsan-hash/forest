@@ -441,6 +441,11 @@ class StudyScheduler:
             'cpu': ThreadPoolExecutor(max_workers=self.cpu_degree, thread_name_prefix='forest-audit')}
         with self.ledger.connect() as db:
             db.executescript(SCHEMA)
+            compute_exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='forest_compute_work'").fetchone()
+            if compute_exists:
+                db.execute("CREATE INDEX IF NOT EXISTS forest_compute_work_live_state "
+                    "ON forest_compute_work(state,work_id) "
+                    "WHERE state NOT IN ('completed','failed','cancelled','budget_exhausted')")
         self._read_pilot()
 
     def _configuration(self):
@@ -626,13 +631,27 @@ class StudyScheduler:
                 db.execute('INSERT INTO forest_study_scheduler_circuits VALUES(?,?,?,?,?) ON CONFLICT(campaign_id,source_id) DO UPDATE SET last_error=excluded.last_error,consecutive_errors=excluded.consecutive_errors,state=excluded.state',
                     (self.campaign_id, source, error, count, state))
 
-    def _accepted_compute(self):
+    def _accepted_compute(self, work_ids=None):
         from .gpu_supervisor import ComputeSupervisor
         with self.ledger.connect() as db:
             exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_compute_work'").fetchone()
             if not exists:
                 return {}
-            rows = db.execute("SELECT work_id,state,receipt_json,json_extract(configuration_json,'$.gpu_devices') AS gpu_devices_json FROM forest_compute_work").fetchall()
+            if work_ids is None:
+                rows = db.execute("SELECT work_id,state,receipt_json,json_extract(configuration_json,'$.gpu_devices') AS gpu_devices_json FROM forest_compute_work").fetchall()
+            else:
+                identifiers = {str(value) for value in work_ids if value}
+                # Keep every live physical job visible, even if its owner is
+                # outside this campaign; then hydrate receipts only for those
+                # owners and the currently unresolved study work.
+                identifiers.update(row[0] for row in db.execute(
+                    "SELECT work_id FROM forest_compute_work WHERE state NOT IN ('completed','failed','cancelled','budget_exhausted')"))
+                ordered = sorted(identifiers)
+                rows = []
+                for offset in range(0, len(ordered), 500):
+                    chunk = ordered[offset:offset + 500]
+                    rows.extend(db.execute("SELECT work_id,state,receipt_json,json_extract(configuration_json,'$.gpu_devices') AS gpu_devices_json "
+                        "FROM forest_compute_work WHERE work_id IN (" + ','.join('?' for _ in chunk) + ')', chunk).fetchall())
         supervisor = ComputeSupervisor(self.runtime.ledger_path, self.runtime.ledger_id)
         result = {}
         for row in rows:
@@ -645,9 +664,7 @@ class StudyScheduler:
             except ValueError:
                 # A different logical owner still shares physical GPU usage;
                 # unknown original work retains its capacity until reconciled.
-                with self.ledger.connect() as db:
-                    original = dict(db.execute("SELECT state,json_extract(configuration_json,'$.gpu_devices') AS gpu_devices_json FROM forest_compute_work WHERE work_id=?", (row['work_id'],)).fetchone())
-                result[row['work_id']] = {'status': original['state'], 'configuration': {'gpu_devices': json.loads(original['gpu_devices_json'] or '[]')}, 'unknown_owner': True}
+                result[row['work_id']] = {'status': row['state'], 'configuration': {'gpu_devices': json.loads(row['gpu_devices_json'] or '[]')}, 'unknown_owner': True}
         return result
 
     def _hard_allowance(self):
@@ -684,7 +701,14 @@ class StudyScheduler:
             rows = [dict(row) for row in db.execute("SELECT work_id,kind,supervisor_work_id,payload_json FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')", (self.campaign_id,))]
             attempts = {row['logical_work_id']: dict(row) for row in db.execute(
                 'SELECT logical_work_id,supervisor_work_id,output_directory FROM forest_study_fit_attempts WHERE campaign_id=? ORDER BY attempt_number', (self.campaign_id,))}
-            accepted = {row['work_id']: row['ledger_id'] for row in db.execute('SELECT work_id,ledger_id FROM forest_compute_work')} if compute else {}
+            physical_ids = sorted({row['supervisor_work_id'] or row['work_id'] for row in rows})
+            accepted = {}
+            compute_table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='forest_compute_work'").fetchone()
+            if compute_table:
+                for offset in range(0, len(physical_ids), 500):
+                    chunk = physical_ids[offset:offset + 500]
+                    accepted.update({row['work_id']: row['ledger_id'] for row in db.execute(
+                        'SELECT work_id,ledger_id FROM forest_compute_work WHERE work_id IN (' + ','.join('?' for _ in chunk) + ')', chunk)})
         recovered = []
         for row in rows:
             logical = row['work_id']
@@ -1111,7 +1135,12 @@ class StudyScheduler:
         self.runtime.reload_manifest()
         self._read_pilot()
         self._evaluate_wave()
-        compute = self._accepted_compute()
+        with self.ledger.connect() as db:
+            candidates = db.execute("SELECT work_id,supervisor_work_id FROM forest_study_work "
+                "WHERE campaign_id=? AND state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted')",
+                (self.campaign_id,)).fetchall()
+        compute_ids = {value for row in candidates for value in (row['work_id'], row['supervisor_work_id']) if value}
+        compute = self._accepted_compute(compute_ids)
         self._reconcile_completed_gpu(compute)
         self._wake_reconciled_parents()
         gpu_busy = any(value['configuration'].get('gpu_devices') and

@@ -256,6 +256,43 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
         service.close()
 
 
+def test_tick_compute_reconciliation_hydrates_only_referenced_receipts(tmp_path, monkeypatch):
+    from research.experiments.gpu_supervisor import ComputeSupervisor
+    import research.experiments.study_scheduler as module
+
+    runtime = ChildRuntime(tmp_path, [{"work_id": "candidate", "kind": "infer", "context": "registered"}])
+    ComputeSupervisor(runtime.ledger_path, runtime.ledger_id)
+    with runtime.ledger.connect() as db:
+        for work_id, state, receipt in (
+            ("candidate", "completed", json.dumps({"status": "completed", "finished_at": 2})),
+            ("unrelated-complete", "completed", json.dumps({"large_receipt": "x" * 300_000})),
+            ("external-active", "running", "{}"),
+        ):
+            db.execute("INSERT INTO forest_compute_work(work_id,ledger_id,configuration_json,state,accepted_at,launch_requested,receipt_json) VALUES(?,?,?,?,?,?,?)",
+                (work_id, runtime.ledger_id, json.dumps({"gpu_devices": ["GPU-test"]}), state, time.time(), 1, receipt))
+
+    def unknown_status(_self, _work_id):
+        raise ValueError("No original process publication")
+    monkeypatch.setattr(ComputeSupervisor, "status", unknown_status)
+    service = scheduler(runtime)
+    statements = []
+    original_connect = runtime.ledger.connect
+    def traced_connect():
+        db = original_connect()
+        db.set_trace_callback(statements.append)
+        return db
+    runtime.ledger.connect = traced_connect
+    try:
+        value = service._accepted_compute({"candidate"})
+        assert set(value) == {"candidate", "external-active"}
+        assert value["candidate"]["status"] == "completed"
+        assert value["external-active"]["unknown_owner"] is True
+        assert not any("from forest_compute_work\"" in query.lower() and "where work_id in" not in query.lower()
+            and "state not in" not in query.lower() for query in statements)
+    finally:
+        service.close()
+
+
 def test_changed_raw_checkpoint_cannot_satisfy_controller_restart(tmp_path):
     runtime, _ = controller_fixture_runtime(tmp_path)
     service = controller_service(runtime)
