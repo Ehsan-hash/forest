@@ -114,6 +114,68 @@ def _run_task_signature(run):
         'inputs': config.get('input_references', config.get('inputs', []))})
 
 
+def semantic_graph_tasks(graph, *, branch_id=None):
+    """Identify actual work and dependency bindings, not Graph row churn.
+
+    The full graph retains every node/revision for provenance. A diagnosis key
+    must not grant more recovery for a renamed row, revision-only edit, or an
+    exact clone of an existing task and its dependencies.
+    """
+    nodes = {node['id']: node for node in graph.get('nodes', [])}
+    signatures = {ident: task_signature(node) for ident, node in nodes.items()}
+    active = {branch['id'] for branch in graph.get('branches', [])
+              if branch.get('status', 'active') == 'active' and not branch.get('workspace_intervention')}
+    tasks = {}
+    for ident, node in nodes.items():
+        if (node.get('archived') or node.get('branch_id') not in active or
+                (branch_id and node.get('branch_id') != branch_id)):
+            continue
+        dependencies = {_digest({'task_signature': signatures[edge['source']],
+            'relation': edge.get('relation', 'depends_on')}): {
+            'task_signature': signatures[edge['source']],
+            'relation': edge.get('relation', 'depends_on')}
+            for edge in graph.get('edges', [])
+            if edge.get('target') == ident and edge.get('source') in signatures}
+        card = {'task_signature': signatures[ident],
+            'dependency_bindings': [dependencies[key] for key in sorted(dependencies)]}
+        tasks[_digest(card)] = card
+    return [tasks[key] for key in sorted(tasks)]
+
+
+def _semantic_evidence(cards, nodes):
+    """Deduplicate successful observations, preserving their scientific validity.
+
+    Failed execution receipts remain in the complete audit/history; adding a
+    failure ID does not establish progress or reset same-state diagnosis.
+    """
+    observations = {}
+    for card in cards:
+        node = nodes.get(card['node_id'], {})
+        value = {'task_signature': task_signature(node),
+            'current_execution': card['current_execution'],
+            'scientifically_verified': card['scientifically_verified'],
+            'verification_status': card['verification'].get('verification_status'),
+            'goal_applicability': {key: card['goal_applicability'].get(key)
+                for key in ('status', 'ready')},
+            'artifact_hashes': card.get('artifact_hashes', {}),
+            'observations': card.get('observations', {})}
+        observations[_digest(value)] = value
+    return [observations[key] for key in sorted(observations)]
+
+
+def _semantic_records(records, nodes):
+    values = {}
+    for record in records:
+        value = {key: deepcopy(record.get(key)) for key in ('kind', 'title', 'status', 'data')}
+        if isinstance(value['data'], dict):
+            value['data'] = {key: item for key, item in value['data'].items()
+                             if key not in {'node_id', 'created_at', 'updated_at', 'revision'}}
+        if record.get('node_id') in nodes:
+            value['task_signature'] = task_signature(nodes[record['node_id']])
+        values[_digest(value)] = value
+    return [values[key] for key in sorted(values)]
+
+
 def failed_dependencies_changed(run, runs, nodes):
     """A repaired producer may unblock the same scientific method legitimately."""
     by_run={item['id']:item for item in runs}
@@ -247,33 +309,30 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
             'id', 'branch_id', 'type', 'title', 'revision', 'instructions', 'config', 'inputs',
             'execution_status', 'research_status', 'deliverable_status', 'results_current')})
     pid = project['id']
-    scientific_runs = [run for run in ordered if run.get('kind') not in CONTROL_KINDS]
+    semantic_tasks = semantic_graph_tasks(graph, branch_id=control.get('branch_id'))
+    semantic_evidence = _semantic_evidence([*valid_evidence, *stale_evidence], nodes)
+    semantic_records = _semantic_records(records, nodes)
     # New diagnostic runs do not reset this key. Only goal, task/evidence,
     # permissions, or actual research state changes permit a fresh recovery.
     key = _digest(review_context_value({
         'goal': project.get('goal'), 'goal_contract': config.get('goal_contract'),
         'scope': control.get('branch_id'),
-        'nodes': [{**{key: node.get(key) for key in ('id', 'revision', 'instructions', 'config', 'inputs',
-            'archived', 'results_current', 'deliverable_status')},
-            'execution_status': 'in_flight' if node.get('execution_status') in
-                ('queued','running','waiting','round_ready','pausing','paused') else node.get('execution_status')}
-            for node in sorted(nodes.values(), key=lambda n: n['id'])],
-        'branches': sorted(graph.get('branches', []),key=lambda branch:branch['id']),
-        'edges': sorted(edges,key=lambda edge:(edge['source'],edge['target'],edge.get('relation',''))),
-        'runs': [{'id': run['id'], 'status': run.get('status'), 'metrics': run.get('metrics'),
-            'verification': run.get('verification'), 'goal_applicability': run.get('goal_applicability')}
-            for run in scientific_runs if run.get('status') in ('completed','failed','interrupted','cancelled')],
-        'records': list(records),
+        'tasks': semantic_tasks,
+        'evidence': semantic_evidence,
+        'records': semantic_records,
+        'refuted_tasks': sorted({task_signature(nodes[ident]) for ident in invalidated if ident in nodes}),
         'permissions': {key: config.get(key) for key in ('tools', 'agent_execution')},
         # Diagnostics describe the same stalled scientific state. Changing an
         # error category (or reaching a work-round boundary) must not grant a
         # fresh recovery allowance without changed goals, evidence or paths.
-        'focus_node_ids': sorted(focus_ids),
+        'focus_tasks': sorted({task_signature(nodes[ident]) for ident in focus_ids}),
     }))
-    evidence_fingerprint = _digest({'current': valid_evidence, 'historical': stale_evidence,
-                                   'failures': failures, 'records': list(records)})
+    evidence_fingerprint = _digest({'observations': semantic_evidence, 'records': semantic_records})
+    audit_evidence_fingerprint = _digest({'current': valid_evidence, 'historical': stale_evidence,
+                                         'failures': failures, 'records': list(records)})
     return review_context_value({
         'schema_version': 1, 'state_key': key, 'evidence_fingerprint': evidence_fingerprint,
+        'audit_evidence_fingerprint': audit_evidence_fingerprint, 'semantic_tasks': semantic_tasks,
         'goal_contract': {'goal': project.get('goal', ''), 'revision': project.get('revision', graph.get('revision')),
             'contract': deepcopy(config.get('goal_contract', {}))},
         'trigger': trigger, 'focus_node_ids': sorted(focus_ids), 'ancestor_node_ids': sorted(ancestors - focus_ids),

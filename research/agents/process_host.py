@@ -128,6 +128,7 @@ def supervise(folder):
             if timed_out:
                 state.update(status='failed', error='Configured process timeout exceeded')
             artifacts=[]
+            artifact_errors=[]
             workspace=Path(request['workspace'])
             before=request.get('workspace_inventory') or {}
             for relative,metadata in workspace_inventory(workspace).items():
@@ -138,8 +139,16 @@ def supervise(folder):
                 # evidence that actually belonged to this completed launch.
                 snapshot=folder/'artifacts'/relative
                 snapshot.parent.mkdir(parents=True,exist_ok=True)
-                shutil.copy2(path,snapshot)
-                with snapshot.open('rb') as handle: os.fsync(handle.fileno())
+                try:
+                    shutil.copy2(path,snapshot)
+                    with snapshot.open('rb') as handle: os.fsync(handle.fileno())
+                except OSError as exc:
+                    # A separately executing job/editor can change a working
+                    # file during capture. Preserve the command's observed
+                    # outcome and the exact capture failure without claiming
+                    # complete evidence or leaving an unknown live launch.
+                    artifact_errors.append({'relative_path':relative,'error':str(exc)})
+                    continue
                 artifacts.append({'path':str(snapshot),'original_path':str(path),
                     'relative_path':relative,'sha256':file_hash(snapshot),**metadata})
             for stream in ('stdout','stderr'):
@@ -147,7 +156,8 @@ def supervise(folder):
                 artifacts.append({'path':str(path),'stream':stream,'sha256':file_hash(path),
                     'size':path.stat().st_size,'mtime_ns':path.stat().st_mtime_ns})
             # Publish immutable observations before marking executor terminal.
-            atomic_json(folder/'completion.json',{**state,'artifacts':artifacts})
+            atomic_json(folder/'completion.json',{**state,'artifacts':artifacts,
+                'artifact_errors':artifact_errors})
             atomic_json(folder / 'state.json', state)
 
 

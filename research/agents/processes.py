@@ -39,11 +39,16 @@ def workspace_inventory(workspace):
     workspace=Path(workspace)
     inventory={}
     for path in workspace.rglob('*'):
-        if (not path.is_file() or path.is_symlink() or path.name in _CHECKPOINT_FILES or
+        bookkeeping=(path.name in _CHECKPOINT_FILES or
+            any(path.name.startswith(name+'.') and path.name.endswith('.tmp')
+                for name in _CHECKPOINT_FILES))
+        if (not path.is_file() or path.is_symlink() or bookkeeping or
                 any(part.startswith('.forest-') or part in ('__pycache__','.git')
                     for part in path.relative_to(workspace).parts)):
             continue
-        stat=path.stat()
+        try: stat=path.stat()
+        except FileNotFoundError:
+            continue  # An independent atomic publisher may have renamed it.
         inventory[path.relative_to(workspace).as_posix()]={'size':stat.st_size,
             'mtime_ns':stat.st_mtime_ns,'ctime_ns':stat.st_ctime_ns}
     return inventory
@@ -255,6 +260,10 @@ class ManagedProcesses:
             if (not receipt or receipt.get('launch_id')!=value.get('launch_id') or
                     receipt.get('status')!=value['status'] or receipt.get('exit_code')!=value.get('exit_code')):
                 value.update(status=RECONCILIATION,error='Terminal executor state has no consistent completion receipt')
+                return value
+            if receipt.get('artifact_errors'):
+                value.update(status=RECONCILIATION,error='Original completion artifacts could not be preserved',
+                    artifact_errors=receipt['artifact_errors'])
                 return value
             for artifact in receipt.get('artifacts',[]):
                 if not artifact_is_valid(artifact):

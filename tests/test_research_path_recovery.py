@@ -126,6 +126,52 @@ def test_round_hints_and_renamed_ids_do_not_erase_failed_task_identity():
     assert task_signature(repaired)!=task_signature(original)
 
 
+def test_clone_revision_and_repeated_failure_receipts_do_not_renew_diagnosis():
+    project,graph,runs=fixture()
+    graph['nodes']=graph['nodes'][:2]
+    context=build_recovery_context(project,graph,runs,node_id='failed')
+    first=recovery_decision({},context)
+    second=recovery_decision({'recovery':first['recovery']},context)
+    control={'recovery':second['recovery']}
+    original_key=context['state_key']
+    original_evidence=context['evidence_fingerprint']
+    original_audit=context['audit_evidence_fingerprint']
+    for index in range(4):
+        clone=deepcopy(graph['nodes'][1])
+        clone.update(id='failed-copy-'+str(index),title='Renamed row',revision=index+1)
+        graph['nodes'].append(clone)
+        graph['edges'].append({'source':'parent','target':clone['id'],'relation':'depends_on'})
+        failed=deepcopy(runs[-1])
+        failed.update(id='repeated-failure-'+str(index),node_id=clone['id'],node_revision=clone['revision'])
+        runs.append(failed)
+        graph['nodes'][1]['revision']+=1
+        graph['revision']+=1
+        project['revision']+=1
+        updated=build_recovery_context(project,graph,runs,node_id='failed')
+        assert updated['state_key']==original_key
+        assert updated['evidence_fingerprint']==original_evidence
+        assert updated['audit_evidence_fingerprint']!=original_audit
+        assert updated['semantic_tasks']==context['semantic_tasks']
+        assert recovery_decision(control,updated)['action']=='pause'
+    assert len(updated['checkpoint_evidence']['failures'])==5
+
+
+def test_meaningful_work_dependency_and_verified_observation_changes_renew_state():
+    project,graph,runs=fixture()
+    context=build_recovery_context(project,graph,runs,node_id='failed')
+    clone=deepcopy(graph['nodes'][2]);clone['id']='same-method-with-another-dependency'
+    graph['nodes'].append(clone)
+    graph['edges'].append({'source':'failed','target':clone['id'],'relation':'depends_on'})
+    changed_dependency=build_recovery_context(project,graph,runs,node_id='failed')
+    assert changed_dependency['semantic_tasks']!=context['semantic_tasks']
+    assert changed_dependency['state_key']!=context['state_key']
+    graph['nodes'].pop();graph['edges'].pop()
+    runs[1]['metrics']['observed_metrics']['score']=0.875
+    changed_evidence=build_recovery_context(project,graph,runs,node_id='failed')
+    assert changed_evidence['evidence_fingerprint']!=context['evidence_fingerprint']
+    assert changed_evidence['state_key']!=context['state_key']
+
+
 def test_progressful_counterexamples_and_graph_planning_have_no_count_limit():
     _,graph,_=fixture()
     runs=[{'id':str(n),'created_at':str(n).zfill(3),'node_id':'failed','node_revision':0,

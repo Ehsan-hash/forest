@@ -155,8 +155,7 @@ def progress_facts(state, required, processes, research_context, *, metrics_file
     return {'input_observations': pages, 'context_coverage': coverage, 'task_outputs': task_outputs,
             'terminal_receipts': receipts,
             'research_evidence': research_context.get('evidence_fingerprint'),
-            'graph_tasks': [{key: node.get(key) for key in ('id', 'revision', 'inputs', 'instructions')}
-                            for node in research_context.get('nodes', [])]}
+            'graph_tasks': research_context.get('semantic_tasks', [])}
 
 
 def checkpoint_round(state, *, reason, decision=None):

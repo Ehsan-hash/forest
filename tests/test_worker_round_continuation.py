@@ -220,3 +220,51 @@ def test_workspace_preparation_resumes_partial_first_attempt_and_preserves_later
     config['execution_attempt']['number']=401
     prepare_task_workspace(root,source,output,config)
     assert (workspace/'method.py').read_text()=='agent progress after preparation'
+
+
+def test_graph_handoff_retains_live_job_time_and_capacity_reservation(tmp_path):
+    import datetime as dt
+    from research.agents.processes import ManagedProcesses
+    from test_agent_processes import completed
+    from services.worker.main import _admit_graph_recovery_handoff
+    from services.worker.scheduler import _elapsed_seconds_at, _time_budget_reservation_remaining
+    workspace=tmp_path/'workspace'; workspace.mkdir()
+    manager=ManagedProcesses(workspace)
+    job=manager.start([sys.executable,'-c','import time; time.sleep(1)'],process_id='still-owned')
+    run=SimpleNamespace(id='source',status='waiting_input',config={'timeout':10},
+        resource={'elapsed_seconds':3,'pending_graph_recovery':{'context':{},'checkpoint_state_key':'same-state'},
+            'time_budget':{'effective_total_timeout_seconds':10}},error=None)
+    try:
+        # No DB admission may occur while the already launched job remains
+        # alive. Its consumed and reserved time still participates in the same
+        # outer project accounting despite the yielded Agent executor.
+        _admit_graph_recovery_handoff(None,run,tmp_path)
+        assert run.resource['graph_recovery_compute_hold']
+        assert run.resource['pending_graph_recovery']
+        future=dt.datetime.now(dt.timezone.utc)+dt.timedelta(seconds=.2)
+        assert _elapsed_seconds_at(run,future)>=3.2
+        assert _time_budget_reservation_remaining(run,future)<=6.8
+        assert completed(manager,job['process_id'])['status']=='completed'
+    finally:
+        manager.cancel_all()
+
+
+def test_graph_handoff_keeps_capacity_when_original_registry_is_unreadable(tmp_path,monkeypatch):
+    import services.worker.main as worker
+    output=tmp_path/'runs'/'source'; workspace=output/'workspace'; workspace.mkdir(parents=True)
+    registry=workspace/'.forest-processes'; registry.mkdir()
+    def unavailable_registry():
+        raise OSError('Original job registry cannot be read')
+    monkeypatch.setattr(worker,'process_manager',lambda *args: SimpleNamespace(all=unavailable_registry))
+    run=SimpleNamespace(id='source',project_id='project',output_path='runs/source',
+        status='waiting_input',pid=None,process_created=None,config={'resources':{'cpu':2,'gpu':1}},
+        resource={'elapsed_seconds':3,'pending_graph_recovery':{'context':{},'checkpoint_state_key':'same-state'}},error=None)
+    monkeypatch.setattr(worker,'project_dir',lambda ident: tmp_path)
+    worker._admit_graph_recovery_handoff(None,run,output)
+    assert run.resource['graph_recovery_compute_hold']
+    assert run.resource['blocked_reason']=='execution_reconciliation'
+    reserved=worker.reservation_for(run)
+    assert reserved is not None
+    assert reserved['cpu']==2
+    assert reserved['gpu']==1
+    assert run.resource['pending_graph_recovery']

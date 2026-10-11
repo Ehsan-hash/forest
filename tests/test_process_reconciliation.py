@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
-from research.agents.processes import ManagedProcesses, configuration_hash, is_alive, atomic_json, request_sources
+from research.agents.processes import ManagedProcesses, configuration_hash, is_alive, atomic_json, request_sources, workspace_inventory
 from test_agent_processes import completed
 
 
@@ -191,3 +191,31 @@ def test_comment_only_method_reexecution_is_not_new_scientific_progress(tmp_path
     state['execution_snapshot']['artifact_hashes']=artifact_manifest({},tmp_path,['train.py','metrics.json'])
     after=digest(progress_facts(state,['train.py','metrics.json'],[first,second],context))
     assert before==after,'A comment and an identical successful result extended the no-progress detector'
+
+
+def test_concurrent_atomic_checkpoint_publish_does_not_crash_receipt_capture(tmp_path):
+    workspace=tmp_path/'workspace'; workspace.mkdir()
+    manager=ManagedProcesses(workspace,directory=tmp_path/'processes')
+    # Reproduce the supervisor seeing a save_session temporary pathname while
+    # a different process owns its atomic publication. These bytes are state,
+    # never raw experimental outputs.
+    temporary=workspace/'agent_transcript.json.temporary-intent.tmp'
+    temporary.write_text('checkpoint pending rename')
+    assert temporary.name not in workspace_inventory(workspace)
+    temporary.unlink()
+    stop=threading.Event()
+    def publisher():
+        while not stop.is_set():
+            atomic_json(workspace/'agent_transcript.json',{'state':'x'*500000})
+    thread=threading.Thread(target=publisher)
+    thread.start()
+    try:
+        for index in range(4):
+            command=[sys.executable,'-c',"from pathlib import Path; import time; time.sleep(.1); Path('metrics.json').write_text('{\"value\":1}')"]
+            result=completed(manager,manager.start(command,process_id='checkpoint-publisher-'+str(index))['process_id'])
+            assert result['status']=='completed'
+            assert not result.get('artifact_errors')
+            assert any(item.get('relative_path')=='metrics.json' for item in result['artifacts'])
+            assert not any('agent_transcript.json' in item.get('relative_path','') for item in result['artifacts'])
+    finally:
+        stop.set(); thread.join(timeout=5)
