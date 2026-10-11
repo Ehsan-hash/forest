@@ -15,6 +15,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import sys
 import tempfile
@@ -1006,7 +1007,7 @@ class StudyRuntime:
         return self._attach_public_context(episode, episode_payload)
 
     def _public_memory(self, payload: Mapping[str, Any]) -> "StudyMemory":
-        from .study_memory import StudyMemory
+        from .study_memory import ContextPageCapacityError, StudyMemory
         work_id = str(payload.get("work_id") or (payload.get("episode") or {}).get("work_id") or "")
         if not work_id:
             raise ValueError("Public context memory requires an explicit episode work ID")
@@ -1016,6 +1017,235 @@ class StudyRuntime:
         except ValueError:
             raise ValueError("Episode public memory must remain inside the campaign") from None
         return StudyMemory(workspace)
+
+    def _context_response_capacity(self, client: Any) -> int | None:
+        """Return only a declared or previously observed transport input limit."""
+        declared = []
+        candidates = [getattr(client, "config", {}), getattr(client, "provider", {})]
+        for candidate in candidates:
+            if not isinstance(candidate, Mapping):
+                continue
+            nested = [candidate, candidate.get("transport_capabilities"), candidate.get("model_capabilities")]
+            for row in nested:
+                if not isinstance(row, Mapping):
+                    continue
+                for key in ("max_input_characters", "max_input_chars"):
+                    value = row.get(key)
+                    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                        declared.append(value)
+        provider = getattr(client, "provider", {}) or {}
+        provider_id, model = provider.get("id"), provider.get("model")
+        api = getattr(client, "api", None) or provider.get("kind")
+        if api not in {"codex_cli", None} and provider.get("kind") != "codex_cli":
+            self._context_capacity_sources = [{"source": "provider_capability", "max_chars": value}
+                                              for value in declared]
+            return min(declared) if declared else None
+        cache = getattr(self, "_context_capacity_cache", None)
+        if cache is None:
+            cache = self._context_capacity_cache = {}
+        config = getattr(client, "config", {})
+        configured_executable = os.environ.get("FOREST_CODEX_EXECUTABLE", "codex")
+        expected_executable = shutil.which(configured_executable) or ""
+        cache_key = (str(api), expected_executable)
+        with self.ledger.connect() as db:
+            rows = db.execute("SELECT request_id,response_json, "
+                "json_extract(request_json,'$.provider_api') AS provider_api, "
+                "json_extract(request_json,'$.provider_snapshot.kind') AS provider_kind, "
+                "json_extract(request_json,'$.transport_trace_path') AS trace_path "
+                "FROM forest_study_model_calls "
+                "WHERE campaign_id=? AND (response_json LIKE '%input_too_large%' "
+                "OR response_json LIKE '%transport_trace_path%') ORDER BY recorded_at DESC",
+                (self.campaign_id,)).fetchall()
+        observed = []
+        sources = [{"source": "provider_capability", "max_chars": value}
+                   for value in declared]
+        for row in rows:
+            try:
+                request_api = row["provider_api"] or row["provider_kind"]
+                if request_api != "codex_cli":
+                    continue
+                response = json.loads(row["response_json"] or "{}")
+                error = response.get("transport_error", response) if isinstance(response, Mapping) else {}
+                trace_path = (row["trace_path"] or
+                    (error.get("transport_trace_path") if isinstance(error, Mapping) else None))
+                if not trace_path or not Path(str(trace_path)).is_file():
+                    continue
+                trace = _read_json(Path(str(trace_path)))
+                argv = trace.get("argv")
+                trace_executable = str(argv[0]) if isinstance(argv, list) and argv else ""
+                if not expected_executable or not trace_executable or \
+                        str(Path(trace_executable).resolve()) != str(Path(expected_executable).resolve()):
+                    continue
+                diagnostics = error.get("transport_diagnostics", error) if isinstance(error, Mapping) else {}
+                value = diagnostics.get("max_chars") if isinstance(diagnostics, Mapping) else None
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    observed.append(value)
+                    sources.append({"source": "persisted_transport_diagnostic",
+                        "request_id": row["request_id"], "max_chars": value,
+                        "trace_path": str(trace_path), "executable": trace_executable})
+                stderr = str(trace.get("stderr", ""))
+                from research.agents.codex_transport import _input_rejection
+                rejection = _input_rejection(stderr)
+                value = rejection.get("max_chars") if isinstance(rejection, Mapping) else None
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    observed.append(value)
+                    sources.append({"source": "persisted_cli_trace", "request_id": row["request_id"],
+                        "trace_path": str(trace_path), "executable": trace_executable, "max_chars": value})
+            except (OSError, ValueError, TypeError, KeyError):
+                continue
+        values = [*declared, *observed]
+        capacity = min(values) if values else None
+        self._context_capacity_sources = sources
+        cache[cache_key] = capacity
+        return capacity
+
+    def _prepare_public_page_measure_context(self, payload: Mapping[str, Any],
+                                    history: Sequence[Mapping[str, Any]], page: Mapping[str, Any],
+                                    action_work_id: str, prefix_results: Sequence[Mapping[str, Any]] = (),
+                                    trailing_history: Sequence[Mapping[str, Any]] = ()):
+        """Build the candidate-independent next request envelope once per page read."""
+        actions = [copy.deepcopy(dict(row)) for row in prefix_results if isinstance(row, Mapping)]
+        actions.append({"action_work_id": action_work_id, "kind": "analysis", "state": "completed",
+            "result": {"operation": "read_context_segment", **copy.deepcopy(dict(page))}})
+        turns = [*copy.deepcopy(list(history)), {"actions": actions, "submission": {}}]
+        turns.extend(copy.deepcopy(list(trailing_history)))
+        work_id = str(payload.get("work_id", ""))
+        from .end_to_end_runtime import is_end_to_end
+        if (is_end_to_end(payload) or _is_replay_episode(payload)
+                or (payload.get("task_id") and payload.get("family") and payload.get("stream"))):
+            next_base = self.build_episode_request({**dict(payload), "work_id": work_id})
+        else:
+            next_base = copy.deepcopy(dict(payload))
+        return self._attach_public_context(next_base, next_base, history=turns)
+
+    def _measure_public_page_request(self, client: Any, payload: Mapping[str, Any],
+                                    history: Sequence[Mapping[str, Any]], page: Mapping[str, Any],
+                                    action_work_id: str, prefix_results: Sequence[Mapping[str, Any]] = (),
+                                    trailing_history: Sequence[Mapping[str, Any]] = (),
+                                    prepared_context: Mapping[str, Any] | None = None) -> int:
+        """Measure exact next request wire against an already prepared stable envelope."""
+        actions = [copy.deepcopy(dict(row)) for row in prefix_results if isinstance(row, Mapping)]
+        action = {"action_work_id": action_work_id, "kind": "analysis", "state": "completed",
+            "result": {"operation": "read_context_segment", **copy.deepcopy(dict(page))}}
+        actions.append(action)
+        turns = [*history, {"actions": actions, "submission": {}}]
+        turns.extend(copy.deepcopy(list(trailing_history)))
+        next_payload = prepared_context or self._prepare_public_page_measure_context(
+            payload, history, page, action_work_id, prefix_results, trailing_history)
+        messages = copy.deepcopy(list(next_payload.get("messages", [])))
+        arm = str(next_payload.get("arm", next_payload.get("design_arm", ""))).upper()
+        context = _treatment_history_view(arm, turns)
+        messages.append({"role": "user", "content":
+            "Observed results from completed source-bound operations in this episode:\n" + _json(context)})
+        schema = next_payload.get("decision_schema", {})
+        if messages:
+            messages[-1]["content"] = str(messages[-1].get("content", "")) + \
+                "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(schema)
+        from research.agents.policy import ensure_research_messages
+        messages = ensure_research_messages(messages, client.config, str(next_payload.get("output_stage", "experiment")))
+        messages, _ = _intern_delivered_messages(messages)
+        clone = copy.copy(client)
+        clone.config = copy.deepcopy(dict(getattr(client, "config", {})))
+        transport_schema = _codex_strict_schema(schema) if (
+            (getattr(client, "provider", {}) or {}).get("kind") == "codex_cli"
+            or getattr(client, "api", None) == "codex_cli") else copy.deepcopy(schema)
+        clone.config["_forest_action_schema"] = transport_schema
+        clone.config["output_stage"] = str(next_payload.get("output_stage", "experiment"))
+        allocation = next_payload.get("max_output_tokens")
+        if allocation is None:
+            from research.agents.output_budget import output_allocation
+            allocation = output_allocation(clone.config, messages, stage=clone.config["output_stage"])["tokens"]
+        _, request_payload = clone.build_request(messages, json_mode=True, max_output_tokens=int(allocation))
+        return len(json.dumps(request_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+
+    def _public_page_measure_callback(self, client: Any, payload: Mapping[str, Any],
+                                      history: Sequence[Mapping[str, Any]], action_work_id: str,
+                                      trailing_history: Sequence[Mapping[str, Any]] = ()):
+        """Reuse one prepared envelope for all binary-search page candidates."""
+        prepared = []
+        def measure(page, *, prefix_results=(), action_work_id=action_work_id, action=None):
+            prefix = [copy.deepcopy(dict(row)) for row in prefix_results if isinstance(row, Mapping)]
+            key = _json({"action_work_id": str(action_work_id), "prefix": prefix})
+            template = next((entry[1] for entry in prepared if entry[0] == key), None)
+            if template is None:
+                template = self._prepare_public_page_measure_context(payload, history, page,
+                    str(action_work_id), prefix, trailing_history)
+                prepared.append((key, template))
+            return self._measure_public_page_request(client, payload, history, page,
+                str(action_work_id), prefix, trailing_history, prepared_context=template)
+        return measure
+
+    def _refit_latest_context_page(self, payload: Mapping[str, Any], history: list[dict[str, Any]],
+                                  client: Any) -> list[dict[str, Any]]:
+        """Fit the last working page after every same-turn receipt has settled."""
+        capacity = self._context_response_capacity(client)
+        if capacity is None or not history:
+            return history
+        page_turn_index = None
+        page_action_index = None
+        for turn_index in range(len(history) - 1, -1, -1):
+            actions = history[turn_index].get("actions", [])
+            for action_index in range(len(actions) - 1, -1, -1):
+                if _is_context_read_action(actions[action_index]):
+                    page_turn_index, page_action_index = turn_index, action_index
+                    break
+            if page_turn_index is not None:
+                break
+        if page_turn_index is None:
+            return history
+        # A prior read page is represented by an immutable reference in later
+        # turns. Its cursor reflects what was actually returned then; never
+        # advance it to a slice that no current model request received.
+        if page_turn_index != len(history) - 1:
+            return history
+        turn = history[page_turn_index]
+        read_action = turn["actions"][page_action_index]
+        old_page = read_action.get("result") or {}
+        if not isinstance(old_page, Mapping) or not old_page.get("segment_id"):
+            return history
+        binding = next((row for row in payload.get("action_bindings", [])
+            if isinstance(row, Mapping) and row.get("action_name") == "read_context_segment"), None)
+        if not binding:
+            return history
+        workspace = Path(str(binding.get("memory_workspace", ""))).resolve()
+        if workspace.name == ".forest-context":
+            workspace = workspace.parent
+        from .study_memory import ContextPageCapacityError, StudyMemory
+        memory = StudyMemory(workspace)
+        other_actions = [copy.deepcopy(action) for index, action in enumerate(turn.get("actions", []))
+                         if index != page_action_index and isinstance(action, Mapping)]
+        preceding_turns = history[:page_turn_index]
+        action_work_id = str(read_action.get("action_work_id", binding.get("work_id", "")))
+        page_measure = self._public_page_measure_callback(client, payload, preceding_turns,
+            action_work_id, trailing_history=history[page_turn_index + 1:])
+        measure = lambda page, page_measure=page_measure: page_measure(page, prefix_results=other_actions)
+        requested_limit = int(old_page.get("requested_limit", old_page.get("returned_characters", 6000)))
+        try:
+            fitted = memory.read_json(str(old_page["segment_id"]),
+                pointer=str(old_page.get("pointer", "")), offset=int(old_page.get("offset", 0)),
+                limit=requested_limit, response_capacity=capacity, measure_response=measure)
+        except ContextPageCapacityError as exc:
+            offset = int(old_page.get("offset", 0))
+            fitted = {key: old_page[key] for key in ("segment_id", "pointer", "total_characters", "complete")
+                      if key in old_page}
+            fitted.update({"offset": offset, "next_offset": offset, "requested_limit": requested_limit,
+                "returned_characters": 0, "content": None, "delivery_status": "not_delivered",
+                "delivery_reason": "The exact source page no longer fits alongside all completed same-turn results.",
+                "response_capacity": capacity,
+                "minimum_response_characters": getattr(exc, "minimum_response_characters", None)})
+            fitted["complete"] = offset >= int(fitted.get("total_characters", offset))
+        if fitted != old_page:
+            read_action["result"] = {**dict(fitted), "operation": "read_context_segment"}
+            self.ledger.event(self.campaign_id, "context_page_projection", {
+                "action_work_id": action_work_id, "source_segment_id": fitted["segment_id"],
+                "pointer": fitted["pointer"], "offset": fitted["offset"],
+                "next_offset": fitted["next_offset"], "total_characters": fitted["total_characters"],
+                "requested_limit": fitted["requested_limit"], "returned_characters": fitted["returned_characters"],
+                "delivery_status": fitted.get("delivery_status", "delivered"),
+                "response_capacity": capacity, "response_capacity_sources":
+                    copy.deepcopy(getattr(self, "_context_capacity_sources", [])),
+                "result": fitted}, str(payload.get("work_id", "")))
+        return history
 
     def _attach_public_context(self, source_payload: Mapping[str, Any], prepared: Mapping[str, Any], *,
                                history: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
@@ -1543,7 +1773,8 @@ class StudyRuntime:
             "limits": None, "within_budget": True}
 
     def execute_aide_node(self, item: Mapping[str, Any], *, node_id: str, code: str,
-                          client: Any = None, gpu_devices=(), defer_gpu: bool = True) -> dict[str, Any]:
+                          client: Any = None, gpu_devices=(), defer_gpu: bool = True,
+                          context_read_measure=None) -> dict[str, Any]:
         """Execute one native AIDE Python node through the shared public action contract."""
         from .aide_runtime import run_action_program
         payload = dict(item["payload"])
@@ -1657,7 +1888,7 @@ class StudyRuntime:
         if str(payload.get("arm", "")).upper() == "AIDE":
             prior_rows = [action for turn in self._aide_action_history(str(item["work_id"]))
                           for action in turn.get("actions", []) if isinstance(action, Mapping)
-                          and action.get("state") == "completed"]
+                          and action.get("state") == "completed" and not _is_context_read_action(action)]
             prior_by_id = {str(action.get("action_work_id")): action for action in prior_rows
                            if action.get("action_work_id") and isinstance(action.get("result"), Mapping)}
             duplicates = [prior_by_id.get(str(action.get("action_work_id"))) for action in actions
@@ -1684,8 +1915,20 @@ class StudyRuntime:
                         "pause_reason": ("The same completed actions recurred after diagnosis without a source-frontier change."
                             if same_source_diagnostic else None), "diagnostic": feedback}))
                 return base
+        def measure_page(page, *, prefix_results=(), action_work_id="", action=None):
+            observed = [copy.deepcopy(dict(row)) for row in prefix_results if isinstance(row, Mapping)]
+            observed.append({"action_work_id": action_work_id, "kind": "analysis", "state": "completed",
+                "result": {"operation": "read_context_segment", **copy.deepcopy(dict(page))}})
+            rendered_page = {"requested_decision": dict(decision), "observed_action_results": observed}
+            candidate_stdout = base["stdout"] + "\n" + _json(rendered_page)
+            if callable(context_read_measure):
+                return int(context_read_measure(candidate_stdout))
+            return len(candidate_stdout)
         action_result = self.execute_decision_actions(episode, actions, gpu_devices=gpu_devices,
-            submission=submission, defer_gpu=defer_gpu)
+            submission=submission, defer_gpu=defer_gpu,
+            context_read_measure=measure_page,
+            context_response_capacity=self._context_response_capacity(client) if client is not None else None,
+            context_response_capacity_sources=copy.deepcopy(getattr(self, "_context_capacity_sources", [])))
         action_rows = list(action_result.get("actions", []))
         pending_ids = [str(row["action_work_id"]) for row in action_rows
                        if row.get("state") in {"retryable", "awaiting_reconciliation"} and row.get("action_work_id")]
@@ -2187,9 +2430,14 @@ class StudyRuntime:
                                 "repeated_submission": semantic_submission,
                                 "diagnostic_previously_delivered": already_diagnosed}}
             else:
+                page_binding_id = next((str(action.get("action_work_id")) for action in requested_actions
+                    if isinstance(action, Mapping) and action.get("kind") == "read_context_segment"), "")
+                page_measure = self._public_page_measure_callback(request_client, payload, history, page_binding_id)
                 action_result = self.execute_decision_actions(episode_item, requested_actions, gpu_devices=gpu_devices,
                     submission=decision.get("submission") if isinstance(decision.get("submission"), Mapping) else None,
-                    defer_gpu=defer_gpu)
+                    defer_gpu=defer_gpu, context_read_measure=page_measure,
+                    context_response_capacity=self._context_response_capacity(request_client),
+                    context_response_capacity_sources=copy.deepcopy(getattr(self, "_context_capacity_sources", [])))
                 previous_results = {
                     str(row.get("action_work_id")): row.get("result")
                     for turn in history for row in turn.get("actions", [])
@@ -2260,7 +2508,9 @@ class StudyRuntime:
 
     def execute_decision_actions(self, episode: Mapping[str, Any], actions: Sequence[Mapping[str, Any]], *,
                                  gpu_devices=(), submission: Mapping[str, Any] | None = None,
-                                 completed_action_ids: Sequence[str] = (), defer_gpu: bool = False) -> dict[str, Any]:
+                                 completed_action_ids: Sequence[str] = (), defer_gpu: bool = False,
+                                 context_read_measure=None, context_response_capacity: int | None = None,
+                                 context_response_capacity_sources: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
         # Validate identity, uniqueness and source binding for the full batch
         # before a first operation can create effects or a child work item.
         _validate_action_bindings(episode["payload"], actions)
@@ -2283,7 +2533,15 @@ class StudyRuntime:
                 raise ValueError("A single episode cannot submit the same operation/configuration/seed twice")
             seen.add(key)
             if observational_read:
-                result = self.execute_decision_action(episode, action, gpu_devices=gpu_devices, defer_gpu=defer_gpu)
+                page_measure = None
+                if callable(context_read_measure):
+                    page_measure = lambda page, context_read_measure=context_read_measure, prefix=tuple(results), action=action, binding=match: context_read_measure(
+                        page, prefix_results=prefix,
+                        action_work_id=str(binding.get("work_id", "")) if isinstance(binding, Mapping) else "",
+                        action=action)
+                result = self.execute_decision_action(episode, action, gpu_devices=gpu_devices,
+                    defer_gpu=defer_gpu, context_read_measure=page_measure,
+                    context_response_capacity=context_response_capacity)
             elif _is_replay_episode(episode) or _is_replay_episode(episode.get("payload") or {}):
                 from .mechanism_replay import execute_replay_action
                 result = execute_replay_action(self, episode, action)
@@ -2295,6 +2553,60 @@ class StudyRuntime:
                 # queued/running. Later actions remain in the saved proposal and
                 # are resumed in order after this operation settles.
                 break
+        # A read may share a legal action batch with operations whose observed
+        # receipts also enter the next prompt. Refit the page against the full
+        # completed batch before exposing or checkpointing any result.
+        if context_response_capacity is not None and callable(context_read_measure):
+            for index, row in enumerate(list(results)):
+                if not _is_context_read_action(row):
+                    continue
+                matching_binding = next((binding for binding in episode["payload"].get("action_bindings", [])
+                    if isinstance(binding, Mapping) and binding.get("work_id") == row.get("action_work_id")
+                    and binding.get("analysis_operation") == "read_context_segment"), None)
+                page = row.get("result") or {}
+                if matching_binding is None or not isinstance(page, Mapping):
+                    continue
+                action = next((candidate for candidate in actions if isinstance(candidate, Mapping)
+                    and str(candidate.get("action_work_id", "")) == str(row.get("action_work_id", ""))), {})
+                prefix = tuple(candidate for other_index, candidate in enumerate(results) if other_index != index)
+                measurement = lambda candidate, context_read_measure=context_read_measure, prefix=prefix, action=action, binding=matching_binding: context_read_measure(
+                    candidate, prefix_results=prefix, action_work_id=str(binding.get("work_id", "")), action=action)
+                memory_workspace = Path(str(matching_binding.get("memory_workspace", ""))).resolve()
+                if memory_workspace.name == ".forest-context":
+                    memory_workspace = memory_workspace.parent
+                from .study_memory import ContextPageCapacityError, StudyMemory
+                memory = StudyMemory(memory_workspace)
+                requested_limit = int(action.get("context_limit") or page.get("requested_limit") or 6000)
+                try:
+                    fitted = memory.read_json(str(page["segment_id"]), pointer=str(page.get("pointer", "")),
+                        offset=int(page.get("offset", 0)), limit=requested_limit,
+                        response_capacity=context_response_capacity, measure_response=measurement)
+                    row["result"] = {"operation": "read_context_segment", **fitted}
+                except ContextPageCapacityError as exc:
+                    offset = int(page.get("offset", 0))
+                    row["result"] = {key: page[key] for key in (
+                        "segment_id", "pointer", "total_characters", "complete") if key in page}
+                    row["result"].update({"operation": "read_context_segment", "offset": offset,
+                        "next_offset": offset, "requested_limit": requested_limit,
+                        "returned_characters": 0, "content": None, "delivery_status": "not_delivered",
+                        "delivery_reason": "The exact source page could not fit alongside the complete current evidence and request controls.",
+                        "response_capacity": context_response_capacity,
+                        "minimum_response_characters": getattr(exc, "minimum_response_characters", None)})
+                    row["result"]["complete"] = offset >= int(row["result"].get("total_characters", offset))
+        for row in results:
+            if not _is_context_read_action(row):
+                continue
+            page = row.get("result") or {}
+            if isinstance(page, Mapping):
+                self.ledger.event(self.campaign_id, "context_page_read", {
+                    "action_work_id": row.get("action_work_id"), "segment_id": page.get("segment_id"),
+                    "pointer": page.get("pointer"), "offset": page.get("offset"),
+                    "next_offset": page.get("next_offset"), "total_characters": page.get("total_characters"),
+                    "requested_limit": page.get("requested_limit"), "returned_characters": page.get("returned_characters"),
+                    "complete": page.get("complete"), "capacity_limited": page.get("capacity_limited"),
+                    "response_capacity": page.get("response_capacity"),
+                    "response_capacity_sources": list(context_response_capacity_sources), "result": page},
+                    str(episode.get("work_id", "")))
         selected = (submission or {}).get("selected_configuration_id")
         selection_results = [r for r in results if r["kind"] == "analysis" and r.get("result", {}).get("operation") == "select"]
         validation = None
@@ -2314,7 +2626,8 @@ class StudyRuntime:
         return response
 
     def execute_decision_action(self, episode: Mapping[str, Any], decision: Mapping[str, Any], *, gpu_devices=(),
-                                defer_gpu: bool = False) -> dict[str, Any]:
+                                defer_gpu: bool = False, context_read_measure=None,
+                                context_response_capacity: int | None = None) -> dict[str, Any]:
         """Run only a complete action binding explicitly provided by the manifest."""
         bindings = episode["payload"].get("action_bindings") or []
         if not isinstance(bindings, list):
@@ -2338,7 +2651,7 @@ class StudyRuntime:
         if not work_id:
             raise ValueError("Each action binding needs its predeclared action work_id")
         if binding.get("analysis_operation") == "read_context_segment":
-            from .study_memory import StudyMemory
+            from .study_memory import ContextPageCapacityError, StudyMemory
             requested_workspace = Path(str(binding.get("memory_workspace", ""))).resolve()
             campaign_root = self.campaign.resolve()
             try:
@@ -2354,10 +2667,23 @@ class StudyRuntime:
             available = set(map(str, binding.get("available_segment_ids", [])))
             if not isinstance(segment_id, str) or segment_id not in available:
                 raise ValueError("Context read must name an available arm-public segment ID")
-            page = memory.read_json(segment_id,
-                pointer=decision.get("context_pointer") or "",
-                offset=0 if decision.get("context_offset") is None else decision.get("context_offset"),
-                limit=6000 if decision.get("context_limit") is None else decision.get("context_limit"))
+            page_limit = 6000 if decision.get("context_limit") is None else decision.get("context_limit")
+            measure = context_read_measure
+            pointer = decision.get("context_pointer") or ""
+            offset = 0 if decision.get("context_offset") is None else decision.get("context_offset")
+            try:
+                page = memory.read_json(segment_id, pointer=pointer, offset=offset,
+                    limit=page_limit, response_capacity=context_response_capacity, measure_response=measure)
+            except ContextPageCapacityError as exc:
+                metadata = memory.read_json(segment_id, pointer=pointer, offset=offset, limit=1)
+                page = {key: metadata[key] for key in ("segment_id", "pointer", "total_characters", "complete")
+                        if key in metadata}
+                page.update({"offset": offset, "next_offset": offset, "requested_limit": page_limit,
+                    "returned_characters": 0, "content": None, "delivery_status": "not_delivered",
+                    "delivery_reason": "The exact source page could not fit alongside the complete current evidence and request controls.",
+                    "response_capacity": context_response_capacity,
+                    "minimum_response_characters": getattr(exc, "minimum_response_characters", None)})
+                page["complete"] = int(offset) >= int(page.get("total_characters", offset))
             return {"action_work_id": work_id, "kind": "analysis", "state": "completed",
                 "result": {"operation": "read_context_segment", **page}}
         with self.ledger.connect() as db:
@@ -2947,12 +3273,19 @@ class StudyRuntime:
                         episode_payload = self.build_episode_request({**episode_payload, "work_id": str(item["work_id"])})
                     episode_item = {**item, "payload": episode_payload}
                     saved_actions = prior_decision.get("actions") or [prior_decision]
+                    page_action_id = next((str(action.get("action_work_id")) for action in saved_actions
+                        if isinstance(action, Mapping) and action.get("kind") == "read_context_segment"), "")
+                    page_measure = (self._public_page_measure_callback(client, episode_payload, history,
+                        page_action_id) if client is not None else lambda page, **_: len(_json(page)))
                     completed_ids = [str(action.get("action_work_id")) for record in history
                                      for action in record.get("actions", [])
                                      if action.get("state") == "completed" and action.get("action_work_id")]
                     action_result = self.execute_decision_actions(episode_item, saved_actions,
                         gpu_devices=gpu_devices, submission=prior_decision.get("submission"),
-                        completed_action_ids=completed_ids, defer_gpu=defer_gpu)
+                        completed_action_ids=completed_ids, defer_gpu=defer_gpu,
+                        context_read_measure=page_measure,
+                        context_response_capacity=self._context_response_capacity(client) if client is not None else None,
+                        context_response_capacity_sources=copy.deepcopy(getattr(self, "_context_capacity_sources", [])))
                     outcome = {"decision": prior_decision, "action_result": action_result,
                                "request_id": None, "usage": None, "resumed_saved_decision": True}
                 else:
@@ -3004,6 +3337,10 @@ class StudyRuntime:
                     if action_result.get("no_progress_observation"):
                         turn_record["no_progress_observation"] = action_result["no_progress_observation"]
                     old_history.append(turn_record)
+                if client is not None:
+                    context_payload = (outcome.get("prepared_episode_payload")
+                        or locals().get("episode_payload") or item.get("payload") or {})
+                    old_history = self._refit_latest_context_page(context_payload, old_history, client)
                 outcome["action_history"] = old_history
                 if action_result.get("response_validation_feedback"):
                     outcome["response_validation_feedback"] = action_result["response_validation_feedback"]
@@ -3535,6 +3872,7 @@ def _treatment_history_view(arm: str, history: Sequence[Mapping[str, Any]]) -> d
     nodes = []
     edges = []
     observational_context_reads = []
+    all_reads = []
     for episode_turn, turn in enumerate(history):
         if turn.get("submission_validation"):
             nodes.append({"id": f"turn-{episode_turn}-submission", "kind": "submission_validation",
@@ -3546,12 +3884,32 @@ def _treatment_history_view(arm: str, history: Sequence[Mapping[str, Any]]) -> d
             action_id = str(operation.get("action_work_id", f"turn-{episode_turn}"))
             result = dict(operation.get("result") or {})
             if _is_context_read_action(operation):
-                observational_context_reads.append({"id": action_id, "result": result})
+                all_reads.append({"id": action_id, "episode_turn": episode_turn, "result": result})
                 continue
             nodes.append({"id": action_id, "kind": operation.get("kind"),
                 "state": operation.get("state"), "result": result})
             edges.append({"from": str(episode_turn), "to": action_id,
                           "relation": "observed_after"})
+    for index, row in enumerate(all_reads):
+        result = dict(row["result"])
+        content = result.pop("content", None)
+        reference = {key: result[key] for key in (
+            "segment_id", "pointer", "offset", "next_offset", "total_characters",
+            "returned_characters", "requested_limit", "complete", "capacity_limited")
+            if key in result}
+        reference.update({"id": row["id"], "operation": "read_context_segment",
+            "scientific_progress_eligible": False})
+        if result.get("delivery_status"):
+            reference["delivery_status"] = result["delivery_status"]
+        if result.get("delivery_reason"):
+            reference["delivery_reason"] = result["delivery_reason"]
+        if index == len(all_reads) - 1 and row["episode_turn"] == len(history) - 1 \
+                and result.get("delivery_status") != "not_delivered" and isinstance(content, str):
+            # Only the current page body enters a fresh model prompt. The
+            # complete immutable segment and every action result remain in the
+            # ledger and can be fetched by the next exact offset.
+            reference["content"] = content
+        observational_context_reads.append(reference)
     if arm in {"FULL", "FULL_NO_GATE"}:
         return {"view": "typed_operation_graph", "nodes": nodes, "edges": edges,
                 "observational_context_reads": observational_context_reads}

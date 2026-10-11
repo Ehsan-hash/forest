@@ -279,6 +279,173 @@ def test_context_retrieval_is_attached_to_replay_and_aide_public_builders(tmp_pa
         assert read["actions"][0]["result"]["operation"] == "read_context_segment"
 
 
+def test_context_page_body_is_only_current_turn_while_prior_pages_remain_referenced():
+    from research.experiments.study_runtime import _treatment_history_view
+
+    page = {"operation": "read_context_segment", "segment_id": "source-segment",
+        "pointer": "/messages/0/content", "offset": 0, "next_offset": 12,
+        "total_characters": 24, "returned_characters": 12, "requested_limit": 12,
+        "complete": False, "content": "exact-page-1"}
+    history = [{"actions": [{"action_work_id": "read", "kind": "analysis",
+        "state": "completed", "result": page}]}, {"actions": [{"action_work_id": "inspect",
+        "kind": "analysis", "state": "completed", "result": {"status": "not_run"}}]}]
+    reads = _treatment_history_view("FULL", history)["observational_context_reads"]
+    assert len(reads) == 1
+    assert "content" not in reads[0]
+    assert reads[0]["segment_id"] == "source-segment" and reads[0]["next_offset"] == 12
+
+
+def test_refit_does_not_advance_a_historical_context_page_cursor(tmp_path):
+    import copy
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    runtime._context_response_capacity = lambda _client: 1_048_576
+    historical_page = {"operation": "read_context_segment", "segment_id": "source-segment",
+        "pointer": "/messages/0/content", "offset": 0, "next_offset": 123,
+        "total_characters": 500, "returned_characters": 123, "requested_limit": 500,
+        "complete": False, "content": "x" * 123, "delivery_status": "delivered"}
+    history = [{"actions": [{"action_work_id": "read", "kind": "analysis",
+        "state": "completed", "result": historical_page}]},
+        {"actions": [{"action_work_id": "inspect", "kind": "analysis",
+            "state": "completed", "result": {"status": "not_run"}}]}]
+    original = copy.deepcopy(history)
+    payload = {"action_bindings": [{"action_name": "read_context_segment",
+        "work_id": "read", "memory_workspace": str(campaign)}]}
+
+    actual = runtime._refit_latest_context_page(payload, history, client=object())
+
+    assert actual == original
+    assert actual[0]["actions"][0]["result"]["next_offset"] == 123
+    assert actual[0]["actions"][0]["result"]["returned_characters"] == 123
+
+
+def test_unfit_final_character_page_does_not_claim_source_complete(tmp_path):
+    from research.experiments.study_memory import StudyMemory
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    prepared = {"work_id": "episode-read-tail", "arm": "FULL", "stream": "EVAL_UPDATE",
+        "messages": [{"role": "user", "content": "remaining-source-character"}],
+        "action_bindings": [{"kind": "analysis", "action_name": "inspect", "work_id": "inspect-1",
+            "analysis_operation": "inspect"}]}
+    payload = runtime._attach_public_context(prepared, prepared)
+    binding = next(row for row in payload["action_bindings"] if row.get("action_name") == "read_context_segment")
+    memory_workspace = Path(binding["memory_workspace"])
+    memory = StudyMemory(memory_workspace.parent if memory_workspace.name == ".forest-context"
+                         else memory_workspace)
+    segment_id = payload["context_memory"]["segment_id"]
+    original = memory.read_json(segment_id, pointer="/messages/0/content", limit=1000)
+    tail_offset = original["total_characters"] - 1
+
+    action = runtime.execute_decision_action({"payload": payload}, {
+        "kind": "read_context_segment", "action_work_id": binding["work_id"],
+        "context_segment_id": segment_id, "context_pointer": "/messages/0/content",
+        "context_offset": tail_offset, "context_limit": 1},
+        context_response_capacity=1, context_read_measure=lambda _page: 2)
+
+    page = action["result"]
+    assert page["delivery_status"] == "not_delivered"
+    assert page["offset"] == tail_offset == page["next_offset"]
+    assert page["returned_characters"] == 0 and page["content"] is None
+    assert page["complete"] is False
+
+
+def test_context_response_capacity_uses_minimum_declared_and_new_observed_trace(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    executable = campaign / "codex-fixture"
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o755)
+    monkeypatch.setenv("FOREST_CODEX_EXECUTABLE", str(executable))
+    client = SimpleNamespace(api="codex_cli", provider={"id": "codex", "model": "fixture",
+        "kind": "codex_cli"}, config={"max_input_chars": 2_000_000})
+
+    def record_rejection(request_id, maximum, trace_executable=executable):
+        trace = campaign / f"{request_id}.json"
+        trace.write_text(json.dumps({"stderr":
+            "Error: turn/start: turn/start failed: invalid params data: " +
+            json.dumps({"input_error_code": "input_too_large", "max_chars": maximum,
+                        "actual_chars": maximum + 1}),
+            "argv": [str(trace_executable)]}), encoding="utf-8")
+        request = {"provider_api": "codex_cli", "transport_trace_path": str(trace)}
+        response = {"observed_cli_error": "input_too_large", "transport_trace_path": str(trace)}
+        with runtime.ledger.connect() as db:
+            db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,response_json,status,recorded_at) "
+                       "VALUES(?,?,?,?,?,?,?)", (request_id, "campaign-test", "fixture-work",
+                           json.dumps(request), json.dumps(response), "failed", 1.0))
+
+    assert runtime._context_response_capacity(client) == 2_000_000
+    record_rejection("observed-first", 1_048_576)
+    assert runtime._context_response_capacity(client) == 1_048_576
+    record_rejection("observed-smaller", 900_000)
+    assert runtime._context_response_capacity(client) == 900_000
+    record_rejection("different-cli", 700_000, campaign / "another-codex")
+    assert runtime._context_response_capacity(client) == 900_000
+    sources = runtime._context_capacity_sources
+    assert {row.get("request_id") for row in sources if row.get("request_id")} == {
+        "observed-first", "observed-smaller"}
+
+
+def test_page_fitting_uses_full_next_request_with_same_batch_inspection_results(tmp_path):
+    from research.agents.provider import ModelClient
+    from research.experiments.study_memory import StudyMemory
+
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    prepared = {"work_id": "episode-mixed-read", "arm": "FULL", "messages": [
+        {"role": "system", "content": "registered public task"},
+        {"role": "user", "content": json.dumps({"public_notice": "source is stored in an arm-public artifact"})}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+            "properties": {"mode": {"type": "string", "enum": ["action", "submit"]},
+                "actions": {"type": "array", "items": {"type": "object",
+                    "required": ["kind", "action_work_id"], "properties": {
+                        "kind": {"type": "string", "enum": ["inspect"]},
+                        "action_work_id": {"type": "string", "enum": ["inspect-1"]}}}},
+                "submission": {"type": "object"}, "rationale": {"type": "string"}}},
+        "allowed_decisions": ["inspect"], "action_bindings": [{"kind": "analysis",
+            "action_name": "inspect", "work_id": "inspect-1", "analysis_operation": "inspect",
+            "evidence": []}]}
+    payload = runtime._attach_public_context(prepared, prepared)
+    read_binding = next(row for row in payload["action_bindings"]
+        if row.get("action_name") == "read_context_segment")
+    client = ModelClient({"id": "nonformal-wire-fixture", "kind": "codex_cli",
+        "base_url": "http://127.0.0.1", "model": "gpt-6-luna",
+        "config": {"reasoning_effort": "medium"}}, request_guard=lambda _: None)
+    measure = runtime._public_page_measure_callback(client, payload, [], read_binding["work_id"])
+    inspect = {"action_work_id": "inspect-1", "kind": "analysis", "state": "completed",
+        "result": {"operation": "inspect", "status": "not_run",
+            "public_observation": [f"observed-{i:05d}" for i in range(1800)]}}
+    memory = StudyMemory(Path(read_binding["memory_workspace"]).parent)
+    large_text = "repeated-public-artifact-row;" * 60000
+    segment_id = memory.save_json("large-public-artifact", {"text": large_text})["segment_id"]
+    full = memory.read_json(segment_id, pointer="/text", limit=10_000_000)
+    delivered = memory.read_json(segment_id, pointer="/text", limit=10_000_000,
+        response_capacity=1_048_576,
+        measure_response=lambda page: measure(page, prefix_results=[inspect]))
+    assert delivered["next_offset"] > 0 and delivered["next_offset"] < full["total_characters"]
+    assert measure(delivered, prefix_results=[inspect]) <= 1_048_576
+    assert delivered["content"] == full["content"][:delivered["next_offset"]]
+
+
 def test_manifest_replay_rejects_incomplete_snapshot_and_allows_zero_gpu_budget(tmp_path, monkeypatch):
     campaign = tmp_path / "campaign"
     campaign.mkdir()

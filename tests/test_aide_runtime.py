@@ -15,7 +15,8 @@ import threading
 import pytest
 
 from research.experiments.aide_runtime import (
-    NativeBackend, SCHEMA, _bound_backend, _prepare_aide_task_context, _restore_pending_task_context,
+    NativeBackend, SCHEMA, _bound_backend, _current_page_from_stdout, _journal_with_prompt_page_refs,
+    _prepare_aide_task_context, _restore_pending_task_context, _review_task_description,
     _legacy_native_prompt_equivalent, _query_router, _RandomRouter, load_upstream,
     run_action_program, run_aide_episode,
 )
@@ -126,6 +127,39 @@ def _runtime(tmp_path, upstream):
 def _review(metric=1.25, buggy=False):
     return json.dumps({"is_bug": buggy, "summary": "Nonformal fixture review of actual CPU operation output.",
                        "metric": metric, "lower_is_better": True})
+
+
+def test_native_page_review_receives_full_page_and_prompt_projection_keeps_raw_receipt(native_upstream):
+    """AIDE may clip terminal display, but exact retrieved source stays reviewable and durable."""
+    from types import SimpleNamespace
+
+    upstream = load_upstream(native_upstream)
+    content = "unique middle source value: " + ("source-row-value/" * 7000)
+    page = {"operation": "read_context_segment", "segment_id": "public-segment",
+        "pointer": "/source", "offset": 0, "next_offset": len(content),
+        "total_characters": len(content), "returned_characters": len(content),
+        "requested_limit": len(content), "complete": True, "content": content}
+    stdout = "program output\n" + json.dumps({"requested_decision": {"mode": "action"},
+        "observed_action_results": [{"action_work_id": "read-1", "result": page}]},
+        ensure_ascii=False)
+    assert _current_page_from_stdout(stdout) == {key: page[key] for key in (
+        "segment_id", "pointer", "offset", "next_offset", "total_characters",
+        "returned_characters", "requested_limit", "complete", "content")}
+    native = SimpleNamespace(task_desc={"registered task": "nonformal fixture"})
+    projected = _review_task_description(native, stdout)
+    assert content in projected["Exact source page retrieved by this action"]
+    assert "Exact source page retrieved by this action" not in native.task_desc
+
+    node = upstream["journal"].Node(code="print('fixture')", id="page-node", _term_out=[stdout])
+    journal = upstream["journal"].Journal(nodes=[node])
+    history = [{"node_id": "page-node", "actions": [{"result": page}]}]
+    prompt_journal = _journal_with_prompt_page_refs(journal, history, upstream)
+    # The persistent source journal remains complete; only the disposable
+    # prompt projection replaces an older page with its exact continuation ref.
+    assert journal.nodes[0]._term_out == [stdout]
+    projected_output = "".join(prompt_journal.nodes[0]._term_out)
+    assert content not in projected_output
+    assert "Exact source page retained" in projected_output
 
 
 def test_native_pending_node_resumes_without_regeneration_then_improves(tmp_path, native_upstream):
