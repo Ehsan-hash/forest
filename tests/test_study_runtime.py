@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -7,7 +8,8 @@ from research.experiments.study_runtime import (StudyLedger, StudyRuntime,
     _manifest_work_items, _manifest_edges, _known_source_preflight_failure,
     numpy_score_predictions, _normalize_episode_payload, _episode_mutation_id,
     _c2_evaluation_overrides, _episode_metric_contract, verify_episode_submission,
-    execute_registered_analysis)
+    execute_registered_analysis, _codex_strict_schema, _restore_strict_optional_nulls,
+    _transport_trace_reference, _validate_episode_schema)
 
 
 def manifest(items, edges=(), *, version=1):
@@ -191,6 +193,92 @@ def test_actual_manifest_episode_envelope_normalizes_without_losing_factual_or_s
             "evaluation_revision_id": "C1"}
 
 
+def test_arm_public_context_is_exactly_paged_and_reads_are_observational(tmp_path):
+    from research.experiments.study_memory import StudyMemory
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    original_content = json.dumps({"source_rows": [{"id": f"row-{i}", "value": i} for i in range(31)]},
+        separators=(",", ":"), ensure_ascii=False)
+    prepared = {"work_id": "episode-read", "arm": "FULL", "stream": "EVAL_UPDATE",
+        "messages": [{"role": "system", "content": "system contract"},
+                     {"role": "user", "content": original_content}],
+        "decision_schema": {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+            "properties": {"mode": {"type": "string", "enum": ["action", "submit"]},
+                "actions": {"type": "array", "items": {"type": "object", "required": ["kind", "action_work_id"],
+                    "properties": {"kind": {"type": "string", "enum": ["inspect"]},
+                        "action_work_id": {"type": "string", "enum": ["inspect-1"]}}}},
+                "submission": {"type": "object"}, "rationale": {"type": "string"}}},
+        "allowed_decisions": ["inspect"], "action_bindings": [{"kind": "analysis", "action_name": "inspect",
+            "work_id": "inspect-1", "analysis_operation": "inspect", "evidence": []}]}
+    payload = runtime._attach_public_context(prepared, prepared)
+    context_binding = next(row for row in payload["action_bindings"]
+                           if row.get("action_name") == "read_context_segment")
+    memory = StudyMemory(Path(context_binding["memory_workspace"]).parent)
+    source_segment = payload["context_memory"]["segment_id"]
+    assert source_segment in context_binding["available_segment_ids"]
+    first = memory.read_json(source_segment, pointer="/messages/1/content", offset=0, limit=19)
+    pieces = [first["content"]]
+    cursor = first["next_offset"]
+    while not first["complete"]:
+        first = memory.read_json(source_segment, pointer="/messages/1/content", offset=cursor, limit=19)
+        pieces.append(first["content"])
+        cursor = first["next_offset"]
+    encoded_source_string = json.dumps(original_content, ensure_ascii=False, separators=(",", ":"))
+    assert "".join(pieces) == encoded_source_string
+    assert json.loads("".join(pieces)) == original_content
+    action = {"kind": "read_context_segment", "action_work_id": context_binding["work_id"],
+        "context_segment_id": source_segment, "context_pointer": "/messages/1/content",
+        "context_offset": 19, "context_limit": 37}
+    result = runtime.execute_decision_actions({"work_id": "episode-read", "payload": payload}, [action])
+    assert result["state"] == "completed"
+    page = result["actions"][0]["result"]
+    assert page["operation"] == "read_context_segment" and page["scientific_progress_eligible"] is False
+    assert page["content"] == encoded_source_string[19:56]
+    with runtime.ledger.connect() as db:
+        assert db.execute("SELECT count(*) FROM forest_study_work WHERE work_id=?", (context_binding["work_id"],)).fetchone()[0] == 0
+    history = [{"actions": result["actions"]}]
+    repeated_payload = runtime._attach_public_context(prepared, payload, history=history)
+    assert repeated_payload["context_memory"]["segment_id"] == source_segment
+    rejected = verify_episode_submission(payload, history, {"claim": "read only"}, runtime=runtime)
+    assert rejected["valid"] is False and rejected["reason"] == "no_completed_source_bound_action"
+    from research.experiments.study_runtime import _episode_source_frontier, _treatment_history_view
+    assert _episode_source_frontier(payload, history)["completed_source_actions"] == {}
+    view = _treatment_history_view("FULL", history)
+    assert view["nodes"] == [] and len(view["observational_context_reads"]) == 1
+
+
+def test_context_retrieval_is_attached_to_replay_and_aide_public_builders(tmp_path):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    for arm, category in (("AIDE", "LIVE_MAIN"), ("ID_ONLY", "REPLAY")):
+        prepared = {"work_id": f"episode-{category}", "arm": arm, "category": category,
+            "messages": [{"role": "user", "content": '{"arm":"' + arm + '"}'}],
+            "decision_schema": {"type": "object", "properties": {"actions": {"type": "array",
+                "items": {"type": "object", "properties": {"kind": {"enum": ["inspect"]}}}}}},
+            "allowed_decisions": ["inspect"], "action_bindings": [{"kind": "analysis", "action_name": "inspect",
+                "work_id": "inspect-" + category, "analysis_operation": "inspect", "evidence": []}]}
+        payload = runtime._attach_public_context(prepared, prepared)
+        assert payload["context_memory"]["read_operation"] == "read_context_segment"
+        context_binding = next(row for row in payload["action_bindings"]
+            if row.get("action_name") == "read_context_segment")
+        item_schema = payload["decision_schema"]["properties"]["actions"]["items"]["properties"]
+        assert "read_context_segment" in item_schema["kind"]["enum"]
+        assert context_binding["work_id"] in item_schema["action_work_id"]["enum"]
+        action = {"kind": "read_context_segment", "action_work_id": context_binding["work_id"],
+            "context_segment_id": payload["context_memory"]["segment_id"], "context_pointer": "/messages/0/content",
+            "context_offset": 0, "context_limit": 100}
+        read = runtime.execute_decision_actions({"work_id": prepared["work_id"], "payload": payload}, [action])
+        assert read["actions"][0]["result"]["operation"] == "read_context_segment"
+
+
 def test_manifest_replay_rejects_incomplete_snapshot_and_allows_zero_gpu_budget(tmp_path, monkeypatch):
     campaign = tmp_path / "campaign"
     campaign.mkdir()
@@ -355,13 +443,18 @@ def test_calibration_resolution_persists_valid_gate_and_requires_completed_super
     monkeypatch.setattr(module, "verify_calibration_choice", lambda choice, candidate_rows, *_args:
         (bool(candidate_rows), {"observed_candidate_count": sum(map(len, candidate_rows.values()))}))
     class ScriptedClient:
-        provider = {"id": "fixture", "model": "gpt-6-luna"}
-        config = {}
+        provider = {"id": "fixture", "kind": "codex_cli", "model": "gpt-6-luna"}
+        config = {"reasoning_effort": "low"}
+        seen_trace_paths = []
         def complete(self, *_args, **_kwargs):
+            self.seen_trace_paths.append(self.config.get("_forest_transport_trace_path"))
             return {"text": json.dumps({"family_updates": {"darcy": 100}, "readiness": "continue", "rationale": "fixture"}),
                     "usage": {"input_tokens": 1, "output_tokens": 1, "cost": None}}
     result = runtime.execute_calibration_decision({"work_id": "cal-decision", "payload": decision},
                                                   client=ScriptedClient())
+    with runtime.ledger.connect() as db:
+        saved_request = json.loads(db.execute("SELECT request_json FROM forest_study_model_calls").fetchone()[0])
+    assert saved_request["transport_trace_path"] == ScriptedClient.seen_trace_paths[-1]
     assert result["source_validation"]["valid"] is expected_valid
     if expected_valid:
         saved = json.loads(resolved_path.read_text(encoding="utf-8"))
@@ -370,6 +463,60 @@ def test_calibration_resolution_persists_valid_gate_and_requires_completed_super
         assert result["observed_rows"][0]["state"] == "completed"
     else:
         assert result["observed_rows"][0]["state"] == "invalid_receipt"
+
+
+def test_calibration_transport_failure_preserves_provider_diagnostics_and_usage(tmp_path, monkeypatch):
+    import research.experiments.study_runtime as module
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    config = {"work_id": "cal-fit-failed", "family": "darcy", "calibration_role": "anchor",
+        "optimizer_updates": 100, "configuration_id": "cfg-anchor", "seed": 17,
+        "phase": "calibration", "formal_score_eligible": False}
+    config_path = campaign / "cal.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    fit = {"work_id": "cal-fit-failed", "kind": "fit", "phase": "calibration",
+        "configuration_path": str(config_path), "output_directory": str(campaign / "output"), "fit_timeout_seconds": 60}
+    decision = {"work_id": "cal-decision-failed", "kind": "calibration_decision",
+        "allowed_update_counts": {"darcy": [100]}, "required_roles_by_family": {"darcy": ["anchor"]},
+        "primary_metric_by_family": {"darcy": {"metric": "relative_l2", "direction": "minimize"}},
+        "resolved_updates_path": str(campaign / "resolved.json")}
+    path = campaign / "manifest.json"
+    path.write_text(json.dumps(manifest([fit, decision])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=path)
+
+    class FailedSupervisor:
+        def __init__(self, *_args): pass
+        def status(self, _work_id): return {"status": "failed"}
+
+    monkeypatch.setattr(module, "_supervisor_has_work", lambda *_args: True)
+    from research.experiments import gpu_supervisor
+    monkeypatch.setattr(gpu_supervisor, "ComputeSupervisor", FailedSupervisor)
+    monkeypatch.setattr(module, "_calibration_decision_messages", lambda *_args: [{"role": "user", "content": "fixture"}])
+
+    class ProviderFailure(Exception):
+        code = "input_too_large"
+        partial_output = "thread.started"
+        transport_diagnostics = {"actual_chars": 1_200_000, "max_chars": 1_048_576}
+        usage = {"input_tokens": 7, "output_tokens": 0, "cost": None}
+
+    class FailingClient:
+        provider = {"id": "fixture", "kind": "codex_cli", "model": "gpt-6-luna", "allow_paid": False}
+        config = {"reasoning_effort": "medium"}
+        def complete(self, *_args, **_kwargs): raise ProviderFailure("fixture transport rejection")
+
+    with pytest.raises(ProviderFailure):
+        runtime.execute_calibration_decision({"work_id": "cal-decision-failed", "payload": decision},
+            client=FailingClient())
+    with runtime.ledger.connect() as db:
+        call = db.execute("SELECT request_json,response_json,usage_json,status,finished_at,elapsed_seconds FROM forest_study_model_calls").fetchone()
+    request, response, usage = json.loads(call[0]), json.loads(call[1]), json.loads(call[2])
+    assert call[3] == "failed" and call[4] is not None and call[5] is not None
+    assert usage == ProviderFailure.usage
+    assert response["transport_error"]["code"] == "input_too_large"
+    assert response["transport_error"]["partial_output"] == "thread.started"
+    assert response["transport_error"]["transport_diagnostics"]["actual_chars"] == 1_200_000
+    assert request["transport_trace_path"].endswith(f"{request['request_id']}.json")
 
 
 def test_abstract_cells_are_not_promoted_to_runnable_evidence():
@@ -757,6 +904,155 @@ def test_paused_no_progress_requires_explicit_resume_and_preserves_result(tmp_pa
     assert json.loads(row["result_json"]) == prior_result
 
 
+def test_codex_transport_schema_is_strict_without_changing_runtime_schema():
+    schema = {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"enum": ["action", "submit"]},
+            "actions": {"type": "array", "items": {"type": "object",
+                "required": ["kind", "action_work_id"], "properties": {
+                    "kind": {"enum": ["inspect", "score"]},
+                    "action_work_id": {"enum": ["a", "b"]},
+                    "configuration_id": {"type": ["string", "null"]},
+                    "seed": {"type": ["integer", "null"]}}}},
+            "submission": {"type": "object", "properties": {
+                "selected_configuration_id": {"type": ["string", "null"]},
+                "claim": {"type": "string"}}},
+            "rationale": {"type": "string"}}}
+    strict = _codex_strict_schema(schema)
+    assert schema["properties"]["mode"] == {"enum": ["action", "submit"]}
+    assert strict["additionalProperties"] is False
+    assert set(strict["required"]) == set(schema["properties"])
+    action = strict["properties"]["actions"]["items"]
+    assert action["additionalProperties"] is False
+    assert set(action["required"]) == set(action["properties"])
+    assert action["properties"]["kind"]["type"] == "string"
+    assert action["properties"]["configuration_id"]["type"] == ["string", "null"]
+    submission = strict["properties"]["submission"]
+    assert submission["additionalProperties"] is False
+    assert set(submission["required"]) == set(submission["properties"])
+    assert submission["properties"]["claim"]["type"] == ["string", "null"]
+    from research.agents.codex_transport import request_payload
+    payload = request_payload([{"role": "user", "content": "Return an action."}], True, strict)
+    assert payload["response_schema"] == strict
+    decision = {"mode": "action", "actions": [{"kind": "inspect", "action_work_id": "a",
+        "configuration_id": None, "seed": None}], "submission": {
+            "selected_configuration_id": None, "claim": None}, "rationale": "Use registered evidence."}
+    restored = _restore_strict_optional_nulls(decision, schema)
+    assert "claim" not in restored["submission"]
+    _validate_episode_schema(restored, schema)
+
+
+def test_transport_trace_path_is_unique_and_codex_only(tmp_path):
+    from uuid import uuid4
+    first, second = str(uuid4()), str(uuid4())
+    provider = {"kind": "codex_cli"}
+    path1 = _transport_trace_reference(tmp_path, first, provider)
+    path2 = _transport_trace_reference(tmp_path, second, provider)
+    assert path1 and path1 != path2
+    assert str(tmp_path.resolve() / "runs" / "transport_traces") in path1
+    assert _transport_trace_reference(tmp_path, first, {"kind": "openai_compatible"}) is None
+
+
+def test_codex_call_records_trace_reference_before_send(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    schema = {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array"},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    payload = {"arm": "FULL", "resource_policy": {"active_wall_seconds": 60,
+        "actual_gpu_seconds": 10}, "messages": [{"role": "user", "content": "Nonformal transport fixture."}],
+        "decision_schema": schema, "allowed_decisions": [], "action_bindings": []}
+    item = {"work_id": "trace-fixture", "kind": "episode", "payload": payload}
+
+    class CodexFixture:
+        provider = {"id": "codex-fixture", "kind": "codex_cli", "model": "fixture", "allow_paid": False}
+        config = {"reasoning_effort": "low"}
+        seen_trace_paths = []
+        def build_request(self, messages, **kwargs):
+            return "codex_cli", {"n_messages": len(messages), "schema": self.config.get("_forest_action_schema")}
+        def complete(self, _messages, **_kwargs):
+            self.seen_trace_paths.append(self.config.get("_forest_transport_trace_path"))
+            return {"text": json.dumps({"mode": "submit", "actions": [],
+                "submission": {}, "rationale": "nonformal fixture"}),
+                "usage": {"input_tokens": 5, "output_tokens": 4}}
+
+    monkeypatch.setattr("research.experiments.study_runtime.verify_episode_submission",
+        lambda *_args, **_kwargs: {"state": "completed", "valid": True})
+    client = CodexFixture()
+    result = runtime.execute_model_episode(item, client=client)
+    assert result["action_result"]["valid"] is True
+    with runtime.ledger.connect() as db:
+        saved = json.loads(db.execute("SELECT request_json FROM forest_study_model_calls").fetchone()[0])
+    assert saved["transport_trace_path"] == client.seen_trace_paths[0]
+    assert saved["transport_trace_path"].endswith(f"{saved['request_id']}.json")
+    assert saved["decision_schema"] == schema
+    assert saved["transport_decision_schema"]["additionalProperties"] is False
+    assert saved["original_messages"] == saved["messages"]
+
+
+def test_large_model_context_interning_preserves_exact_json_and_tail_text():
+    from research.experiments.study_runtime import _intern_delivered_messages
+    from research.experiments.study_context import restore_json
+    source = {"observations": [{"ids": list(range(1200)), "record": {"metric": 0.25}}
+                               for _ in range(8)]}
+    text = json.dumps(source, separators=(",", ":"), ensure_ascii=False) + "\nSchema reminder: return JSON."
+    actual, stats = _intern_delivered_messages([{"role": "user", "content": text}])
+    assert stats and stats[0]["encoding"] == "interned"
+    rewritten = actual[0]["content"]
+    header = "COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows. Read its instructions and expand every reference that matters for your decision. All original keys, list order, values and source positions are preserved.\n"
+    assert rewritten.startswith(header)
+    document_text, tail = rewritten[len(header):].split("\nSchema reminder: return JSON.", 1)
+    assert tail == ""
+    document = json.loads(document_text)
+    assert restore_json(document) == source
+    assert stats[0]["output_characters"] < stats[0]["input_characters"]
+
+
+def test_downstream_executor_error_preserves_actual_model_response(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    schema = {"type": "object", "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
+            "type": "object", "required": ["kind", "action_work_id"], "properties": {
+                "kind": {"type": "string"}, "action_work_id": {"type": "string"}}}},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    binding = {"work_id": "inspect-fixture", "action_name": "inspect", "kind": "analysis",
+        "analysis_operation": "inspect", "evidence": []}
+    payload = {"arm": "FULL", "resource_policy": {"active_wall_seconds": 60,
+        "actual_gpu_seconds": 10}, "messages": [{"role": "user", "content": "Nonformal fixture."}],
+        "decision_schema": schema, "allowed_decisions": ["inspect"], "action_bindings": [binding]}
+    item = {"work_id": "post-response-error", "kind": "episode", "payload": payload}
+
+    class ScriptedClient:
+        provider = {"id": "fixture", "kind": "scripted", "model": "fixture"}
+        config = {}
+        def complete(self, *_args, **_kwargs):
+            return {"text": json.dumps({"mode": "action", "actions": [{"kind": "inspect",
+                "action_work_id": "inspect-fixture"}], "submission": {}, "rationale": "nonformal fixture"}),
+                "usage": {"input_tokens": 7, "output_tokens": 6}}
+
+    def fail_executor(*_args, **_kwargs):
+        raise RuntimeError("nonformal executor fault")
+    monkeypatch.setattr(runtime, "execute_decision_actions", fail_executor)
+    with pytest.raises(RuntimeError, match="nonformal executor fault"):
+        runtime.execute_model_episode(item, client=ScriptedClient())
+    with runtime.ledger.connect() as db:
+        row = db.execute("SELECT response_json,usage_json,status FROM forest_study_model_calls").fetchone()
+        event = db.execute("SELECT payload_json FROM forest_study_events WHERE event_type='model_call_post_response_error'").fetchone()
+    assert json.loads(row[0])["text"] == json.dumps({"mode": "action",
+        "actions": [{"kind": "inspect", "action_work_id": "inspect-fixture"}],
+        "submission": {}, "rationale": "nonformal fixture"})
+    assert json.loads(row[1])["input_tokens"] == 7 and row[2] == "completed"
+    assert json.loads(event[0])["error"]["message"] == "nonformal executor fault"
+
+
 def test_invalid_actual_response_is_saved_and_gets_one_evidence_bound_repair_turn(tmp_path):
     campaign = tmp_path / "campaign"
     campaign.mkdir()
@@ -860,7 +1156,8 @@ def test_registered_episode_adapter_delivers_arm_specific_actual_receipt_context
     if arm == "FLAT":
         assert request_context["evidence_view"]["raw_training_logs"]
         assert request_context["evidence_view"]["raw_training_logs"][0]["lines"] == ['{"update":25,"train_loss":0.1}']
-    assert {binding["action_name"] for binding in payload["action_bindings"]} == {"score", "select", "compare"}
+    assert {binding["action_name"] for binding in payload["action_bindings"]} == {
+        "score", "select", "compare", "read_context_segment"}
     scores = [binding for binding in payload["action_bindings"] if binding["action_name"] == "score"]
     comparisons = [binding for binding in payload["action_bindings"] if binding["action_name"] == "compare"]
     assert len(scores) == 6

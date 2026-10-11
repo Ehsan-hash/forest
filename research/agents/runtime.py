@@ -292,7 +292,8 @@ class ToolRuntime:
         if name == 'read_transcript':
             transcript = read_json(self.workspace / 'agent_transcript.json', [])
             offset, limit = int(args.get('offset', 0)), max(1, min(100, int(args.get('limit', 10))))
-            return {'turns': transcript[offset:offset + limit], 'next_offset': offset + limit, 'total': len(transcript), 'exit_code': 0}
+            from .context_store import transcript_page
+            return transcript_page(self.workspace, transcript, offset, limit)
         if name == 'literature_search':
             from research.literature.sources import search
             return {'results': search(args['query'], args.get('source', 'crossref'), int(args.get('limit', 5))), 'exit_code': 0}

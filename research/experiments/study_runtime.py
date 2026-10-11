@@ -14,11 +14,13 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import sqlite3
 import sys
 import tempfile
 import time
 import uuid
+from urllib.parse import quote
 from typing import Any, Mapping, Sequence
 
 
@@ -77,6 +79,13 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
+def _transport_trace_reference(campaign: Path, request_id: str, provider: Mapping[str, Any]) -> str | None:
+    """Return a durable, request-unique local Codex trace location."""
+    if provider.get("kind") != "codex_cli":
+        return None
+    return str(Path(campaign).resolve() / "runs" / "transport_traces" / f"{request_id}.json")
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -131,20 +140,136 @@ def _validate_episode_schema(value: Any, schema: Mapping[str, Any], path: str = 
             _validate_episode_schema(item, schema["items"], f"{path}[{index}]")
 
 
+def _codex_strict_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Make a private strict-output copy while leaving FOREST's schema intact."""
+    def infer_type(node):
+        values = node.get("enum") if isinstance(node, Mapping) else None
+        if isinstance(values, list) and values:
+            value = next((entry for entry in values if entry is not None), values[0])
+            if isinstance(value, bool): return "boolean"
+            if isinstance(value, int): return "integer"
+            if isinstance(value, (int, float)): return "number"
+            if isinstance(value, str): return "string"
+        if isinstance(node, Mapping) and "properties" in node: return "object"
+        return None
+
+    def normalize(node, *, optional=False, root=False):
+        if not isinstance(node, Mapping):
+            raise ValueError("Structured-output schema nodes must be JSON objects")
+        result = copy.deepcopy(dict(node))
+        if "type" not in result:
+            inferred = infer_type(result)
+            if inferred:
+                result["type"] = inferred
+        kind = result.get("type")
+        if kind == "object" or "properties" in result:
+            properties = result.get("properties") or {}
+            if not isinstance(properties, Mapping):
+                raise ValueError("Structured-output object properties must be an object")
+            originally_required = set(result.get("required", []))
+            normalized = {}
+            for key, child in properties.items():
+                normalized[key] = normalize(child, optional=(key not in originally_required))
+            result["type"] = "object"
+            result["properties"] = normalized
+            result["required"] = list(properties)
+            result["additionalProperties"] = False
+        elif kind == "array" and isinstance(result.get("items"), Mapping):
+            result["items"] = normalize(result["items"])
+        if optional:
+            kind = result.get("type")
+            if isinstance(kind, str):
+                result["type"] = [kind, "null"]
+            elif isinstance(kind, list) and "null" not in kind:
+                result["type"] = [*kind, "null"]
+            elif kind is None:
+                raise ValueError("An optional structured-output field needs a type")
+            if isinstance(result.get("enum"), list) and None not in result["enum"]:
+                result["enum"] = [*result["enum"], None]
+        return result
+
+    if not isinstance(schema, Mapping):
+        raise ValueError("Structured-output schema must be an object")
+    return normalize(schema, root=True)
+
+
+def _restore_strict_optional_nulls(value: Any, schema: Mapping[str, Any]) -> Any:
+    """Map strict-output null placeholders back to source-schema omissions."""
+    if isinstance(value, Mapping) and isinstance(schema.get("properties"), Mapping):
+        result = copy.deepcopy(dict(value))
+        required = set(schema.get("required", []))
+        for key, child in schema["properties"].items():
+            if key not in result:
+                continue
+            allows_null = isinstance(child, Mapping) and (
+                child.get("type") == "null" or
+                isinstance(child.get("type"), list) and "null" in child["type"] or
+                isinstance(child.get("enum"), list) and None in child["enum"])
+            if key not in required and result[key] is None and not allows_null:
+                result.pop(key)
+            else:
+                result[key] = _restore_strict_optional_nulls(result[key], child)
+        return result
+    if isinstance(value, list) and isinstance(schema.get("items"), Mapping):
+        return [_restore_strict_optional_nulls(item, schema["items"]) for item in value]
+    return copy.deepcopy(value)
+
+
+def _intern_delivered_messages(messages: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Losslessly intern repeated subtrees in large structured user messages."""
+    from .study_context import intern_json_with_stats
+    delivered = copy.deepcopy([dict(message) for message in messages])
+    records = []
+    for index, message in enumerate(delivered):
+        if message.get("role") != "user" or not isinstance(message.get("content"), str):
+            continue
+        content = message["content"]
+        decoder = json.JSONDecoder()
+        starts = {0}
+        for match in re.finditer(r"\n[ \t]*[\[{]", content):
+            starts.add(match.end() - 1)
+        for match in re.finditer(r":[ \t]*[\[{]", content):
+            starts.add(match.end() - 1)
+        best = None
+        consumed_until = -1
+        for start in sorted(starts):
+            if start < consumed_until:
+                continue
+            try:
+                value, end = decoder.raw_decode(content[start:])
+                document, stats = intern_json_with_stats(value)
+            except (ValueError, TypeError, RecursionError):
+                continue
+            consumed_until = start + end
+            if stats["saved_characters"] > 0 and (best is None or stats["saved_characters"] > best[0]):
+                best = (stats["saved_characters"], start, end, document, stats)
+        if best is None:
+            continue
+        _, start, end, document, stats = best
+        suffix = content[start + end:]
+        introduction = ("COMPLETE LOSSLESS JSON CONTEXT DOCUMENT follows. Read its instructions and expand every reference "
+            "that matters for your decision. All original keys, list order, values and source positions are preserved.\n")
+        message["content"] = content[:start] + introduction + _json(document) + suffix
+        records.append({"message_index": index, **stats,
+            "delivered_content_characters": len(message["content"])})
+    return delivered, records
+
+
 def _validate_action_bindings(payload: Mapping[str, Any], actions: Sequence[Any]) -> None:
     """Check an entire proposed batch before any registered operation can run."""
     bindings = payload.get("action_bindings")
     if not isinstance(bindings, list):
         raise ValueError("The episode has no registered action binding list")
     kind_for_action = {"train": "fit", "infer": "infer", "score": "rescore",
-                       "select": "analysis", "compare": "analysis", "inspect": "analysis"}
+                       "select": "analysis", "compare": "analysis", "inspect": "analysis",
+                       "read_context_segment": "analysis"}
     replay = _is_replay_episode(payload)
     selected_ids: set[str] = set()
     for index, action in enumerate(actions):
         if not isinstance(action, Mapping):
             raise ValueError(f"Action {index} must be a JSON object")
         name = str(action.get("action", action.get("kind", "")))
-        kind = "replay_transition" if replay else kind_for_action.get(name)
+        kind = "analysis" if name == "read_context_segment" else "replay_transition" if replay else kind_for_action.get(name)
         if name not in kind_for_action or kind is None or action.get("kind") not in (None, name):
             raise ValueError(f"Action {index} has an unsupported or inconsistent operation kind")
         candidates = [binding for binding in bindings if isinstance(binding, Mapping)
@@ -539,11 +664,11 @@ class StudyRuntime:
         """
         from .end_to_end_runtime import is_end_to_end, build_end_to_end_episode_request
         if is_end_to_end(payload):
-            return build_end_to_end_episode_request(self, payload)
+            return self._attach_public_context(payload, build_end_to_end_episode_request(self, payload))
         episode = _normalize_episode_payload(payload)
         if _is_replay_episode(episode):
             from .mechanism_replay import prepare_replay
-            return prepare_replay(self, episode)
+            return self._attach_public_context(episode, prepare_replay(self, episode))
         task_id = str(episode.get("task_id", ""))
         task = next((dict(row) for row in self.manifest.get("tasks", [])
                      if isinstance(row, Mapping) and str(row.get("task_id")) == task_id), None)
@@ -878,7 +1003,125 @@ class StudyRuntime:
         episode_payload.setdefault("resource_policy", {
             "active_wall_seconds": limits["active_wall_seconds"],
             "actual_gpu_seconds": limits["gpu_seconds"]})
-        return episode_payload
+        return self._attach_public_context(episode, episode_payload)
+
+    def _public_memory(self, payload: Mapping[str, Any]) -> "StudyMemory":
+        from .study_memory import StudyMemory
+        work_id = str(payload.get("work_id") or (payload.get("episode") or {}).get("work_id") or "")
+        if not work_id:
+            raise ValueError("Public context memory requires an explicit episode work ID")
+        workspace = (self.campaign / "runs" / "episodes" / quote(work_id, safe="._-", encoding="utf-8")).resolve() / "public_memory"
+        try:
+            workspace.relative_to(self.campaign)
+        except ValueError:
+            raise ValueError("Episode public memory must remain inside the campaign") from None
+        return StudyMemory(workspace)
+
+    def _attach_public_context(self, source_payload: Mapping[str, Any], prepared: Mapping[str, Any], *,
+                               history: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+        """Add an arm-local, paged read action over the exact public request evidence."""
+        payload = copy.deepcopy(dict(prepared))
+        memory = self._public_memory({**dict(source_payload), "work_id": payload.get("work_id", source_payload.get("work_id"))})
+        old_context_binding_ids = {
+            str(row.get("work_id")) for row in payload.get("action_bindings", [])
+            if isinstance(row, Mapping) and row.get("action_name") == "read_context_segment"
+            and row.get("work_id") is not None
+        }
+        bindings = [dict(row) for row in payload.get("action_bindings", []) if isinstance(row, Mapping)
+                    and row.get("action_name") != "read_context_segment"]
+        base_schema = copy.deepcopy(payload.get("decision_schema", {}))
+        action_schema = base_schema.get("properties", {}).get("actions", {}).get("items", {})
+        action_properties = action_schema.get("properties", {})
+        if isinstance(action_properties.get("kind"), Mapping) and isinstance(action_properties["kind"].get("enum"), list):
+            action_properties["kind"]["enum"] = [value for value in action_properties["kind"]["enum"]
+                                                    if value != "read_context_segment"]
+        binding_schema = action_properties.get("action_work_id")
+        if isinstance(binding_schema, Mapping) and isinstance(binding_schema.get("enum"), list):
+            binding_schema["enum"] = [value for value in binding_schema["enum"]
+                                       if str(value) not in old_context_binding_ids]
+        for key in ("context_segment_id", "context_pointer", "context_offset", "context_limit"):
+            action_properties.pop(key, None)
+        base_messages = copy.deepcopy(payload.get("messages", []))
+        catalog_marker = "Arm-public context catalog (metadata only): "
+        base_messages = [message for message in base_messages if not (
+            isinstance(message, Mapping) and message.get("role") == "system"
+            and str(message.get("content", "")).startswith(catalog_marker))]
+        public_turns = []
+        for turn in history:
+            if not isinstance(turn, Mapping):
+                continue
+            actions = [copy.deepcopy(dict(action)) for action in turn.get("actions", [])
+                       if isinstance(action, Mapping) and not _is_context_read_action(action)]
+            if actions or turn.get("submission_validation"):
+                public_turns.append({"actions": actions,
+                    "submission": copy.deepcopy(turn.get("submission", {})),
+                    "submission_validation": copy.deepcopy(turn.get("submission_validation"))})
+        if not history:
+            with self.ledger.connect() as db:
+                aide_table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='forest_study_aide_sessions'").fetchone()
+                if aide_table:
+                    row = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE campaign_id=? AND work_id=?",
+                                     (self.campaign_id, str(payload.get("work_id", "")))).fetchone()
+                    if row:
+                        try:
+                            stored_turns = json.loads(row[0]).get("action_history", [])
+                            public_turns = []
+                            for turn in stored_turns:
+                                if not isinstance(turn, Mapping):
+                                    continue
+                                actions = [copy.deepcopy(dict(action)) for action in turn.get("actions", [])
+                                    if isinstance(action, Mapping) and not _is_context_read_action(action)]
+                                if actions or turn.get("submission_validation") or turn.get("submission"):
+                                    public_turns.append({"actions": actions,
+                                        "submission": copy.deepcopy(turn.get("submission", {})),
+                                        "submission_validation": copy.deepcopy(turn.get("submission_validation"))})
+                        except (ValueError, TypeError):
+                            public_turns = []
+        memory_value = {"messages": base_messages,
+            "decision_schema": base_schema,
+            "task_contract": copy.deepcopy(payload.get("task_contract", {})),
+            "original_pair_selection": copy.deepcopy(payload.get("original_pair_selection")),
+            "action_bindings": bindings, "action_history": public_turns,
+            "allowed_decisions": [name for name in payload.get("allowed_decisions", [])
+                                  if name != "read_context_segment"]}
+        metadata = memory.save_json("public-context", memory_value, origin="arm-public prepared request and observed history")
+        catalog = memory.catalog()
+        segment_ids = sorted(str(row.get("segment_id", row.get("id"))) for row in catalog.get("segments", [])
+                             if row.get("segment_id", row.get("id")))
+        context_binding = {"kind": "analysis", "action_name": "read_context_segment",
+            "work_id": _action_work_id(str(payload.get("work_id", "episode")), "read-context", metadata["segment_id"]),
+            "analysis_operation": "read_context_segment", "memory_workspace": str(memory.store.root),
+            "available_segment_ids": segment_ids}
+        payload["action_bindings"] = bindings + [context_binding]
+        payload["allowed_decisions"] = sorted((set(payload.get("allowed_decisions", [])) - {"read_context_segment"}) | {"read_context_segment"})
+        schema = base_schema
+        action_schema = schema.get("properties", {}).get("actions", {}).get("items", {})
+        action_properties = action_schema.setdefault("properties", {})
+        kind_schema = action_properties.get("kind")
+        if isinstance(kind_schema, Mapping) and isinstance(kind_schema.get("enum"), list):
+            kind_schema["enum"] = sorted(set(kind_schema["enum"]) | {"read_context_segment"})
+        binding_schema = action_properties.setdefault("action_work_id", {"type": "string", "enum": []})
+        if isinstance(binding_schema, Mapping) and isinstance(binding_schema.get("enum"), list):
+            binding_schema["enum"] = sorted(set(binding_schema["enum"]) | {context_binding["work_id"]})
+        action_properties.update({
+            "context_segment_id": {"type": ["string", "null"], "enum": [*segment_ids, None]},
+            "context_pointer": {"type": ["string", "null"]},
+            "context_offset": {"type": ["integer", "null"]},
+            "context_limit": {"type": ["integer", "null"]}})
+        payload["decision_schema"] = schema
+        payload["context_memory"] = {"segment_id": metadata["segment_id"],
+            "catalog": catalog, "read_operation": "read_context_segment",
+            "scientific_progress_eligible": False}
+        if payload.get("messages"):
+            messages = copy.deepcopy(payload["messages"])
+            catalog_note = ("Arm-public context catalog (metadata only): " + _json(catalog)
+                + "\nUse read_context_segment with the exact segment ID, JSON pointer, offset, and limit to retrieve exact source content. "
+                  "Paging is observational and does not count as a scientific operation.")
+            if not any(isinstance(message, Mapping) and message.get("role") == "system"
+                       and str(message.get("content", "")).startswith(catalog_marker) for message in messages):
+                messages.insert(max(0, len(messages) - 1), {"role": "system", "content": catalog_note})
+            payload["messages"] = messages
+        return payload
 
     def _episode_candidate_rows(self, episode: Mapping[str, Any], fit_items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         from .gpu_supervisor import ComputeSupervisor
@@ -1729,6 +1972,7 @@ class StudyRuntime:
             # from current receipts. Pending saved decisions are resumed in
             # run_one without entering this method and keep their original IDs.
             payload = self.build_episode_request({**payload, "work_id": str(item["work_id"])})
+        payload = self._attach_public_context({**payload, "work_id": str(item["work_id"])}, payload, history=history)
         is_replay = _is_replay_episode(payload) or _is_replay_episode(item)
         if is_replay:
             client = self._replay_request_client(item, client)
@@ -1751,6 +1995,8 @@ class StudyRuntime:
             schema_note = "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(payload["decision_schema"])
             delivered_messages[-1]["content"] = str(delivered_messages[-1].get("content", "")) + schema_note
         delivered_messages = ensure_research_messages(delivered_messages, client.config, output_stage)
+        source_messages = copy.deepcopy(delivered_messages)
+        delivered_messages, context_encoding = _intern_delivered_messages(delivered_messages)
         max_output_tokens = payload.get("max_output_tokens")
         if max_output_tokens is None:
             from research.agents.output_budget import output_allocation
@@ -1760,12 +2006,22 @@ class StudyRuntime:
             allocation = {"tokens": int(max_output_tokens), "source": "registered_request"}
         request_client = copy.copy(client)
         client_config = getattr(client, "config", None)
+        codex_transport = ((getattr(client, "provider", {}) or {}).get("kind") == "codex_cli"
+                           or getattr(client, "api", None) == "codex_cli")
+        transport_schema = (_codex_strict_schema(payload["decision_schema"]) if codex_transport
+                            else copy.deepcopy(payload["decision_schema"]))
+        transport_name = (getattr(request_client, "api", None)
+                          or request_client.provider.get("kind") or "unknown")
+        trace_reference = _transport_trace_reference(
+            self.campaign, request_id, request_client.provider)
         if isinstance(client_config, Mapping):
             request_client.config = copy.deepcopy(dict(client_config))
-            request_client.config["_forest_action_schema"] = copy.deepcopy(payload["decision_schema"])
+            request_client.config["_forest_action_schema"] = transport_schema
             request_client.config["output_stage"] = output_stage
-        transport_api = getattr(request_client, "api", None)
-        transport_name = transport_api or request_client.provider.get("kind") or "unknown"
+        elif trace_reference:
+            request_client.config = {}
+        if trace_reference:
+            request_client.config["_forest_transport_trace_path"] = trace_reference
         transport_endpoint = None
         transport_payload = None
         build_request = getattr(request_client, "build_request", None)
@@ -1778,7 +2034,10 @@ class StudyRuntime:
                 request_client.config.get("_forest_action_schema"))
         request = {"request_id": request_id, "work_id": item["work_id"], "provider_id": client.provider.get("id"),
                    "model": client.provider.get("model"), "stage": output_stage,
-                   "messages": delivered_messages, "decision_schema": payload["decision_schema"],
+                   "messages": delivered_messages, "original_messages": source_messages,
+                   "context_encoding": context_encoding,
+                   "decision_schema": payload["decision_schema"],
+                   "transport_decision_schema": transport_schema,
                    "provider_snapshot": {"id": client.provider.get("id"),
                        "kind": client.provider.get("kind"), "model": client.provider.get("model"),
                        "allow_paid": client.provider.get("allow_paid")},
@@ -1788,6 +2047,7 @@ class StudyRuntime:
                        if isinstance(getattr(request_client, "config", {}), Mapping) else None,
                    "timeout_seconds": getattr(request_client, "timeout", None),
                    "output_allocation": allocation,
+                   "transport_trace_path": trace_reference,
                    "transport_endpoint": transport_endpoint,
                    "transport_payload": transport_payload}
         with self.ledger.connect() as db:
@@ -1815,7 +2075,7 @@ class StudyRuntime:
             try:
                 if not isinstance(text, str):
                     raise ValueError("Actual model response did not contain structured text")
-                decision = json.loads(text)
+                decision = _restore_strict_optional_nulls(json.loads(text), payload["decision_schema"])
                 parsed_decision = decision
                 schema = payload["decision_schema"]
                 _validate_episode_schema(decision, schema)
@@ -1935,13 +2195,15 @@ class StudyRuntime:
                     for turn in history for row in turn.get("actions", [])
                     if isinstance(row, Mapping) and row.get("state") == "completed"
                     and row.get("action_work_id") and isinstance(row.get("result"), Mapping)
+                    and not _is_context_read_action(row)
                 }
-                current_rows = action_result.get("actions", [])
+                current_rows = [row for row in action_result.get("actions", [])
+                    if isinstance(row, Mapping) and not _is_context_read_action(row)]
                 repeated = [row for row in current_rows if isinstance(row, Mapping)
                     and row.get("state") == "completed"
                     and str(row.get("action_work_id")) in previous_results
                     and row.get("result") == previous_results[str(row.get("action_work_id"))]]
-                if repeated and len(repeated) == len(current_rows):
+                if current_rows and repeated and len(repeated) == len(current_rows):
                     identities = sorted(str(row.get("action_work_id")) for row in repeated)
                     frontier = _episode_source_frontier(payload, history)
                     already_diagnosed = any(
@@ -1974,9 +2236,26 @@ class StudyRuntime:
         except Exception as exc:
             elapsed_seconds = time.monotonic() - started_clock
             finished_at = time.time()
+            error_record = {"error_type": type(exc).__name__, "message": str(exc)}
+            for name in ("code", "request_id", "response_id", "http_status", "retryable", "ambiguous",
+                         "incomplete_reason", "requested_output_tokens", "partial_output",
+                         "transport_diagnostics", "return_code"):
+                value = getattr(exc, name, None)
+                if value is not None:
+                    error_record[name] = value
+            error_usage = getattr(exc, "usage", None)
+            preserve_response = False
             with self.ledger.connect() as db:
-                db.execute("UPDATE forest_study_model_calls SET status=CASE WHEN status='requested' THEN 'failed' ELSE status END,finished_at=?,elapsed_seconds=? WHERE request_id=?",
-                    (finished_at, elapsed_seconds, request_id))
+                saved = db.execute("SELECT status,response_json FROM forest_study_model_calls WHERE request_id=?",
+                                   (request_id,)).fetchone()
+                preserve_response = bool(saved and saved["status"] == "completed" and saved["response_json"] is not None)
+                if not preserve_response:
+                    db.execute("UPDATE forest_study_model_calls SET response_json=?,usage_json=COALESCE(?,usage_json),status='failed',finished_at=?,elapsed_seconds=? WHERE request_id=?",
+                        (_json({"transport_error": error_record}), _json(error_usage) if error_usage is not None else None,
+                         finished_at, elapsed_seconds, request_id))
+            if preserve_response:
+                self.ledger.event(self.campaign_id, "model_call_post_response_error",
+                    {"request_id": request_id, "error": error_record}, str(item["work_id"]))
             raise
 
     def execute_decision_actions(self, episode: Mapping[str, Any], actions: Sequence[Mapping[str, Any]], *,
@@ -1995,14 +2274,17 @@ class StudyRuntime:
                           and (action.get("action_work_id") is None or str(binding.get("work_id")) == str(action.get("action_work_id")))
                           and (action.get("configuration_id") is None or binding.get("configuration_id") == action.get("configuration_id"))
                           and (action.get("seed") is None or binding.get("seed") == action.get("seed"))), None)
-            if match and str(match.get("work_id")) in completed_ids:
+            observational_read = bool(match and match.get("analysis_operation") == "read_context_segment")
+            if match and str(match.get("work_id")) in completed_ids and not observational_read:
                 continue
             key = (str(action.get("kind", "")), str(action.get("configuration_id", "")),
                    str(action.get("seed", "")), str(action.get("action_work_id", "")))
             if key in seen:
                 raise ValueError("A single episode cannot submit the same operation/configuration/seed twice")
             seen.add(key)
-            if _is_replay_episode(episode) or _is_replay_episode(episode.get("payload") or {}):
+            if observational_read:
+                result = self.execute_decision_action(episode, action, gpu_devices=gpu_devices, defer_gpu=defer_gpu)
+            elif _is_replay_episode(episode) or _is_replay_episode(episode.get("payload") or {}):
                 from .mechanism_replay import execute_replay_action
                 result = execute_replay_action(self, episode, action)
             else:
@@ -2039,7 +2321,8 @@ class StudyRuntime:
             raise ValueError("action_bindings must be a list of complete source-bound operations")
         action = str(decision.get("action", decision.get("kind", "")))
         kind_for_action = {"train": "fit", "infer": "infer", "score": "rescore",
-                           "select": "analysis", "compare": "analysis", "inspect": "analysis"}.get(action)
+                           "select": "analysis", "compare": "analysis", "inspect": "analysis",
+                           "read_context_segment": "analysis"}.get(action)
         if kind_for_action is None:
             raise ValueError(f"Unsupported scientific action kind: {action}")
         candidates = [entry for entry in bindings if isinstance(entry, Mapping)
@@ -2054,6 +2337,29 @@ class StudyRuntime:
         work_id = str(binding.get("work_id", ""))
         if not work_id:
             raise ValueError("Each action binding needs its predeclared action work_id")
+        if binding.get("analysis_operation") == "read_context_segment":
+            from .study_memory import StudyMemory
+            requested_workspace = Path(str(binding.get("memory_workspace", ""))).resolve()
+            campaign_root = self.campaign.resolve()
+            try:
+                requested_workspace.relative_to(campaign_root)
+            except ValueError:
+                raise ValueError("Context read binding points outside the campaign") from None
+            store_workspace = requested_workspace.parent if requested_workspace.name == ".forest-context" else requested_workspace
+            memory = StudyMemory(store_workspace)
+            segment_id = decision.get("context_segment_id")
+            if segment_id is None:
+                catalog = memory.catalog()
+                segment_id = catalog.get("current", {}).get("study-public:public-context")
+            available = set(map(str, binding.get("available_segment_ids", [])))
+            if not isinstance(segment_id, str) or segment_id not in available:
+                raise ValueError("Context read must name an available arm-public segment ID")
+            page = memory.read_json(segment_id,
+                pointer=decision.get("context_pointer") or "",
+                offset=0 if decision.get("context_offset") is None else decision.get("context_offset"),
+                limit=6000 if decision.get("context_limit") is None else decision.get("context_limit"))
+            return {"action_work_id": work_id, "kind": "analysis", "state": "completed",
+                "result": {"operation": "read_context_segment", **page}}
         with self.ledger.connect() as db:
             prior = db.execute("SELECT payload_json,state,result_json FROM forest_study_work WHERE campaign_id=? AND work_id=?",
                 (self.campaign_id, work_id)).fetchone()
@@ -2218,31 +2524,86 @@ class StudyRuntime:
                     "state": "verification_failed", "error": f"{type(exc).__name__}: {exc}", "gpu_seconds": gpu_seconds})
         candidates = calibration_update_candidates(actual_rows, allowed_by_family, required_roles, primary)
         messages = _calibration_decision_messages(payload, actual_rows, candidates, required_roles, current_counts)
+        family_update_properties = {str(family): {"type": ["integer", "null"],
+            "enum": sorted({int(value) for value in counts}) + [None]}
+            for family, counts in allowed_by_family.items()}
         schema = {"type": "object", "required": ["family_updates", "readiness", "rationale"],
-            "properties": {"family_updates": {"type": "object"},
+            "properties": {"family_updates": {"type": "object", "required": sorted(family_update_properties),
+                "properties": family_update_properties},
                 "readiness": {"type": "string", "enum": ["continue", "stop", "incomplete"]},
                 "rationale": {"type": "string"}}}
         delivered = _assemble_model_messages(client, messages, "experiment")
+        original_delivered = copy.deepcopy(delivered)
+        delivered, context_encoding = _intern_delivered_messages(delivered)
         request_id = str(uuid.uuid4())
+        response_client = copy.copy(client)
+        config = getattr(client, "config", None)
+        codex_transport = ((getattr(client, "provider", {}) or {}).get("kind") == "codex_cli"
+                           or getattr(client, "api", None) == "codex_cli")
+        transport_schema = _codex_strict_schema(schema) if codex_transport else copy.deepcopy(schema)
+        if isinstance(config, Mapping):
+            response_client.config = copy.deepcopy(dict(config))
+            response_client.config["_forest_action_schema"] = copy.deepcopy(transport_schema)
+        trace_reference = _transport_trace_reference(self.campaign, request_id, response_client.provider)
+        if trace_reference:
+            if not isinstance(getattr(response_client, "config", None), Mapping):
+                response_client.config = {}
+            response_client.config["_forest_transport_trace_path"] = trace_reference
+        from research.agents.output_budget import output_allocation
+        explicit_output = payload.get("max_output_tokens")
+        allocation = output_allocation(response_client.config, delivered, stage="experiment",
+                                       requested=explicit_output)
+        max_output_tokens = int(explicit_output) if explicit_output is not None else int(allocation["tokens"])
+        build_request = getattr(response_client, "build_request", None)
+        if callable(build_request):
+            endpoint, transport_payload = build_request(delivered, json_mode=True,
+                max_output_tokens=max_output_tokens)
+        else:
+            # Scripted infrastructure fixtures need not emulate transport
+            # serialization. Real providers expose this before the side effect.
+            endpoint, transport_payload = None, None
         request_record = {"request_id": request_id, "work_id": item["work_id"],
             "provider_id": client.provider.get("id"), "model": client.provider.get("model"),
-            "stage": "experiment", "messages": delivered, "decision_schema": schema}
+            "reasoning_effort": response_client.config.get("reasoning_effort"),
+            "provider_snapshot": _audit_config(client.provider),
+            "effective_provider_config": _audit_config(response_client.config),
+            "effective_timeout_seconds": getattr(response_client, "timeout", None),
+            "stage": "experiment", "messages": delivered, "original_messages": original_delivered,
+            "context_encoding": context_encoding, "decision_schema": schema,
+            "transport_decision_schema": transport_schema,
+            "source_output_allocation": allocation, "max_output_tokens": max_output_tokens,
+            "endpoint": endpoint, "request_payload": transport_payload,
+            "transport_payload_available": callable(build_request),
+            "transport_trace_path": trace_reference}
         with self.ledger.connect() as db:
             started_at = time.time()
             started_clock = time.monotonic()
             db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,response_json,usage_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?,?,?)",
                 (request_id, self.campaign_id, str(item["work_id"]), _json(request_record), None, None, "requested", started_at, started_at))
-        from research.agents.output_budget import output_allocation
-        max_output_tokens = payload.get("max_output_tokens")
-        if max_output_tokens is None:
-            max_output_tokens = output_allocation(client.config, delivered, stage="experiment")["tokens"]
-        response_client = copy.copy(client)
-        config = getattr(client, "config", None)
-        if isinstance(config, Mapping):
-            response_client.config = copy.deepcopy(dict(config))
-            response_client.config["_forest_action_schema"] = copy.deepcopy(schema)
-        response = response_client.complete(delivered, json_mode=True,
-            max_output_tokens=int(max_output_tokens), output_stage="experiment")
+        try:
+            response = response_client.complete(delivered, json_mode=True,
+                max_output_tokens=max_output_tokens, output_stage="experiment")
+        except Exception as exc:
+            error_record = {"error_type": type(exc).__name__, "message": str(exc)}
+            for name in ("code", "request_id", "response_id", "http_status", "retryable", "ambiguous",
+                         "incomplete_reason", "requested_output_tokens", "partial_output",
+                         "transport_diagnostics", "return_code", "transport_trace_path"):
+                value = getattr(exc, name, None)
+                if value is not None:
+                    error_record[name] = value
+            error_usage = getattr(exc, "usage", None)
+            finished_at = time.time()
+            elapsed_seconds = time.monotonic() - started_clock
+            with self.ledger.connect() as db:
+                row = db.execute("SELECT status,response_json FROM forest_study_model_calls WHERE request_id=?",
+                                 (request_id,)).fetchone()
+                if not (row and row["status"] == "completed" and row["response_json"] is not None):
+                    db.execute("UPDATE forest_study_model_calls SET response_json=?,usage_json=COALESCE(?,usage_json),status='failed',finished_at=?,elapsed_seconds=? WHERE request_id=?",
+                        (_json({"transport_error": error_record}), _json(error_usage) if error_usage is not None else None,
+                         finished_at, elapsed_seconds, request_id))
+            self.ledger.event(self.campaign_id, "calibration_model_failure",
+                {"request_id": request_id, "error": error_record}, str(item["work_id"]))
+            raise
         elapsed_seconds = time.monotonic() - started_clock
         finished_at = time.time()
         text = response.get("text")
@@ -2255,7 +2616,7 @@ class StudyRuntime:
                  elapsed_seconds, request_id))
         if not isinstance(text, str):
             raise ValueError("Calibration model response has no JSON text")
-        choice = json.loads(text)
+        choice = _restore_strict_optional_nulls(json.loads(text), schema)
         _validate_episode_schema(choice, schema)
         valid, verification = verify_calibration_choice(choice, candidates, allowed_by_family, required_roles)
         outcome = {"request_id": request_id, "model_decision": choice, "usage": usage,
@@ -2737,10 +3098,17 @@ def _episode_source_frontier(payload: Mapping[str, Any], history: Sequence[Mappi
             continue
         for action in turn.get("actions", []):
             if isinstance(action, Mapping) and action.get("state") == "completed" and action.get("action_work_id"):
+                if _is_context_read_action(action):
+                    continue
                 key = str(action["action_work_id"])
                 observed[key] = {"kind": action.get("kind"), "result": stable(action.get("result", {}))}
-    return {"messages": copy.deepcopy(payload.get("messages", [])),
-            "action_bindings": copy.deepcopy(payload.get("action_bindings", [])),
+    messages = [copy.deepcopy(message) for message in payload.get("messages", [])
+        if not (isinstance(message, Mapping) and message.get("role") == "system"
+            and str(message.get("content", "")).startswith("Arm-public context catalog (metadata only): "))]
+    action_bindings = [copy.deepcopy(binding) for binding in payload.get("action_bindings", [])
+        if not isinstance(binding, Mapping) or binding.get("analysis_operation") != "read_context_segment"]
+    return {"messages": messages,
+            "action_bindings": action_bindings,
             "task_contract": copy.deepcopy(payload.get("task_contract")),
             "original_pair_selection": copy.deepcopy(payload.get("original_pair_selection")),
             "factual_changes": copy.deepcopy(payload.get("factual_changes", {})),
@@ -2770,9 +3138,30 @@ def _semantic_action_proposal(value: Any) -> Any:
     actions = value.get("actions")
     return {"mode": value.get("mode"),
         "actions": [{key: copy.deepcopy(action[key]) for key in
-            ("kind", "action", "action_work_id", "configuration_id", "seed") if key in action}
+            ("kind", "action", "action_work_id", "configuration_id", "seed",
+             "context_segment_id", "context_pointer", "context_offset", "context_limit") if key in action}
             for action in actions if isinstance(action, Mapping)] if isinstance(actions, list) else None,
         "submission": _semantic_submission(value.get("submission", {}))}
+
+
+def _is_context_read_action(action: Mapping[str, Any]) -> bool:
+    result = action.get("result") or {}
+    return (isinstance(result, Mapping) and result.get("operation") == "read_context_segment") or \
+        action.get("action_name") == "read_context_segment"
+
+
+def _scientific_action_history(history: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Remove observational reads before scientific validation or progress accounting."""
+    filtered = []
+    for turn in history:
+        if not isinstance(turn, Mapping):
+            continue
+        copied = copy.deepcopy(dict(turn))
+        copied["actions"] = [copy.deepcopy(dict(action)) for action in turn.get("actions", [])
+                             if isinstance(action, Mapping) and not _is_context_read_action(action)]
+        if copied["actions"] or turn.get("submission_validation") or turn.get("submission"):
+            filtered.append(copied)
+    return filtered
 
 
 def _semantic_raw_proposal(text: Any) -> Any:
@@ -2884,6 +3273,7 @@ def _c2_evaluation_overrides(family: str, noise: Any, factual: Mapping[str, Any]
 def verify_episode_submission(episode: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
                               submission: Mapping[str, Any], *, runtime: Any = None) -> dict[str, Any]:
     """Accept an episode only after matching its final claim to actual operations."""
+    history = _scientific_action_history(history)
     from .end_to_end_runtime import is_end_to_end, verify_end_to_end_submission
     if is_end_to_end(episode):
         if runtime is None:
@@ -3144,6 +3534,7 @@ def _treatment_evidence_view(arm: str, records: Sequence[Mapping[str, Any]],
 def _treatment_history_view(arm: str, history: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     nodes = []
     edges = []
+    observational_context_reads = []
     for episode_turn, turn in enumerate(history):
         if turn.get("submission_validation"):
             nodes.append({"id": f"turn-{episode_turn}-submission", "kind": "submission_validation",
@@ -3154,30 +3545,39 @@ def _treatment_history_view(arm: str, history: Sequence[Mapping[str, Any]]) -> d
                 continue
             action_id = str(operation.get("action_work_id", f"turn-{episode_turn}"))
             result = dict(operation.get("result") or {})
+            if _is_context_read_action(operation):
+                observational_context_reads.append({"id": action_id, "result": result})
+                continue
             nodes.append({"id": action_id, "kind": operation.get("kind"),
                 "state": operation.get("state"), "result": result})
             edges.append({"from": str(episode_turn), "to": action_id,
                           "relation": "observed_after"})
     if arm in {"FULL", "FULL_NO_GATE"}:
-        return {"view": "typed_operation_graph", "nodes": nodes, "edges": edges}
+        return {"view": "typed_operation_graph", "nodes": nodes, "edges": edges,
+                "observational_context_reads": observational_context_reads}
     if arm == "DAG_ID":
         return {"view": "operation_id_graph", "node_ids": [node["id"] for node in nodes],
             "edges": [{"from": edge["from"], "to": edge["to"]} for edge in edges],
-            "results": [node["result"] for node in nodes]}
+            "results": [node["result"] for node in nodes],
+            "observational_context_reads": observational_context_reads}
     if arm == "FLAT":
         return {"view": "flat_operation_artifacts", "operations": nodes,
             "raw_training_log_lines": [line for node in nodes for line in
-                (node["result"].get("receipt", {}).get("training_log_lines", []))]}
+                (node["result"].get("receipt", {}).get("training_log_lines", []))],
+            "observational_context_reads": observational_context_reads}
     if arm == "AIDE":
-        return {"view": "native_agent_operation_artifacts", "operations": nodes}
+        return {"view": "native_agent_operation_artifacts", "operations": nodes,
+                "observational_context_reads": observational_context_reads}
     if arm == "ID_ONLY":
         # The treatment removes graph propagation, but retains the registered
         # evidence identities and their observed records for information parity.
         return {"view": "identifier_records_operation_history",
             "operations": [{"id": node["id"], "result": node["result"]} for node in nodes],
-            "results": [node["result"] for node in nodes]}
+            "results": [node["result"] for node in nodes],
+            "observational_context_reads": observational_context_reads}
     if arm == "RERUN_ALL":
-        return {"view": "rerun_all_operation_artifacts", "operations": nodes}
+        return {"view": "rerun_all_operation_artifacts", "operations": nodes,
+                "observational_context_reads": observational_context_reads}
     raise ValueError(f"Unknown evidence treatment arm: {arm}")
 
 
