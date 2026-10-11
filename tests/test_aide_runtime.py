@@ -268,6 +268,95 @@ def test_native_debugs_actual_failed_cpu_action_program(tmp_path, native_upstrea
     assert journal.nodes[1].stage_name == "debug" and journal.nodes[1].parent is journal.nodes[0]
 
 
+def test_native_replans_after_unqueued_source_precondition_feedback(tmp_path, native_upstream):
+    runtime, item = _runtime(tmp_path, native_upstream)
+    compare_id = "native-compare-before-select"
+    item["payload"]["decision_schema"] = {"type": "object",
+        "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {
+            "type": "object", "required": ["kind", "action_work_id"], "properties": {
+                "kind": {"type": "string"}, "action_work_id": {"type": "string"}}}},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    item["payload"]["allowed_decisions"] = ["compare"]
+    item["payload"]["action_bindings"] = [{"work_id": compare_id, "kind": "analysis",
+        "action_name": "compare", "analysis_operation": "compare",
+        "selection_work_id": "selection-not-yet-run", "compared_configuration_ids": ["anchor", "candidate"],
+        "evidence": [{"work_id": "candidate-evidence", "configuration_id": "candidate",
+            "seed": 11, "state": "not_run", "receipt_path": str(tmp_path / "missing.json")}]}]
+    decision = {"mode": "action", "actions": [{"kind": "compare", "action_work_id": compare_id}],
+        "submission": {}, "rationale": "Nonformal native replan fixture."}
+    code = "import json\ndecision = " + repr(decision) + "\nprint(json.dumps(decision))\n"
+    client = NonformalClient(["Nonformal native replan draft.\n```python\n" + code + "```",
+                              _review(buggy=True),
+                              "Nonformal native replan after restart.\n```python\n" + code + "```",
+                              _review(buggy=True)])
+
+    outcome = run_aide_episode(runtime, item, client=client)
+
+    assert outcome["state"] == "retryable"  # the native step completed; episode still needs a new proposal
+    assert outcome["pending_action"] is False
+    assert outcome["pending_work_ids"] == []
+    assert outcome["native_completed_steps"] == 1
+    execution = outcome["action_result"]
+    assert execution["state"] == "completed"
+    assert execution["exc_type"] == "ScientificActionNeedsReplan"
+    assert execution["action_result"]["request_new_decision"] is True
+    assert execution["action_results"][0]["reason"] == "source_selection_must_complete_before_comparison"
+    with runtime.ledger.connect() as db:
+        session = db.execute("SELECT state_json FROM forest_study_aide_sessions WHERE work_id='native-episode'").fetchone()
+    state = json.loads(session[0])
+    assert state["pending"] is None
+    assert state["action_history"][-1]["actions"][0]["request_new_decision"] is True
+    # Native journal serialization must keep the diagnostic in the upstream
+    # structured exception shape so a new runtime can recover and replan.
+    assert isinstance(state["journal"], str)
+    assert isinstance(execution["exc_info"], dict)
+    recovered, recovered_item = _runtime(tmp_path, native_upstream)
+    recovered_item["payload"] = dict(item["payload"])
+    resumed = run_aide_episode(recovered, recovered_item, client=client)
+    assert resumed["native_completed_steps"] == 2
+    assert len(client.calls) == 4
+
+
+def test_native_reloads_after_repeated_invalid_submission_replan(tmp_path, native_upstream):
+    runtime, item = _runtime(tmp_path, native_upstream)
+    item["payload"]["decision_schema"] = {"type": "object",
+        "required": ["mode", "actions", "submission", "rationale"],
+        "properties": {"mode": {"type": "string"}, "actions": {"type": "array", "items": {"type": "object"}},
+            "submission": {"type": "object"}, "rationale": {"type": "string"}}}
+    item["payload"]["allowed_decisions"] = ["inspect"]
+    inspect_id = "submission-replan-inspect"
+    item["payload"]["action_bindings"] = [{"work_id": inspect_id, "kind": "analysis",
+        "action_name": "inspect", "analysis_operation": "inspect", "evidence": [{
+            "work_id": "fixture-unrun-source", "state": "not_run", "metrics": {}}],
+        "output_path": str(tmp_path / "submission-replan-inspect.json")}]
+    invalid = {"mode": "submit", "actions": [], "submission": {},
+        "rationale": "Nonformal repeated invalid submission fixture."}
+    revised = {"mode": "action", "actions": [{"kind": "inspect", "action_work_id": inspect_id}],
+        "submission": {}, "rationale": "Nonformal fixture follows the delivered diagnostic with inspection."}
+    def draft(decision):
+        code = "import json\ndecision = " + repr(decision) + "\nprint(json.dumps(decision))\n"
+        return "Nonformal native submission draft.\n```python\n" + code + "```"
+    client = NonformalClient([draft(invalid), _review(buggy=True), draft(invalid), _review(buggy=True),
+                              draft(revised), _review(buggy=True)])
+
+    first = run_aide_episode(runtime, item, client=client)
+    assert first["native_completed_steps"] == 1
+    second = run_aide_episode(runtime, item, client=client)
+    assert second["native_completed_steps"] == 2
+    execution = second["action_result"]
+    assert execution["exc_type"] == "ScientificSubmissionNeedsReplan", json.dumps({
+        "execution": execution, "history": second.get("action_history")}, sort_keys=True)
+    assert isinstance(execution["exc_info"], dict)
+    assert execution["submission_validation"]["request_new_decision"] is True
+
+    recovered, recovered_item = _runtime(tmp_path, native_upstream)
+    recovered_item["payload"] = dict(item["payload"])
+    resumed = run_aide_episode(recovered, recovered_item, client=client)
+    assert resumed["native_completed_steps"] == 3, json.dumps(resumed, sort_keys=True)
+    assert len(client.calls) == 6
+
+
 def test_completed_native_request_replays_and_unsettled_request_never_repeats(tmp_path, native_upstream):
     runtime, item = _runtime(tmp_path, native_upstream)
     upstream = load_upstream(native_upstream)
