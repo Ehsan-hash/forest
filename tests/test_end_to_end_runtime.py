@@ -154,6 +154,42 @@ def test_second_actual_fit_injects_c1_and_new_independent_score_identities(tmp_p
     assert result["selected_configuration_id"] != state["anchor_configuration_id"]
 
 
+def test_historical_decision_transcript_is_retrievable_but_not_repeated_in_model_prompt(tmp_path):
+    runtime, full_payload = fixture_runtime(tmp_path)
+    original_history = {"actual_action_history": [{"original_response": "decision evidence " * 80_000}],
+        "model_response_records": [{"request_id": "prior-request", "status": "completed"}]}
+    for payload in (full_payload, {**full_payload, "work_id": "nonformal-aide-history", "arm": "AIDE"}):
+        build_end_to_end_episode_request(runtime, payload)
+        state = _load(runtime, payload["work_id"])
+        state["objective"] = {**state["objective"], "version": 2}
+        state["objective_history"] = [{"objective": {"version": 1},
+            "actual_completed_exploration": [], "prior_comparison_records": [],
+            "actual_decision_history": original_history}]
+        end_to_end_runtime._save(runtime, payload["work_id"], state)
+
+        request = runtime.build_episode_request(payload)
+        public = json.loads(request["messages"][-1]["content"])
+        reference = public["objective_history"][0]["actual_decision_history_reference"]
+        assert "actual_decision_history" not in public["objective_history"][0]
+        assert len(json.dumps(request["messages"], ensure_ascii=False)) < 1_048_576
+        catalog_ids = {row.get("segment_id", row.get("id"))
+                       for row in request["context_memory"]["catalog"]["segments"]}
+        assert reference["segment_id"] in catalog_ids
+
+        memory = runtime._public_memory(payload)
+        chunks, offset = [], 0
+        while True:
+            page = memory.read_json(reference["segment_id"], pointer=reference["pointer"],
+                                    offset=offset, limit=32_000)
+            chunks.append(page["content"])
+            if page["complete"]:
+                break
+            assert page["next_offset"] > offset
+            offset = page["next_offset"]
+        assert json.loads("".join(chunks)) == original_history
+        assert _load(runtime, payload["work_id"])["objective_history"][0]["actual_decision_history"] == original_history
+
+
 def test_versioned_pair_precedes_all_registered_confirmation_and_final_requires_comparison(tmp_path):
     runtime, payload = fixture_runtime(tmp_path)
     request = build_end_to_end_episode_request(runtime, payload)

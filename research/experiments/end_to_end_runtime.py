@@ -165,6 +165,25 @@ def _episode_history(runtime, work_id):
             "model_response_records": [dict(call) for call in calls]}
 
 
+def _public_objective_history(runtime, payload, history):
+    """Keep full prior decisions retrievable without repeating transcripts in every prompt."""
+    public_history = deepcopy(history)
+    memory = runtime._public_memory(payload)
+    for index, revision in enumerate(public_history):
+        if not isinstance(revision, dict) or "actual_decision_history" not in revision:
+            continue
+        decision_history = revision.pop("actual_decision_history")
+        version = (revision.get("objective") or {}).get("version", index + 1)
+        segment = memory.save_json(
+            f"end-to-end-decision-history-v{version}", decision_history,
+            origin=f"End-to-end episode {payload['work_id']} objective revision {version} decision history")
+        revision["actual_decision_history_reference"] = {
+            "segment_id": segment["segment_id"], "pointer": "",
+            "characters": segment["characters"], "read_operation": "read_context_segment",
+            "scientific_progress_eligible": False}
+    return public_history
+
+
 def _work_rows(runtime, identifiers):
     if not identifiers:
         return {}
@@ -390,7 +409,8 @@ def build_end_to_end_episode_request(runtime, payload: Mapping[str, Any]) -> dic
     comparison_policy = "Record exact configuration versions, data/split references, metric contract and outputs for each comparison. Later research choices remain editable and receive their own comparison version; retain earlier records."
     required_answer = str(task["required_answer"]).replace("frozen pair", "versioned comparison")
     public = {"cell": {"episode_id": work_id, "category": "LIVE_END_TO_END", "task_id": task["task_id"], "arm": payload["arm"], "repeat": payload.get("repeat")},
-        "stage": state["stage"], "active_objective": state["objective"], "objective_history": state["objective_history"],
+        "stage": state["stage"], "active_objective": state["objective"],
+        "objective_history": _public_objective_history(runtime, payload, state["objective_history"]),
         "comparison_records": state["comparison_records"], "comparison_record_policy": comparison_policy, "long_contract": long_contract,
         "exploration_order": state["exploration_order"], "confirmation_seeds": state["confirmation_seeds"],
         "observations": observations, "public_action_bindings": public_actions, "decision_schema": schema,
