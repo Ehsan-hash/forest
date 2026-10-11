@@ -1,6 +1,5 @@
 """Source-bound branch copies with durable receipts and atomic activation."""
 from copy import deepcopy
-import hashlib
 import json
 import os
 import shutil
@@ -15,14 +14,20 @@ from services.worker.scheduler import _lock_project
 from .models import Intervention, InterventionEffect
 
 
-def digest(path):
-    result = hashlib.sha256()
-    with path.open('rb') as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b''): result.update(block)
-    return result.hexdigest()
+def check_merge_authorization(project_id, graph, command, authorization):
+    """Merge comparison reads originals; authorize them before diff generation."""
+    if command.get('operation') != 'merge_branches': return
+    from research.agents.path_access import copy_origin_catalog, copy_origins, denied_origin
+    root=project_dir(project_id); catalog=copy_origin_catalog(root)
+    for ident in (command.get('params',{}).get('left'),command.get('params',{}).get('right')):
+        branch=next((b for b in graph['branches'] if b['id']==ident),None)
+        if not branch: continue
+        for path in _files(safe_path(root,branch['workspace'])).values():
+            if denied_origin(path,authorization,copy_origins(root,path,catalog)):
+                raise GraphError('path_escape','Merge source includes an explicitly denied original; select an authorized branch.',status_code=403)
 
 
-def prepare(project_id, graph, action):
+def prepare(project_id, graph, action, authorization=None):
     """Bind intent to selected bytes before accepting the graph transaction."""
     root = project_dir(project_id)
     workspaces = BranchWorkspace(root, graph)
@@ -40,14 +45,25 @@ def prepare(project_id, graph, action):
         if planned['conflicts']:
             raise GraphError('merge_conflict', 'Resolve file and configuration conflicts before merging.', status_code=409)
     files = planned.pop('_materialization')
+    from research.agents.path_access import copy_origin_catalog, copy_origins, denied_origin
+    catalog=copy_origin_catalog(root)
+    for relative,item in list(files.items()):
+        if item['kind']!='copy': continue
+        path=safe_path(root,item['source'],True)
+        origins=copy_origins(root,path,catalog)
+        if denied_origin(path,authorization,origins):
+            del files[relative]
+        else:
+            item['origins']=origins
+    plan_id=uid()
     total = 0
     for item in files.values():
         if item['kind'] == 'copy':
             path = safe_path(root, item['source'], True)
-            item.update(sha256=digest(path), size=path.stat().st_size)
+            item.update(size=path.stat().st_size)
         elif item['kind'] == 'content':
             content = item['content'].encode('utf-8')
-            item.update(sha256=hashlib.sha256(content).hexdigest(), size=len(content))
+            item.update(size=len(content))
         total += item.get('size', 0)
     # Both forks and merges have an explicit bounded default, editable per intent.
     policy = action.get('copy_policy') or action.get('resolution') or {}
@@ -56,7 +72,23 @@ def prepare(project_id, graph, action):
         raise GraphError('copy_budget','max_copy_bytes must be a nonnegative integer.')
     if total > maximum:
         raise GraphError('copy_budget', 'Selected workspace bytes exceed max_copy_bytes.')
-    return {'project_id': project_id, 'branch_id': action['branch_id'], 'files': files,
+    from research.agents.processes import file_contents_equal,file_metadata
+    for relative,item in files.items():
+        if item['kind']!='copy': continue
+        origin=safe_path(root,item['source'],True)
+        snapshot=safe_path(root,'.forest-interventions/sources/'+plan_id+'/'+relative)
+        snapshot.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(origin,snapshot)
+        with snapshot.open('rb') as handle: os.fsync(handle.fileno())
+        if not file_contents_equal(origin,snapshot):
+            raise GraphError('workspace_source_changed','Source changed while recording the selected copy: '+item['source'])
+        item.update(snapshot_path=snapshot.relative_to(root).as_posix(),
+            source_record_id=uid(),metadata=file_metadata(snapshot),size=snapshot.stat().st_size)
+    total=sum(item.get('size',0) for item in files.values())
+    if total>maximum:
+        raise GraphError('copy_budget','Recorded workspace bytes exceed max_copy_bytes.')
+    return {'plan_record_id':plan_id,'configuration_version':1,
+            'project_id': project_id, 'branch_id': action['branch_id'], 'files': files,
             'workspace': planned['workspace'], 'base_workspace': planned.get('base_workspace') if action['action'] == 'fork' else None,
             'action': action['action'], 'selected_bytes': total}
 
@@ -72,17 +104,23 @@ def record(session, parent, plans):
             'intervention_id': parent.id, 'effect_id': effect.id, 'status': 'pending'}}
 
 
-def _verify(directory, files):
+def _verify(directory, files, root):
+    from research.agents.processes import file_contents_equal
     expected = {rel: item for rel, item in files.items() if item['kind'] != 'delete'}
     observed = _files(directory)
     if observed.keys() != expected.keys() or any(
-            observed[rel].stat().st_size != item['size'] or digest(observed[rel]) != item['sha256']
+            observed[rel].stat().st_size != item['size'] or
+            (not file_contents_equal(observed[rel],safe_path(root,item['snapshot_path'],True))
+                if item['kind']=='copy' else observed[rel].read_bytes()!=item['content'].encode('utf-8'))
             for rel, item in expected.items()):
         raise GraphError('workspace_bytes_changed', 'Workspace bytes do not match the accepted source-bound copy.')
 
 
 def materialize(effect_id, plan):
     import fcntl
+    if not plan.get('plan_record_id') or any(item['kind']=='copy' and not item.get('snapshot_path')
+            for item in plan['files'].values()):
+        raise GraphError('workspace_receipt_reconciliation','Legacy workspace intent requires its original retained file references; no new copy was executed.')
     root = project_dir(plan['project_id'])
     control = safe_path(root, '.forest-interventions')
     control.mkdir(parents=True, exist_ok=True)
@@ -92,10 +130,12 @@ def materialize(effect_id, plan):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if receipt.is_file():
             observed = json.loads(receipt.read_text())
-            if observed.get('plan_sha256') != _plan_digest(plan):
+            if not observed.get('plan_record'):
+                raise GraphError('workspace_receipt_reconciliation','Legacy workspace receipt has no retained copy configuration; inspect its original files before continuing.')
+            if observed['plan_record'] != plan:
                 raise GraphError('workspace_receipt_conflict', 'Workspace receipt belongs to another copy intent.')
-            for path in (plan.get('base_workspace'),plan['workspace']):
-                if path: _verify(safe_path(root,path),plan['files'])
+            # The receipt records a completed copy. Scientific edits to that
+            # branch after activation do not undo its historical observation.
             return observed
         staging = control / (effect_id + '.staging')
         shutil.rmtree(staging, ignore_errors=True)
@@ -104,7 +144,7 @@ def materialize(effect_id, plan):
             adopted = next((safe_path(root, path) for path in (plan.get('base_workspace'), plan['workspace'])
                             if path and safe_path(root, path).exists()), None)
             if adopted is not None:
-                _verify(adopted, plan['files'])
+                _verify(adopted, plan['files'],root)
                 shutil.copytree(adopted, staging, dirs_exist_ok=True)
             else:
                 for relative, item in plan['files'].items():
@@ -112,22 +152,18 @@ def materialize(effect_id, plan):
                     target = safe_path(staging, relative)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     if item['kind'] == 'copy':
-                        source = safe_path(root, item['source'], True)
-                        if digest(source) != item['sha256']:
-                            raise GraphError('workspace_source_changed', 'Selected source bytes changed after acceptance: '+item['source'])
+                        source = safe_path(root, item['snapshot_path'], True)
                         shutil.copy2(source, target)
-                        if digest(source) != item['sha256']:
-                            raise GraphError('workspace_source_changed', 'Selected source changed during copy: '+item['source'])
                     else: target.write_text(item['content'], encoding='utf-8')
                     with target.open('rb') as handle: os.fsync(handle.fileno())
-            _verify(staging, plan['files'])
+            _verify(staging, plan['files'],root)
             # A crash between the two renames is recovered using verified bytes;
             # scheduling remains fenced until the DB receives this receipt.
             for path in (plan.get('base_workspace'), plan['workspace']):
                 if not path: continue
                 destination = safe_path(root, path)
                 if destination.exists():
-                    _verify(destination, plan['files'])
+                    _verify(destination, plan['files'],root)
                     continue
                 pending = control / (effect_id + '.activate')
                 shutil.rmtree(pending, ignore_errors=True)
@@ -139,8 +175,16 @@ def materialize(effect_id, plan):
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 pending.rename(destination)
                 _sync_directory(destination.parent)
-            observed = {'plan_sha256': _plan_digest(plan), 'workspace': plan['workspace'],
-                'files': {rel: {key: item[key] for key in ('sha256', 'size') if key in item}
+            # Permission lineage is control data, outside editable branch files.
+            from research.agents.processes import atomic_json
+            origins=control/'origins';origins.mkdir(exist_ok=True)
+            for index,path in enumerate((plan.get('base_workspace'),plan['workspace'])):
+                if path:
+                    atomic_json(origins/(plan['plan_record_id']+'-'+str(index)+'.json'),{
+                        'workspace':path,'files':{relative:item.get('origins',[str(safe_path(root,item['source']))])
+                            for relative,item in plan['files'].items() if item['kind']=='copy'}})
+            observed = {'plan_record_id':plan['plan_record_id'],'plan_record':deepcopy(plan),'workspace': plan['workspace'],
+                'files': {rel: {key: item[key] for key in ('source_record_id','snapshot_path','metadata','size') if key in item}
                           for rel, item in plan['files'].items() if item['kind'] != 'delete'},
                 'selected_bytes': plan['selected_bytes'], 'observed_at': now(), 'state': 'materialized'}
             temporary = receipt.with_suffix('.tmp')
@@ -156,10 +200,6 @@ def _sync_directory(path):
     descriptor = os.open(path, os.O_RDONLY)
     try: os.fsync(descriptor)
     finally: os.close(descriptor)
-
-
-def _plan_digest(plan):
-    return hashlib.sha256(json.dumps(plan, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 def reconcile(*, intervention_id=None, limit=1):

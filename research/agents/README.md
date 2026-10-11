@@ -41,14 +41,37 @@ ledger; checkpoints retain its external identity and never reset its usage.
 `read_transcript`. Context compaction only changes model input; it does not erase
 recorded turns. `research_memory.json` holds editable decision summaries and
 unresolved questions. Session files are ordinary JSON; immutable round snapshots
-reference content-addressed Graph versions and original execution artifacts.
+reference explicit Graph revisions and original execution artifacts. References
+use record IDs and versions. Source and artifact checks compare actual original
+bytes; scientific identity, admission and progress never depend on content hashes.
+
+## Editable science and active skills
+
+Goal Contracts and evaluation protocols have explicit version histories. New
+evidence can revise objectives, criteria, parameters, plans and candidates or
+reopen an earlier branch. Existing measurements keep their original configuration
+and evaluation context. Adaptive test feedback is marked as adaptive evaluation;
+it never silently becomes an independent held-out result. See
+[continuous research](../../docs/CONTINUOUS_RESEARCH.md) for the API and recovery
+contracts.
+
+The instruction assembler loads the project's four packaged skills on actual
+model requests, including fallback and resumed requests. The matching
+`.agents/skills/` copies make them discoverable in Codex. All research roles receive
+the autonomy and judgment policies, experiment roles receive execution workflows,
+and manuscript stages receive the complete academic-writing contract.
+`delegate_research` selects a supported workflow phase and queues a real supporting
+Agent through the ordinary Graph, scheduler and worker. Its `derived_from` edge
+preserves lineage without making the child wait for its active parent.
 
 ## Real process tools
 
 - Research Agent command tools use Bubblewrap by default and expose a minimal
   read-only runtime plus the writable task workspace. Explicit absolute
-  `readonly_paths` are shared with `read_file`, mounted read-only, and must not
-  include test or evaluator data. Select `execution_backend: local` only for
+  `readonly_paths` and `denied_readonly_paths` are shared with `read_file`.
+  Explicit denials take precedence, including inside a workspace or runtime
+  mount. Directory names such as `tests` do not determine authorization.
+  Select `execution_backend: local` only for
   intentionally trusted owner-controlled execution; local mode runs with the
   worker's ordinary host filesystem permissions.
 - `start_process` / `run_command`: `command` is an argv list or shell string;
@@ -72,8 +95,11 @@ Agent interpreter exits. A transient supervisor coordination lease prevents
 concurrent replay of one action ID from executing twice; it does not lock code,
 results, or project editing. PIDs are checked together with process creation time.
 If a supervisor vanishes and exit status cannot be observed, the process is
-reported as `lost`, never as successful. Agent reasoning can inspect actual files
-and explicitly resume a task's own saved state or initiate a fresh attempt.
+reported as `lost`, never as successful. Recovery checks the saved configuration,
+executor state, completion receipt and original artifacts before reattaching.
+An uncertain execution enters reconciliation; it cannot be relaunched merely
+because its PID disappeared. A genuinely changed experiment can create a new
+version while the previous result retains its original conditions.
 
 ## Completion and integration
 

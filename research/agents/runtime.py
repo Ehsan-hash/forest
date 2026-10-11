@@ -2,7 +2,6 @@
 from __future__ import annotations
 import codecs
 from copy import deepcopy
-import hashlib
 import json
 import shlex
 import sys
@@ -127,6 +126,21 @@ class ToolRuntime:
         print(json.dumps({'tool': name, 'status': status, 'result': result}, ensure_ascii=False), flush=True)
         return result
 
+    def submit(self, name, args, action_id, configuration=None):
+        from research.execution.submissions import request_submission
+        from services.worker.scheduler import _lock_project
+        with Session() as reader:
+            project_id = get(reader, TaskRun, self.run_id).project_id
+        with Session.begin() as session:
+            _lock_project(session, project_id)
+            run = get(session, TaskRun, self.run_id, for_update=True)
+            if run.status in ('cancelled', 'interrupted') or run.resource.get('pending_intervention'):
+                raise ValueError('Run has a pending or completed stop request')
+            inherited={key:deepcopy(self.config[key]) for key in ('readonly_paths','denied_readonly_paths',
+                'bubblewrap','external_ledger_id','external_supervisor') if key in self.config}
+            inherited['execution_backend']=self.config.get('execution_backend','bubblewrap')
+            return request_submission(session, run, action_id, name, args, {**(configuration or {}),**inherited})
+
     def dispatch(self, name, args, pid, action_id=None, *, replay=False):
         if name == 'read_context_segment':
             return ContextStore(self.workspace).read(args['segment_id'], args.get('offset', 0), args.get('limit', 6000), args.get('notes'))
@@ -142,21 +156,15 @@ class ToolRuntime:
             file_identity = [stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
             known = next((entry for entry in cache.values() if entry.get('resolved_path') == str(p)
                           and entry.get('file_identity') == file_identity), None)
-            if known:
-                fingerprint = known['sha256']
-            else:
-                sha = hashlib.sha256()
-                with p.open('rb') as handle:
-                    for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-                        sha.update(chunk)
-                fingerprint = sha.hexdigest()
+            revision = known.get('file_revision', 1) if known else max(
+                (entry.get('file_revision', 0) for entry in cache.values() if entry.get('resolved_path') == str(p)), default=0) + 1
             key = str(p) + ':' + str(offset) + ':' + str(limit)
             previous = cache.get(key) or next((entry for entry in cache.values()
-                if entry.get('resolved_path') == str(p) and entry.get('sha256') == fingerprint
+                if entry.get('resolved_path') == str(p) and entry.get('file_identity') == file_identity
                 and entry.get('offset', 0) <= offset
                 and entry.get('next_offset', 0) >= min(p.stat().st_size, offset + limit)), None)
-            if previous and previous.get('sha256') == fingerprint:
-                return {'path': args['path'], 'sha256': fingerprint, 'offset': offset,
+            if previous and previous.get('file_identity') == file_identity:
+                return {'path': args['path'], 'file_revision': revision, 'offset': offset,
                         'next_offset': previous['next_offset'], 'size_bytes': previous['size_bytes'],
                         'unchanged_already_observed': True, 'prior_action_id': previous.get('action_id'),
                         'content': 'Unchanged verified page is retained in the checkpoint and transcript; reuse it or retrieve that prior observation with read_transcript.',
@@ -173,7 +181,9 @@ class ToolRuntime:
                 content += decoder.decode(b'', final=True)
             else:
                 next_offset -= len(pending)
-            result = {'content': content, 'path': args['path'], 'offset': offset, 'sha256': fingerprint,
+            if previous and previous.get('content') == content and previous.get('next_offset') == next_offset:
+                revision = previous.get('file_revision', revision)
+            result = {'content': content, 'path': args['path'], 'offset': offset, 'file_revision': revision,
                       'next_offset': next_offset, 'size_bytes': size_bytes, 'exit_code': 0}
             cache[key] = {**result, 'action_id': action_id, 'resolved_path': str(p), 'file_identity': file_identity,
                           'workspace_relative_path': str(p.relative_to(self.workspace))
@@ -201,7 +211,7 @@ class ToolRuntime:
                 except ValueError:
                     return {'status': 'reconciliation', 'process_id': accepted_job['job_id'], 'exit_code': 1,
                             'error': 'Accepted job has no reconcilable executor request; do not repeat its side effect'}
-                return {**state, 'experiment_configuration_hash': accepted_job['configuration_hash'],
+                return {**state, 'experiment_configuration': accepted_job.get('configuration'),
                         'stdout': self.processes.read_output(state['process_id'])['content'],
                         'stderr': self.processes.read_output(state['process_id'], stream='stderr')['content'],
                         'reattached': True}
@@ -223,13 +233,15 @@ class ToolRuntime:
                         'timeout': args.get('timeout'), 'source_files': files,
                         'experiment': {key: self.config.get(key) for key in
                             ('experiment_identity', 'experiment_config', 'data_version', 'seed', 'random_seed')}}
-            job_hash = hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-            from .lifecycle import artifact_manifest, digest
-            semantic_sources = {path: facts.get('semantic_sha256', facts.get('sha256'))
+            from .lifecycle import artifact_manifest
+            semantic_sources = {path: facts.get('semantic_source', facts.get('artifact_id'))
                                 for path, facts in artifact_manifest({}, self.workspace, list(files)).items()}
             semantic_identity = {**identity, 'source_files': semantic_sources}
-            progress_identity = digest(semantic_identity)
-            job_id = 'job-' + job_hash
+            progress_identity = semantic_identity
+            existing = self.processes.find_work(command, cwd=args.get('cwd', '.'), env=args.get('env'),
+                                                timeout=args.get('timeout'), experiment=identity['experiment'])
+            job_id = existing['process_id'] if existing else 'job-' + uid()
+            previous_job = None
             if action_id:
                 bindings_path = self.workspace.parent / 'agent_job_bindings.json'
                 bindings = read_json(bindings_path, {})
@@ -238,11 +250,11 @@ class ToolRuntime:
                     # An accepted intent cannot turn into a new launch after a
                     # crash and source/config change. Reattach the original job.
                     job_id = previous_job['job_id']
-                    job_hash = previous_job['configuration_hash']
+                    identity = previous_job['configuration']
                     command = previous_job['command']
                     args = {**args, **previous_job['launch_arguments']}
                 else:
-                    bindings[action_id] = {'job_id': job_id, 'configuration_hash': job_hash,
+                    bindings[action_id] = {'job_id': job_id, 'configuration': identity,
                         'progress_identity': progress_identity,
                         'command': command, 'launch_arguments': {key: args.get(key) for key in ('cwd', 'env', 'timeout')}}
                     bindings[action_id]['launch_arguments']['cwd'] = args.get('cwd', '.')
@@ -252,11 +264,12 @@ class ToolRuntime:
                     state = self.processes.inspect(job_id)
                 except ValueError:
                     return {'status': 'reconciliation', 'process_id': job_id,
-                            'experiment_configuration_hash': job_hash, 'exit_code': 1,
+                            'experiment_configuration': identity, 'exit_code': 1,
                             'error': 'Saved job intent has no reconcilable executor request; do not repeat the launch'}
             else:
-                state = self.processes.start(command, process_id=job_id, cwd=args.get('cwd', '.'), env=args.get('env'), timeout=args.get('timeout'))
-            state['experiment_configuration_hash'] = job_hash
+                state = existing or self.processes.start(command, process_id=job_id, cwd=args.get('cwd', '.'), env=args.get('env'),
+                                                        timeout=args.get('timeout'), experiment=identity['experiment'])
+            state['experiment_configuration'] = identity
             return {**state, 'stdout': self.processes.read_output(state['process_id'])['content'], 'stderr': self.processes.read_output(state['process_id'], stream='stderr')['content'], 'next_action': 'Use wait_for_process to release the agent slot until completion, or inspect_process/read_process_output while doing independent work.'}
         if name == 'inspect_process':
             return self.processes.inspect(args['process_id'])
@@ -294,7 +307,29 @@ class ToolRuntime:
             if type(args.get('expected_revision')) is not int:
                 raise ValueError('graph_command requires the graph revision actually observed')
             return {**apply_commands(pid, action_id or uid(), args['expected_revision'],
-                                     [args], actor='agent'), 'exit_code': 0}
+                                     [args], actor='agent',authorization=self.config), 'exit_code': 0}
+        if name == 'delegate_research':
+            from .policy import support_agent_config
+            ident = action_id or uid()
+            configuration = support_agent_config(args['workflow_id'], args['phase'], args['support_role'])
+            configuration.update(kind='agent', instructions=args['instructions'], parent_run_id=self.run_id,
+                                 tools=list(self.allowed))
+            for key in ('readonly_paths', 'denied_readonly_paths', 'execution_backend', 'bubblewrap',
+                        'external_ledger_id', 'external_supervisor'):
+                if key in self.config:
+                    configuration[key] = deepcopy(self.config[key])
+            with Session() as s:
+                parent = get(s, TaskRun, self.run_id)
+                parent_node_id = parent.node_id
+                branch_id = parent.branch_id
+                if not branch_id and parent.node_id:
+                    branch_id = get(s, Node, parent.node_id).branch_id
+                if not branch_id:
+                    branch_id = s.scalar(select(Branch.id).where(Branch.project_id == pid))
+            if parent_node_id:
+                configuration['parent_node_id'] = parent_node_id
+            configuration['_submission_branch_id'] = branch_id
+            return self.submit(name, args, ident, configuration)
         if name == 'results':
             with Session() as s:
                 from services.api.verification import verification_for_run
@@ -302,19 +337,9 @@ class ToolRuntime:
                                  'verification': verification_for_run(s, r),
                                  'is_current_agent_run': r.id == self.run_id} for r in s.scalars(select(TaskRun).where(TaskRun.project_id == pid).order_by(TaskRun.created_at.desc()).limit(int(args.get('limit', 20))))], 'current_run_note': 'The current Agent task stays running until you call finish. Execution completion and evidence acceptance are separate states.', 'exit_code': 0}
         if name == 'experiment_run':
-            from services.worker.scheduler import enqueue
-            with Session.begin() as s:
-                r = enqueue(s, pid, 'experiment', args, action_id or uid())
-                return {'run_id': r.id, 'status': r.status, 'exit_code': 0}
+            return self.submit(name, args, action_id or uid())
         if name == 'verification_run':
-            from services.worker.scheduler import enqueue_nodes
-            with Session.begin() as s:
-                node = get(s, Node, args.get('node_id'))
-                if node.project_id != pid or node.config.get('kind') != 'verification':
-                    raise ValueError('Select a verification node in this project')
-                runs = enqueue_nodes(s, node.id, 'single', args.get('request_id') or action_id or uid())
-                return {'run_id': runs[0].id, 'status': runs[0].status,
-                        'verification_status': 'unverified', 'exit_code': 0}
+            return self.submit(name, args, action_id or uid())
         if name == 'figure_create':
             if args.get('kind') not in ('bar','line','forest','heatmap','scatter','calibration','method','image'):
                 raise ValueError('Choose a supported editable figure kind')
@@ -556,8 +581,21 @@ def assemble_model_request(state, workspace, config, client, allowed):
     request_tools = model_turn_tools(state, allowed)
     schema_characters = (len(json.dumps(tool_definitions(request_tools))) if client.native_tools else
                          len(json.dumps(json_action_schema(request_tools))) if client.api == 'codex_cli' else 0)
+    from .policy import assemble_agent_instructions, ensure_research_messages
+    from .context_store import message_chars
+    if state.get('context_recovery_history'):
+        # Reserve the active canonical policy before selecting optional
+        # exchanges/pages. The full original system stays in the catalog.
+        active = assemble_agent_instructions(client.config.get('role', config.get('role', 'Researcher')),
+            client.config, client.config.get('publication_profile') or client.config.get('publication'),
+            include_role_instruction=True, paged_system=True)
+        schema_characters += len(active.encode('utf-8')) + 512
     preference = provider_working_preference(client, context_char_budget(config), schema_characters)
     messages = session_messages(state, workspace, context_char_budget(config), provider_preference=preference)
+    if state.get('context_recovery_history'):
+        messages = ensure_research_messages(messages, client.config,
+            client.config.get('output_stage') or client.config.get('research_stage'))
+    state.setdefault('context_management', {})['transport_input_characters'] = message_chars(messages)
     if state.get('context_management', {}).get('next_required'):
         request_tools = ['read_context_segment']
     return messages, request_tools
@@ -566,8 +604,8 @@ def assemble_model_request(state, workspace, config, client, allowed):
 def progress_feedback(state, name, args, result):
     """Report observed repetition without imposing a total research-turn cap."""
     observed = result
-    if name == 'read_file' and result.get('sha256'):
-        observed = {key: result.get(key) for key in ('path', 'sha256', 'offset', 'next_offset', 'size_bytes', 'exit_code')}
+    if name == 'read_file' and result.get('file_revision'):
+        observed = {key: result.get(key) for key in ('path', 'file_revision', 'offset', 'next_offset', 'size_bytes', 'exit_code')}
     observation = {'tool': name, 'arguments': {key: value for key, value in args.items() if key != 'limit'}, 'result': observed}
     monitor = state.setdefault('progress_monitor', {})
     track_read_progress(monitor, name, args, result)
@@ -608,15 +646,14 @@ def collect_agent_metrics(workspace, config, processes=None):
     if not successful:
         raise ValueError('Numeric completion requires an actual successful managed-process receipt. File writes and model summaries alone are not experimental execution. Run and inspect the real computation before finishing.')
     metrics_path = safe_path(workspace, metrics_file, True)
-    from .processes import file_hash
-    metrics_sha = file_hash(metrics_path)
+    from .artifacts import matches_record
     original_artifacts = [artifact for process in successful for artifact in process.get('artifacts', [])
-                          if artifact.get('relative_path') == metrics_file and artifact.get('sha256') == metrics_sha]
+                          if artifact.get('relative_path') == metrics_file and matches_record(metrics_path, artifact)]
     bound_processes = [process for process in successful if any(
-        artifact.get('relative_path') == metrics_file and artifact.get('sha256') == metrics_sha
+        artifact.get('relative_path') == metrics_file and matches_record(metrics_path, artifact)
         for artifact in process.get('artifacts', []))]
     if not bound_processes:
-        raise ValueError('Numeric completion requires an actual successful managed-process receipt bound to this metrics file and its original artifact hash. An unrelated command or an edited measurement cannot establish execution.')
+        raise ValueError('Numeric completion requires an actual successful managed-process receipt bound to this metrics file and matching its original artifact bytes. An unrelated command or an edited measurement cannot establish execution.')
     metrics = json.loads(metrics_path.read_text())
     if not isinstance(metrics, dict):
         raise ValueError('Agent metrics_file must contain a JSON object')
@@ -628,7 +665,7 @@ def collect_agent_metrics(workspace, config, processes=None):
         raise ValueError('The actual metrics file is missing required fields: '+', '.join(missing)+'. Update and execute the computation, then read the resulting file before finishing.')
     return {'observed_metrics': metrics, 'metrics_file': metrics_file,
             'metrics_evidence': {'label': 'FILE_OBSERVATION', 'successful_process_ids': [process['process_id'] for process in bound_processes],
-                                 'metrics_sha256': metrics_sha, 'original_artifacts': original_artifacts,
+                                 'original_artifacts': original_artifacts,
                                  'scientific_validity': 'Requires source, method, data and independent-result validation; process success alone does not establish scientific validity.'}}
 
 
@@ -747,6 +784,8 @@ def run_agent(run_id, workspace, config):
         raise ValueError('No model configured. Connect a real provider in Settings.')
     provider = {**provider, '_usage_context': {'project_id': run.project_id, 'run_id': run_id}}
     client = ModelClient(provider, read_secret(provider.get('credential_ref')), config.get('allow_paid', False))
+    from .policy import instruction_metadata
+    client.config = {**client.config, **instruction_metadata(role, config, profile, role_instruction)}
     for key in ('adaptive_output_budget', 'adaptive_output_fallback_tokens', 'output_recovery_attempts',
                 'research_stage', 'task_complexity'):
         if key in config:
@@ -801,9 +840,9 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
     else:
         state['messages'][:2] = [system, task]
     completed_result = deepcopy(state.get('result')) if state.get('status') == 'completed' else None
-    original_artifact_manifest = deepcopy(state.get('execution_snapshot', {}).get('artifact_hashes', {}))
+    original_artifact_manifest = deepcopy(state.get('execution_snapshot', {}).get('artifact_records', {}))
     from .lifecycle import (initialize, round_due, resume_round, checkpoint_round,
-                            artifact_manifest, progress_facts, digest, load_accounting, save_session,
+                            artifact_manifest, progress_facts, load_accounting, save_session,
                             ReconciliationRequired, persist_reconciliation)
     from .research_path import research_recovery_context, recovery_decision
     original_ledger_id = (state.get('execution_snapshot') or {}).get('external_ledger_id')
@@ -887,7 +926,7 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                 'file_observations': read_json(workspace / '.forest-read-cache.json', {}),
                 'context_observations': {key: deepcopy(value) for key, value in ContextStore(workspace).index.items()
                     if key in {'segments', 'coverage', 'current', 'required'}},
-                'artifact_hashes': artifact_manifest(state, workspace, required_outputs(config)),
+                'artifact_records': artifact_manifest(state, workspace, required_outputs(config)),
                 'decision_history': deepcopy(state['lifecycle'].get('decisions', [])),
             }
         compact = {key: value for key, value in recovery_context.items()
@@ -896,9 +935,9 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         return compact
     def recover_route(trigger):
         context = refresh_snapshot(trigger)
-        context['state_key'] = digest({'research_state': context['state_key'],
+        context['state'] = {'research_state': context['state'],
             'observations': progress_facts(state, required_outputs(config), tool.processes.all(), context,
-                                          metrics_file=config.get('metrics_file'))})
+                                          metrics_file=config.get('metrics_file'))}
         decision = recovery_decision(state['lifecycle'], context)
         state['lifecycle']['recovery'] = decision['recovery']
         # Alternate admission follows the executor's durable yield receipt.
@@ -906,11 +945,11 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         # held; trying to admit here would mistake that reservation for actual
         # exhaustion. The worker settles elapsed time, then admits this intent.
         handoff = {'context': deepcopy(context), 'decision': deepcopy(decision),
-                   'checkpoint_state_key': context['state_key']} if decision['action'] == 'execute_alternative' else None
+                   'checkpoint_state': context['state']} if decision['action'] == 'execute_alternative' else None
         state['lifecycle'].setdefault('decisions', []).append({
             'at_step': len(state['transcript']), 'trigger': deepcopy(trigger),
             'action': decision['action'], 'reason': decision['reason'],
-            'state_key': context['state_key'], 'evidence_fingerprint': context['evidence_fingerprint'],
+            'state': context['state'], 'evidence_state': context.get('evidence_state'),
             'selected_node_ids': context['alternative_ready_node_ids'] if decision['action'] == 'execute_alternative' else context['selected_node_ids'],
             'excluded_paths': context['unavailable_paths'], 'run_ids': decision.get('run_ids', [])})
         if decision['action'] in {'pause', 'execute_alternative'}:
@@ -936,12 +975,25 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         state['messages'].append({'role': 'user', 'content':
             'GRAPH-BASED RECOVERY: diagnose the observed cause using this preserved goal, evidence, dependencies and failed paths. '
             'Choose a materially corrected authorized action; do not restart the research, re-read unchanged protocols, '
-            'duplicate an experiment or change success conditions. If no legal path exists, report the concrete blocker. '
+            'duplicate an unchanged experiment. Revise goals or success conditions explicitly with an evidence-linked version. If no legal path exists, report the concrete blocker. '
             + json.dumps(context, ensure_ascii=False)})
         return decision
     def action_result(content, action):
         state['messages'].append({'role': 'user', 'content': content,
                                   **({'native_call_id': action['call_id']} if action.get('call_id') else {})})
+    pending_submission_action = state.get('pending_action')
+    if pending_submission_action:
+        with Session() as session:
+            receipt = session.get(ToolExecution, pending_submission_action['id'])
+            submitted = deepcopy(receipt.result) if receipt and receipt.run_id == run_id and receipt.status == 'completed' and receipt.result.get('status') == 'submission_settled' else None
+        if submitted is not None:
+            # The source may crash after accepting the submission but before
+            # saving its tool result. A graph edit caused by that very accepted
+            # action must not discard the original actual completion receipt.
+            state['transcript'][-1]['executed_action'] = deepcopy(pending_submission_action)
+            state['transcript'][-1]['tool_result'] = submitted
+            action_result('SUBMISSION SETTLED (actual task receipts): ' + json.dumps(submitted,ensure_ascii=False),pending_submission_action)
+            state['pending_action'] = None
     resumed = resume_round(state)
     refresh_snapshot()
     uncertain = [process for process in tool.processes.all() if process.get('status') in {'lost', 'reconciliation'}]
@@ -957,15 +1009,15 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         raise AgentYield(status='waiting_input', reason='Job identity, executor receipt or original artifact cannot be reconciled; execution will not be repeated')
     if completed_result is not None:
         expected = original_artifact_manifest
-        actual = artifact_manifest(state, workspace, completed_result.get('artifacts', []))
-        if any(actual.get(name, {}).get('sha256') != facts.get('sha256') for name, facts in expected.items()):
+        from .artifacts import matches_record
+        if any(not matches_record(safe_path(workspace, name), facts) for name, facts in expected.items()):
             persist_reconciliation(state, workspace, 'Completed checkpoint artifacts changed')
             raise AgentYield(status='waiting_input', reason='Completed checkpoint artifacts changed; reconcile the original result before reusing success')
         completed_result['usage'] = state['totals']
         return completed_result
-    state['lifecycle'].setdefault('progress_fingerprint', digest(progress_facts(
+    state['lifecycle'].setdefault('progress_state', progress_facts(
         state, required_outputs(config), tool.processes.all(), state['research_recovery_context'],
-        metrics_file=config.get('metrics_file'))))
+        metrics_file=config.get('metrics_file')))
     if (state.get('wait_for') or {}).get('type') == 'graph_recovery_handoff':
         # A crash between scientific intent and executor receipt must not turn
         # the handoff into another model request or a process launch.
@@ -976,8 +1028,8 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             _lock_project(s, live.project_id)
             live = get(s, TaskRun, run_id, for_update=True)
             receipt = live.resource.get('graph_recovery_handoff') or {}
-            expected_key = (state.get('pending_graph_recovery') or {}).get('checkpoint_state_key')
-            if expected_key and receipt.get('checkpoint_state_key') == expected_key:
+            expected_state = (state.get('pending_graph_recovery') or {}).get('checkpoint_state')
+            if expected_state and receipt.get('checkpoint_state') == expected_state:
                 committed_handoff = deepcopy(receipt)
             elif state.get('pending_graph_recovery') and not live.resource.get('pending_graph_recovery'):
                 live.resource = {**live.resource, 'pending_graph_recovery': deepcopy(state['pending_graph_recovery'])}
@@ -985,6 +1037,19 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             raise AgentYield(status='waiting_input', reason='Saved Graph recovery handoff awaits settled executor admission')
         state.update(pending_graph_recovery=None, wait_for=None, graph_recovery_handoff=committed_handoff)
         save()
+    if (state.get('wait_for') or {}).get('type') == 'research_submission':
+        action_id = state['wait_for']['action_id']
+        with Session() as session:
+            receipt = session.get(ToolExecution, action_id)
+            submitted = deepcopy(receipt.result) if receipt and receipt.run_id == run_id and receipt.status == 'completed' else None
+        if submitted is None:
+            save()
+            raise AgentYield(status='waiting_input', wait_for=state['wait_for'],
+                             reason='Accepted submission awaits its actual task receipts')
+        state['messages'].append({'role': 'user', 'content':
+            'SUBMISSION SETTLED (actual task receipts; inspect evidence before claiming scientific success): '
+            + json.dumps(submitted, ensure_ascii=False)})
+        state['wait_for'] = None
     if state.get('wait_for'):
         process = tool.processes.inspect(state['wait_for']['process_id'])
         if process['status'] not in TERMINAL:
@@ -1011,12 +1076,12 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                       **{key: value for key, value in current.config.items() if key in editable_keys}}
             tool.config = dict(config)
             process_policy = {key: config.get(key) for key in ('execution_backend', 'readonly_paths', 'denied_readonly_paths', 'bubblewrap', 'code_inputs')}
-            policy_key = digest(process_policy)
+            policy_key = process_policy
             if getattr(tool, '_process_policy_key', None) != policy_key:
                 tool.processes = process_manager(workspace, {**config, 'execution_backend': config.get('execution_backend', 'bubblewrap')})
                 tool._process_policy_key = policy_key
-            state['authorization_basis'] = digest({key: config.get(key) for key in
-                ('readonly_paths', 'denied_readonly_paths', 'bubblewrap') } | {'tools': effective})
+            state['authorization_basis'] = {key: config.get(key) for key in
+                ('readonly_paths', 'denied_readonly_paths', 'bubblewrap') } | {'tools': effective}
             initialize(state, config)
             if current.status in ('cancelled', 'interrupted') or current.resource.get('pending_intervention'):
                 tool.processes.cancel_all()
@@ -1087,15 +1152,15 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             raise AgentYield(status='budget_exhausted', reason=reason)
         if round_due(state):
             context = refresh_snapshot()
-            fingerprint = digest(progress_facts(state, required_outputs(config), tool.processes.all(), context,
-                                                metrics_file=config.get('metrics_file')))
+            progress = progress_facts(state, required_outputs(config), tool.processes.all(), context,
+                                      metrics_file=config.get('metrics_file'))
             life = state['lifecycle']
             decision = None
-            if fingerprint == life.get('progress_fingerprint'):
+            if progress == life.get('progress_state'):
                 decision = recover_route({'category': 'no_progress', 'node_ids': [run.node_id] if run.node_id else []})
             else:
                 life['recovery'] = {}
-            life['progress_fingerprint'] = fingerprint
+            life['progress_state'] = progress
             refresh_snapshot()
             wait = checkpoint_round(state, reason='Work round checkpointed', decision=decision)
             save()
@@ -1144,14 +1209,18 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                                'original_task_message_present': original_task_present,
                                'execution_attempt_id': execution_attempt_id,
                                'goal_field_present': request_has_goal_field(request_messages, project_context['goal']),
-                               'payload_sha256': hashlib.sha256(json.dumps(request_payload, ensure_ascii=False,
-                                                                          sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+                               'request_id': uid(),
                                'request_path': request_path,
                                'output_budget': allocation,
                                'required_context_page': deepcopy(state.get('context_management', {}).get('next_required'))}
+            request_record = workspace.parent / 'model-requests' / (request_context['request_id'] + '.json')
+            atomic_json(request_record, {'request_id': request_context['request_id'],
+                'run_id': run_id, 'execution_attempt_id': execution_attempt_id,
+                'request_path': request_path, 'payload': request_payload})
+            request_context['request_record_path'] = str(request_record)
             started = time.monotonic()
             with Session() as s:
-                state['pending_model_request'] = {'payload_sha256': request_context['payload_sha256'],
+                state['pending_model_request'] = {'request_id': request_context['request_id'],
                     'baseline_receipt_ids': list(s.scalars(select(ModelRequest.id).where(ModelRequest.run_id == run_id))),
                     'execution_attempt_id': execution_attempt_id}
             save()  # Durable transport intent before any model side effect.
@@ -1191,7 +1260,7 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             state.setdefault('context_management', {})['consecutive_rejections'] = 0
             account_usage(state, response['usage'], time.monotonic() - started)
             delivered_instruction_ids = ContextStore(workspace).confirm_transport_delivery(
-                request_messages, owner_instructions, payload_sha256=request_context['payload_sha256'],
+                request_messages, owner_instructions, request_id=request_context['request_id'],
                 provider_request_id=response.get('request_id'))
             request_context['delivered_instruction_intervention_ids'] = delivered_instruction_ids
             request_context['delivered_controls'] = ContextStore(workspace).delivered_controls(request_messages)
@@ -1318,8 +1387,8 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         from .error_recovery import rejected_action
         from .processes import request_sources
         source_names = list(request_sources([], workspace, workspace))
-        state['action_source_basis'] = digest({path: facts.get('semantic_sha256', facts.get('sha256'))
-            for path, facts in artifact_manifest(state, workspace, list(set(required_outputs(config) + source_names))).items()})
+        state['action_source_basis'] = {path: facts.get('semantic_source', facts.get('artifact_id'))
+            for path, facts in artifact_manifest(state, workspace, list(set(required_outputs(config) + source_names))).items()}
         result = rejected_action(state, name, args) or tool.execute(
             name, args, action['id'], observed_revision=action.get('observed_graph_revision'))
         if result.get('action_discarded'):

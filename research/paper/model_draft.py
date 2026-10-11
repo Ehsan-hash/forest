@@ -140,6 +140,8 @@ def draft_with_model(client, evidence, goal, output_dir, *, title=None, attempts
     response_dir = output / 'model_responses' / generation_id
     response_dir.mkdir(parents=True)
     (response_dir / 'input_evidence.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
+    from research.agents.policy import assemble_agent_instructions
+    system = assemble_agent_instructions('Writer', {'authoring_mode': 'manuscript'}, publication) + '\n' + system
     if publication is not None:
         from research.publication.profile import publication_instructions
         system += '\n' + publication_instructions(publication)

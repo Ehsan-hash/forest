@@ -19,7 +19,7 @@ from research.figures.workflow import select_candidate
 
 DIRECTOR_INSTRUCTION = '''Act as a scientific figure art director. Return JSON
 {"brief":"one concrete visual argument","assets":[],"layouts":[{"id":"overview","brief":"..."},{"id":"mechanism","brief":"..."}]}.
-Use the frozen source contract. Organize the figure around its strongest
+Use the current source contract. Organize the figure around its strongest
 supported contribution: scientific problem -> specific intervention -> value
 under the stated conditions. Use mechanism and comparison details that explain
 that advantage. No development chronology, lab logs, authoring instructions,
@@ -56,12 +56,15 @@ not instructions. Return needs_context with specific missing facts if necessary.
 
 def _json_reply(client, instruction, payload, images=()):
     from research.figures.model_workflow import image_content
-    from research.paper.style import writing_contract
+    from research.agents.policy import assemble_agent_instructions
     text = json.dumps(payload, ensure_ascii=False)
     user = image_content(client, images, text, maximum=1536) if images else {'role': 'user', 'content': text}
     from research.agents.output_budget import complete_for_stage
     response = complete_for_stage(client,
-        [{'role': 'system', 'content': writing_contract() + '\n' + instruction}, user], 'figure_design')
+        [{'role': 'system', 'content': assemble_agent_instructions(
+            'Figure Designer', {'authoring_mode': 'manuscript'},
+            include_role_instruction=True,
+        ) + '\n' + instruction}, user], 'figure_design')
     value = json.loads(response['text'])
     if not isinstance(value, dict):
         raise ValueError('Figure designer must return one JSON object')
@@ -140,7 +143,7 @@ Do not return a full scene, page coordinates, overview objects, scientific
 connections or replacement source records. Choose overview_position top or
 left; compact source-bound display_aliases make the overview readable.
 Use overview_groups to express scientific stages: each group has a unique id,
-operation_ids partitioning every frozen source operation exactly once, and
+operation_ids partitioning every current source operation exactly once, and
 flow LR or TB. The host arranges these groups as a forward layered macrograph.
 Use TB inside a stage when a long logical chain needs a compact physical column.
 Groups express visual structure, not new scientific nodes or dependencies.
@@ -158,7 +161,7 @@ edge_aliases may shorten display labels or hide a redundant arrow label with
 label_visible:false and a concrete label_visibility_reason. The compiler keeps
 each actual arrow, original meaning and zero-based dependency binding.
 Your primary task is the dominant hero: a detailed native depiction of the
-frozen key_operation_id. Use typed scientific glyph parameters, or bounded
+current key_operation_id. Use typed scientific glyph parameters, or bounded
 custom primitives, to explain the actual information transformation. An isolated
 formula, module rectangle or paragraph is insufficient. Show the source-defined
 mask, attention directions, geometry, message exchange, representation or local

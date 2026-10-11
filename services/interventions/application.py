@@ -165,7 +165,7 @@ def cancel_run(run_id, body):
         return {**asdict(get(session,TaskRun,run_id)),'intervention':readback(session,get(session,Intervention,ident))}
 
 
-def apply_in_session(session, project, request_id, observed_revision, commands, *, actor='owner', batch=False, origin=None, single_revision=False):
+def apply_in_session(session, project, request_id, observed_revision, commands, *, actor='owner', batch=False, origin=None, single_revision=False, authorization=None):
     """Caller holds the project writer lock. No network/process control here."""
     intent = {'expected_revision': observed_revision, 'commands': deepcopy(commands), 'batch': batch}
     if origin is not None: intent['origin'] = deepcopy(origin)
@@ -183,7 +183,8 @@ def apply_in_session(session, project, request_id, observed_revision, commands, 
     results = []; workspace_plans = []
     compound_history = (batch or single_revision) and not any(
         command.get('operation') in ('undo', 'redo') for command in commands if isinstance(command, dict))
-    from .workspaces import prepare, record
+    from .workspaces import prepare, record, check_merge_authorization
+    if authorization is None: authorization=(project.config or {}).get('agent_execution',{})
     compound_service = GraphCommandService(graph, project_dir(project.id)) if compound_history else None
     for index, command in enumerate(commands):
         if not isinstance(command, dict): error('INVALID_COMMAND', 'Commands must be objects', 422)
@@ -192,10 +193,11 @@ def apply_in_session(session, project, request_id, observed_revision, commands, 
         if compound_history: graph.pop('_history', None)
         step = {**command, 'project_id': project.id, 'request_id': request_id+':'+str(index),
                 'expected_revision': graph['revision']}
+        check_merge_authorization(project.id,graph,command,authorization)
         result = (compound_service.apply_compound_step(step) if compound_service else
                   GraphCommandService(graph, project_dir(project.id)).apply(step, defer_files=True))
         for action in result.pop('workspace_actions', []):
-            workspace_plans.append(prepare(project.id, graph, action))
+            workspace_plans.append(prepare(project.id, graph, action,authorization))
             destination = next(b for b in result['graph']['branches'] if b['id'] == action['branch_id'])
             destination['status'] = 'materializing'
         if compound_history: result['graph'].pop('_history', None)
@@ -247,10 +249,10 @@ def apply_in_session(session, project, request_id, observed_revision, commands, 
     return public
 
 
-def apply_commands(project_id, request_id, observed_revision, commands, *, actor='owner', batch=False):
+def apply_commands(project_id, request_id, observed_revision, commands, *, actor='owner', batch=False, authorization=None):
     with Session.begin() as session:
         project = _lock_project(session, project_id)
-        result = apply_in_session(session, project, request_id, observed_revision, commands, actor=actor, batch=batch)
+        result = apply_in_session(session, project, request_id, observed_revision, commands, actor=actor, batch=batch, authorization=authorization)
         ident = result.get('intervention', {}).get('id')
     if ident:
         kick_effects(intervention_id=ident, limit=10)

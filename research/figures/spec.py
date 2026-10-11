@@ -1,4 +1,4 @@
-"""Immutable scientific contracts and editable, physically sized figure scenes.
+"""Versioned scientific source records and editable figure scenes.
 
 The contract records supplied scientific content. Scene validation checks source
 bindings and presentation structure; it does not replace independent assessment
@@ -7,7 +7,6 @@ of whether an illustration explains the supplied method.
 from __future__ import annotations
 
 from copy import deepcopy
-import hashlib
 import json
 import math
 import re
@@ -38,13 +37,8 @@ def _finite(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _fingerprint(value):
-    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                     separators=(',', ':'), allow_nan=False).encode()).hexdigest()
-
-
 def build_figure_contract(data, context=None, style=None):
-    """Freeze a supplied graph/story and its source identities before design.
+    """Record supplied science for this rendering, permitting future revisions.
 
     ``data`` is the existing method graph, optionally containing ``storyboard``
     and ``story_context``. The caller retains this contract through all repairs.
@@ -73,7 +67,7 @@ def build_figure_contract(data, context=None, style=None):
     source_context = dict(source_context)
     if isinstance(source_context.get('method'), dict):
         # A saved graph also contains its selected presentation. Re-rendering
-        # freezes the science again, not the previous contract and its assets.
+        # records the new science, rather than reusing the previous source record.
         source_context['method'] = {
             key: value for key, value in source_context['method'].items()
             if key not in ('production_scene', 'production_contract',
@@ -121,14 +115,14 @@ def build_figure_contract(data, context=None, style=None):
                  ('title', 'central_message', 'problem', 'consequence', 'display',
                   'inputs', 'outputs', 'boundary_conditions', 'baseline') if key in story}
                 if isinstance(story, dict) else {})
-    frozen = {'nodes': nodes, 'edges': edges, 'storyboard': story,
+    source = {'nodes': nodes, 'edges': edges, 'storyboard': story,
               'source_context': source_context, 'evidence_catalog': catalog}
     return {
         'version': 1, 'narrative_mode': mode, 'nodes': nodes, 'edges': edges,
         'key_operation_id': key_operation, 'scientific_argument': argument,
         'storyboard': story, 'source_context': source_context,
         'evidence_catalog': catalog, 'width_in': width, 'height_in': height,
-        'minimum_font_pt': minimum_font, 'source_fingerprint': _fingerprint(frozen),
+        'minimum_font_pt': minimum_font, 'source_record': source,
         'required_panels': ['mechanism'] if mode == 'scientific_story' else [],
         'assets': [],
         'evidence_role': 'conceptual_illustration',
@@ -227,13 +221,13 @@ Pack in physical units before choosing normalized boxes: 9pt text needs roughly 
 Give the key mechanism the largest local explanatory area. Show the actual additive gate, permitted paths, residual operation, information flow or objective-specific mask as supplied. Keep the artwork's narrative on that scientific advantage: no validation badge, audit checklist, generation receipt, long uncertainty footer or authoring instruction. Retain only a concise condition or expectation label when it changes the scientific interpretation. Rationale and source-review boundaries belong in the editable companion.
 Optionally provide caption_text: a concise manuscript caption of at most 180 words and 1400 characters. Explain the actual visible mechanism, symbol conventions, condition and supported takeaway. The caption belongs outside the artwork. Preserve supplied scientific facts, scope, assertion status and empirical values; do not add an outcome, baseline or causal conclusion. Measured results use real [[metric:ID]] tokens. Independent source review must verify the caption against the supplied material.
 An exact supplied nontrivial display_transform formula can depict the central operation when its actual connected inputs, masks or outputs receive substantive native glyphs. Keep the complete supplied formula, including gates, residuals and conditioning terms; a generic equation with no corresponding local representation is insufficient. Repeated key-operation zooms are preferred when they explain the mechanism more clearly.
-The contract's physical dimensions and minimum type size are fixed. First return your best complete scene: the native renderer measures its actual packing capacity. Do not predict needs_split from counting modules, labels or edges. After feedback contains a real failed packing measurement with required and available dimensions, try concise aliases, unambiguous unlabeled wires and better native grouping. Only if that measured capacity still requires another figure may you return {"status":"needs_split","reason":"the supplied measured capacity failure and necessary separate scientific panel"}. Do not enlarge the page, shrink text, drop an operation, omit an arrow, fabricate labels, or silently reduce the scientific detail. The frozen contract is supplied in source_contract.'''
+The contract's physical dimensions and minimum type size are fixed. First return your best complete scene: the native renderer measures its actual packing capacity. Do not predict needs_split from counting modules, labels or edges. After feedback contains a real failed packing measurement with required and available dimensions, try concise aliases, unambiguous unlabeled wires and better native grouping. Only if that measured capacity still requires another figure may you return {"status":"needs_split","reason":"the supplied measured capacity failure and necessary separate scientific panel"}. Do not enlarge the page, shrink text, drop an operation, omit an arrow, fabricate labels, or silently reduce the scientific detail. The current render contract is supplied in source_contract.'''
 
 
 def revision_instructions(contract):
-    """Request precise local presentation repairs with a locked contract."""
+    """Request precise local presentation repairs with the current render contract."""
     return FIGURE_DIRECTOR + '''
-Act as the scientific visual editor. Repair the actual observed pixel/layout issues by returning a complete revised scene. Preserve operation IDs and exact canonical labels, semantic edge bindings, source references, measured values, assertion status and scientific scope. Short faithful display_label aliases may reduce wrapping without changing those canonical fields. A connection label can be hidden with a concise label_visibility_reason only when endpoints, ports, glyphs or a supplied legend make its meaning unambiguous; keep the arrow and scientific binding. Operation labels and metric claims remain visible. Change only panel composition, object geometry, native visual representation, spacing, arrow routing, fonts and functional styling. Update caption_text only where a changed layout, symbol convention or visible representation requires a precise caption correction; preserve the source's scientific facts, conditions, comparison, evidence status and actual metric bindings. Caption edits receive new independent source review. A complaint about absent mechanism detail requires a concrete source-grounded depiction, not more boxes or decorative complexity. Reuse the key operation_id on its detailed zoom. Do not repair an overlap by deleting scientific content. Keep a useful local depiction from the current scene unless an observed problem requires changing it. A redesign is a candidate, never its own approval. The frozen contract is supplied in source_contract.'''
+Act as the scientific visual editor. Repair the actual observed pixel/layout issues by returning a complete revised scene. Preserve operation IDs and exact canonical labels, semantic edge bindings, source references, measured values, assertion status and scientific scope. Short faithful display_label aliases may reduce wrapping without changing those canonical fields. A connection label can be hidden with a concise label_visibility_reason only when endpoints, ports, glyphs or a supplied legend make its meaning unambiguous; keep the arrow and scientific binding. Operation labels and metric claims remain visible. Change only panel composition, object geometry, native visual representation, spacing, arrow routing, fonts and functional styling. Update caption_text only where a changed layout, symbol convention or visible representation requires a precise caption correction; preserve the source's scientific facts, conditions, comparison, evidence status and actual metric bindings. Caption edits receive new independent source review. A complaint about absent mechanism detail requires a concrete source-grounded depiction, not more boxes or decorative complexity. Reuse the key operation_id on its detailed zoom. Do not repair an overlap by deleting scientific content. Keep a useful local depiction from the current scene unless an observed problem requires changing it. A redesign is a candidate, never its own approval. The current render contract is supplied in source_contract.'''
 
 
 def _identity(value, seen, name):
@@ -741,7 +735,7 @@ def validate_scene(scene, contract):
                                   'semantic_edge': connection.get('semantic_edge'),
                                   'reason': connection['label_visibility_reason']}
                                  for connection in connections if connection.get('label_visible', True) is False],
-        'minimum_font_pt': minimum_font, 'source_fingerprint': contract['source_fingerprint'],
+        'minimum_font_pt': minimum_font, 'source_record': deepcopy(contract['source_record']),
         'caption_review': ('Supplied caption requires independent scientific source review; its text is not evidence of a new result.'
                            if 'caption_text' in scene else None),
         'scope': 'Supplied topology, source identities and physical scene constraints checked; independent source and pixel reviews assess explanatory fidelity and publication quality.',
@@ -773,7 +767,7 @@ def resolve_scene_metrics(scene, contract):
 
 
 def apply_scene_revision(scene, revised, contract):
-    """Admit a complete scene or list patch against the frozen science.
+    """Admit a complete scene or list patch against this render's source record.
 
     A patch replaces only supplied presentation collections; it cannot change
     dimensions, measurement records or the scientific contract.

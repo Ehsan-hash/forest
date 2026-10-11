@@ -387,13 +387,14 @@ class ContainerProcesses:
     Pausing freezes the container; cancellation first unpauses then stops it.
     Receipts remain inspectable after the agent or worker process restarts.
     """
-    def __init__(self, workspace, config=None):
+    def __init__(self, workspace, config=None, *, code_inputs=None):
         self.workspace = Path(workspace).resolve()
         # Control receipts stay outside the mounted workspace, so child code
         # cannot forge identity, cancellation or completion metadata.
         self.directory = self.workspace.parent / '.forest-container-processes' / self.workspace.name
         self.directory.mkdir(parents=True, exist_ok=True)
         self.runner = ContainerRunner(config)
+        self.code_inputs=code_inputs
         self.max_processes = int((config or {}).get('max_processes', 1))
         if not 1 <= self.max_processes <= 32: raise ValueError('container.max_processes must be between 1 and 32')
 
@@ -402,7 +403,11 @@ class ContainerProcesses:
             raise ValueError('Invalid process ID')
         return self.directory / process_id
 
-    def start(self, command, *, process_id=None, cwd='.', env=None, timeout=None):
+    def find_work(self,command,*,cwd='.',env=None,timeout=None,experiment=None):
+        from research.agents.processes import matching_work
+        return matching_work(self,command,cwd=cwd,env=env,timeout=timeout,experiment=experiment)
+
+    def start(self, command, *, process_id=None, cwd='.', env=None, timeout=None,experiment=None):
         import fcntl
         import sys
         process_id = process_id or str(uuid.uuid4())
@@ -416,13 +421,17 @@ class ContainerProcesses:
         argv = ['/bin/sh', '-c', command] if isinstance(command, str) else list(command)
         if not argv or any(not isinstance(value, str) for value in argv):
             raise ValueError('command must be a nonempty argv list or shell command string')
-        request = {'process_id': process_id, 'command': argv, 'cwd': str(requested_cwd), 'env': env or {}, 'timeout': timeout, 'created_at': time.time(), 'backend': 'container'}
+        from research.agents.processes import request_sources,save_request_sources,configuration_record
+        request = {'process_id': process_id, 'work_id':process_id,'record_version':2,'configuration_version':1,
+            'command': argv, 'cwd': str(requested_cwd), 'env': env or {}, 'timeout': timeout,
+            'experiment':experiment,'source_references':request_sources(argv,self.workspace,requested_cwd,self.code_inputs),
+            'created_at': time.time(), 'backend': 'container'}
         with (self.directory / 'launch.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             request_path = folder / 'request.json'
             if request_path.exists():
                 previous = json.loads(request_path.read_text())
-                if any(previous.get(key) != request.get(key) for key in ('command', 'cwd', 'env', 'timeout', 'backend')):
+                if any(previous.get(key) != request.get(key) for key in ('command', 'cwd', 'env', 'timeout', 'backend','experiment')):
                     raise ValueError('This process ID belongs to a different command; choose a new ID')
                 if (folder / 'container.json').exists():
                     return self.inspect(process_id)
@@ -430,6 +439,8 @@ class ContainerProcesses:
                 active=[item for item in self.all() if item['status'] not in TERMINAL]
                 if len(active)>=self.max_processes:
                     raise ValueError('Container process allowance is full; wait for or cancel an existing process')
+                save_request_sources(folder,request)
+                request['configuration']=configuration_record(request)
                 _save(request_path, request)
             mapped = [value.replace(str(self.workspace), '/workspace') for value in argv]
             if mapped[0] == sys.executable:

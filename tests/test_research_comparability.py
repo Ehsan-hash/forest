@@ -51,6 +51,24 @@ def test_complete_real_measurements_rank_only_same_declared_scope(tmp_path):
     assert 'Declaration equality only' in report['verification_scope']
 
 
+def test_equal_protocol_definitions_compare_directly_across_administrative_versions(tmp_path):
+    first,second=measured(tmp_path,'a'),measured(tmp_path,'b',True)
+    definition={'sampling':'quadrature','shuffle':False,'blind_analysis':True}
+    first['config']['comparison_signature']['evaluation_protocol']={'id':'initial','revision':1,'definition':definition}
+    second['config']['comparison_signature']['evaluation_protocol']={'id':'renamed','revision':20,'definition':definition}
+    assert assess_comparability([first,second])['directly_comparable']
+    for run in (first,second):run['config']['evaluation_context']={'classification':'independent_confirmation'}
+    claimed=assess_comparability([first,second])
+    assert claimed['held_out_confirmation_eligible'] and not claimed['independent_held_out_confirmation']
+    for run in (first,second):
+        run.update(verification_status='accepted',numerical_verification={'ready':True})
+    assert assess_comparability([first,second])['independent_held_out_confirmation']
+    second['config']['evaluation_context']['feedback_run_ids']=['a']
+    adaptive=assess_comparability([first,second])
+    assert adaptive['directly_comparable'] and adaptive['evaluation_classification']=='adaptive'
+    assert not adaptive['independent_held_out_confirmation']
+
+
 @pytest.mark.parametrize('field',REQUIRED_FIELDS)
 def test_missing_declarations_never_become_equal_champions(tmp_path,field):
     first,second=measured(tmp_path,'a'),measured(tmp_path,'b',True)
@@ -142,7 +160,7 @@ def test_exact_factory_migration_keeps_custom_roles_tools_and_instruction_edits(
         assert not upgrade_default_tools(custom) and vars(custom)==before
     assert upgrade_default_tools(factory)
     assert factory.instructions==ROLES['Engineer'] and factory.tools==TOOLS
-    assert factory.config['builtin_toolset_version']==TOOLSET_VERSION==8
+    assert factory.config['builtin_toolset_version']==TOOLSET_VERSION==9
     assert 'verification_run' in factory.tools and not upgrade_default_tools(factory)
     assert {'Evidence Verifier','Open Source Research Advisor','Research Direction Reviewer'}<=set(ROLES)
     explicit=SimpleNamespace(name='Engineer',role='Engineer',instructions=VERSION_SEVEN_ROLE_INSTRUCTIONS['Engineer'],

@@ -2,7 +2,6 @@
 
 A local deterministic protocol fixture captures transport requests.
 """
-import hashlib
 import json
 import re
 import os
@@ -122,8 +121,9 @@ def test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_
     contexts = run['metrics']['execution_context']
     assert contexts['history_scope'] == 'authoritative_project_context'
     for request, receipt in zip(captures, contexts['requests'], strict=True):
-        digest = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        assert receipt['payload_sha256'] == digest
+        assert receipt['request_id']
+        record = json.loads(Path(receipt['request_record_path']).read_text())
+        assert record['request_id'] == receipt['request_id'] and record['payload'] == request
         assert receipt['execution_attempt_id']
         assert receipt['goal_field_present']
         assert receipt['task_delivery'] == ('original_message' if receipt['original_task_message_present'] else 'managed_context')
@@ -265,8 +265,8 @@ def probe_request_delivery(folder, mode):
         assert receipt['requests'][1]['required_context_page']
         assert [x['goal_field_present'] for x in receipt['requests']] == [True, False]
     for request, delivered in zip(captures, receipt['requests'], strict=True):
-        digest = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        assert delivered['payload_sha256'] == digest
+        record = json.loads(Path(delivered['request_record_path']).read_text())
+        assert record['request_id'] == delivered['request_id'] and record['payload'] == request
     return report
 
 

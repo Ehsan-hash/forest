@@ -271,12 +271,17 @@ def repair_event_sequences(session):
 def migrate():
     from services.observation import models  # Register additive reporting tables.
     from services.interventions import models as intervention_models
+    from services.research_evolution import models as evolution_models
     with Session.begin() as s:
         if engine.dialect.name=='sqlite':
             s.connection().exec_driver_sql('BEGIN IMMEDIATE')
         elif engine.dialect.name=='postgresql':
             s.execute(text('SELECT pg_advisory_xact_lock(824721)'))
         Base.metadata.create_all(s.connection())
+        from services.research_evolution.service import current_goal
+        for project in s.scalars(select(Project)):
+            current_goal(s,project)
+        if not s.get(Migration,6): s.add(Migration(version=6))
         if not s.get(Migration,1): s.add(Migration(version=1))
         if not s.get(Migration,3): s.add(Migration(version=3))
         if not s.get(Migration,4): s.add(Migration(version=4))
@@ -297,4 +302,4 @@ if __name__=='__main__':
     # same metadata rather than a second __main__ Base missing its registrations.
     from services.api.db import migrate as migrate_schema
     migrate_schema()
-    print('FOREST database schema 5 ready')
+    print('FOREST database schema 6 ready')

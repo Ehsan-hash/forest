@@ -149,11 +149,16 @@ def test_permission_recovery_settles_source_reservation_before_real_alternate(ha
     assert finished['status'] == 'completed', finished
     assert (h.output(finished) / 'workspace' / 'answer.txt').read_text() == '136'
     assert finished['resource']['elapsed_seconds'] + source_done['resource']['elapsed_seconds'] < 90
+    wait_until(lambda: h.run(run)['resource'].get('graph_recovery_checkpoint_synced') == handoff['checkpoint_state'])
     session = json.loads((h.output(run) / 'workspace' / 'agent_session.json').read_text())
     assert session['execution_snapshot']['external_ledger_id'] == 'forest-project:' + project['id']
     assert session['status'] == 'waiting_input'
     assert session['lifecycle']['research_state'] == 'active'
     assert session['lifecycle']['decisions'][-1]['selected_node_ids'] == [alternate['id']]
+    assert session['pending_graph_recovery'] is None
+    assert session['wait_for'] is None
+    assert session['graph_recovery_handoff']['run_ids'] == handoff['run_ids']
+    assert session['execution_snapshot']['execution']['next_operation']['run_ids'] == handoff['run_ids']
     assert any('PATH_ESCAPE' in message.get('content', '')
         for message in session['messages'])
 

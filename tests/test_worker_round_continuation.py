@@ -215,7 +215,8 @@ def test_workspace_preparation_resumes_partial_first_attempt_and_preserves_later
     assert (workspace/'data/train.csv').read_text()=='registered training data'
     prepared=json.loads(marker.read_text())
     assert prepared['status']=='completed'
-    assert len(prepared['input_hashes']['data/train.csv'])==64
+    assert prepared['input_references']['data/train.csv']['input_record_id']
+    assert prepared['input_references']['data/train.csv']['size']==len('registered training data')
     (workspace/'method.py').write_text('agent progress after preparation')
     config['execution_attempt']['number']=401
     prepare_task_workspace(root,source,output,config)
@@ -232,7 +233,7 @@ def test_graph_handoff_retains_live_job_time_and_capacity_reservation(tmp_path):
     manager=ManagedProcesses(workspace)
     job=manager.start([sys.executable,'-c','import time; time.sleep(1)'],process_id='still-owned')
     run=SimpleNamespace(id='source',status='waiting_input',config={'timeout':10},
-        resource={'elapsed_seconds':3,'pending_graph_recovery':{'context':{},'checkpoint_state_key':'same-state'},
+        resource={'elapsed_seconds':3,'pending_graph_recovery':{'context':{},'checkpoint_state':{'revision':1}},
             'time_budget':{'effective_total_timeout_seconds':10}},error=None)
     try:
         # No DB admission may occur while the already launched job remains
@@ -249,16 +250,22 @@ def test_graph_handoff_retains_live_job_time_and_capacity_reservation(tmp_path):
         manager.cancel_all()
 
 
-def test_graph_handoff_keeps_capacity_when_original_registry_is_unreadable(tmp_path,monkeypatch):
+@pytest.mark.parametrize('elapsed',[3,11])
+def test_graph_handoff_keeps_capacity_when_original_registry_is_unreadable(tmp_path,monkeypatch,elapsed):
     import services.worker.main as worker
     output=tmp_path/'runs'/'source'; workspace=output/'workspace'; workspace.mkdir(parents=True)
     registry=workspace/'.forest-processes'; registry.mkdir()
     def unavailable_registry():
         raise OSError('Original job registry cannot be read')
-    monkeypatch.setattr(worker,'process_manager',lambda *args: SimpleNamespace(all=unavailable_registry))
+    cancellations=[]
+    def unavailable_cancel():
+        cancellations.append(True)
+        raise OSError('Original job registry cannot be read')
+    monkeypatch.setattr(worker,'process_manager',lambda *args:
+        SimpleNamespace(all=unavailable_registry,cancel_all=unavailable_cancel))
     run=SimpleNamespace(id='source',project_id='project',output_path='runs/source',
-        status='waiting_input',pid=None,process_created=None,config={'resources':{'cpu':2,'gpu':1}},
-        resource={'elapsed_seconds':3,'pending_graph_recovery':{'context':{},'checkpoint_state_key':'same-state'}},error=None)
+        status='waiting_input',pid=None,process_created=None,config={'timeout':10,'resources':{'cpu':2,'gpu':1}},
+        resource={'elapsed_seconds':elapsed,'pending_graph_recovery':{'context':{},'checkpoint_state':{'revision':1}}},error=None)
     monkeypatch.setattr(worker,'project_dir',lambda ident: tmp_path)
     worker._admit_graph_recovery_handoff(None,run,output)
     assert run.resource['graph_recovery_compute_hold']
@@ -268,3 +275,9 @@ def test_graph_handoff_keeps_capacity_when_original_registry_is_unreadable(tmp_p
     assert reserved['cpu']==2
     assert reserved['gpu']==1
     assert run.resource['pending_graph_recovery']
+    if elapsed>10:
+        assert run.resource['hard_budget_exhausted']['kind']=='seconds'
+        assert run.resource['graph_recovery_cancel_error']
+        assert 'could not be proven cancelled' in run.error
+        worker._admit_graph_recovery_handoff(None,run,output)
+        assert len(cancellations)==1

@@ -129,6 +129,20 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
         messages.insert(0, {'role': 'system', 'content': ''})
     if len(messages) < 2 or messages[1].get('role') != 'user':
         raise ValueError('Context-managed JSON generation requires a user task after the system message')
+    from research.agents.provider import ModelClient
+    if isinstance(client, ModelClient):
+        from research.agents.policy import ensure_research_messages
+        effective = ensure_research_messages(messages, client.config, output_stage)
+        if len(effective) == len(messages) + 1:
+            # ModelClient would inject these actual controls at transport.
+            # Archive them before recovery, preserving the original system
+            # metadata/content and the first-system/second-user contract.
+            original_system = effective[1]
+            messages = [{**original_system,
+                'content': effective[0]['content'] + '\n\n' + original_system['content']},
+                *effective[2:]]
+        else:
+            messages = effective
     directory = Path(workspace) / 'context_sessions' / str(uuid.uuid4())
     directory.mkdir(parents=True)
     atomic_json(directory / 'original_messages.json', messages)

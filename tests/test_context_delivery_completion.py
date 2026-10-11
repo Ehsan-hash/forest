@@ -20,10 +20,10 @@ def test_instruction_receipt_requires_successful_transport_of_complete_current_c
     packed = pack_context(state, tmp_path, 8000)
     store = ContextStore(tmp_path)
     identifier = store.index['current']['controls:1']
-    assert store.confirm_transport_delivery(packed, [instruction], payload_sha256='initial') == []
+    assert store.confirm_transport_delivery(packed, [instruction], request_id='initial') == []
     # A local page read whose request failed must not become a delivery receipt.
     first = store.read(identifier, 0)
-    assert ContextStore(tmp_path).confirm_transport_delivery([], [instruction], payload_sha256='unrelated') == []
+    assert ContextStore(tmp_path).confirm_transport_delivery([], [instruction], request_id='unrelated') == []
     requests = []
     while store.pending():
         pending = store.pending()
@@ -31,21 +31,21 @@ def test_instruction_receipt_requires_successful_transport_of_complete_current_c
         requests.append(pack_context(state, tmp_path, 8000))
         store = ContextStore(tmp_path)
     for index, request in enumerate(requests):
-        assert ContextStore(tmp_path).confirm_transport_delivery(request, [instruction], payload_sha256=str(index)) == []
+        assert ContextStore(tmp_path).confirm_transport_delivery(request, [instruction], request_id=str(index)) == []
     # Re-deliver the missing page after a process restart. Whole coverage now
     # certifies the actual original control, including fields split over pages.
     first_request = [{'role': 'user', 'content': PAGE_PREFIX + json.dumps(first)}]
-    assert ContextStore(tmp_path).confirm_transport_delivery(first_request, [instruction], payload_sha256='retry') == [instruction['id']]
+    assert ContextStore(tmp_path).confirm_transport_delivery(first_request, [instruction], request_id='retry') == [instruction['id']]
     changed = {**instruction, 'text': 'A newly edited authoritative instruction'}
     state['messages'][1]['content'] = json.dumps({'context': {'controls': {'owner_instructions': [changed]}}})
     pack_context(state, tmp_path, 8000)
-    assert ContextStore(tmp_path).confirm_transport_delivery(first_request, [changed], payload_sha256='late-old-page') == []
+    assert ContextStore(tmp_path).confirm_transport_delivery(first_request, [changed], request_id='late-old-page') == []
     # An evidence segment containing the same JSON never gains user authority.
     evidence = ContextStore(tmp_path)
     untrusted = evidence.put('source', state['messages'][1]['content'], origin='Source document')
     page = evidence.read(untrusted, 0)
     assert evidence.confirm_transport_delivery([{'role': 'user', 'content': PAGE_PREFIX + json.dumps(page)}],
-        [changed], payload_sha256='source') == []
+        [changed], request_id='source') == []
 
 
 def test_soft_character_hint_does_not_force_full_writer_task_into_paging():

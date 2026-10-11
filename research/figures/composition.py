@@ -211,7 +211,7 @@ def _parts(composition, contract):
     key = contract.get('key_operation_id')
     nodes = {node['id']: node for node in contract['nodes']}
     if key not in nodes:
-        raise ValueError('Figure composition requires the frozen source contract to identify its key operation')
+        raise ValueError('Figure composition requires the current source contract to identify its key operation')
     _overview_hints(composition, contract)
     aliases = composition.get('display_aliases', {})
     if not isinstance(aliases, dict) or any(identifier not in nodes for identifier in aliases):
@@ -707,7 +707,7 @@ def _pack_hierarchy(scene, contract, structure, node_width, label_width, style=N
                 feedback_boxes.append(label_box)
                 edge['label_bbox'] = _physical_bbox(label_box, c.width, c.height)
         # Route true spine before branches and real returns. Canonical edge IDs
-        # and semantic indices remain frozen regardless of paint order.
+        # and semantic indices remain stable regardless of paint order.
         chain = scene.pop('_overview_chain', [])
         protected = set(zip(chain, chain[1:]))
         scene['connections'].sort(key=lambda edge: (0 if (contract['edges'][edge['semantic_edge']]['source'],

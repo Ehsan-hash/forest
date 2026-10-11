@@ -1,5 +1,4 @@
 """Real HTTP, SQLite and subprocess handoffs, with no model or process doubles."""
-import hashlib
 import json
 import sqlite3
 import subprocess
@@ -454,19 +453,19 @@ def test_paired_statistics_retain_consumed_upload_across_same_path_replacement(r
     expected_v1_provenance = {
         'artifact_path': v1_artifact_path,
         'source_path': source_path,
-        'sha256': hashlib.sha256(v1_bytes).hexdigest(),
+        'input_record_id':v1_run['id']+':paired-input',
         'size_bytes': len(v1_bytes),
     }
     expected_v2_provenance = {
         'artifact_path': v2_artifact_path,
         'source_path': source_path,
-        'sha256': hashlib.sha256(v2_bytes).hexdigest(),
+        'input_record_id':v2_run['id']+':paired-input',
         'size_bytes': len(v2_bytes),
     }
     expected_retry_provenance = {
         'artifact_path': retry_artifact_path,
         'source_path': source_path,
-        'sha256': hashlib.sha256(v2_bytes).hexdigest(),
+        'input_record_id':retried['id']+':paired-input',
         'size_bytes': len(v2_bytes),
     }
     assert v1_run['metrics']['improvement'] == 2.0
@@ -495,14 +494,15 @@ def test_paired_statistics_retain_consumed_upload_across_same_path_replacement(r
     assert 'input_provenance' not in v1_run['config']
     assert unchanged_run['metrics'].get('input_provenance') == {
         'artifact_path': f"{unchanged_run['output_path']}/paired-input.csv",
+        'input_record_id':unchanged_run['id']+':paired-input',
         **{key: value for key, value in expected_v1_provenance.items()
-           if key != 'artifact_path'}}
+           if key not in ('artifact_path','input_record_id')}}
     assert unchanged_analysis['data'].get('input_provenance') == unchanged_run['metrics']['input_provenance']
     assert unchanged_analysis['data']['analysis_run_id'] == unchanged_run['id']
     assert other_run['metrics'].get('input_provenance') == {
         'artifact_path': f"{other_run['output_path']}/paired-input.csv",
         'source_path': other_path,
-        'sha256': hashlib.sha256(v1_bytes).hexdigest(),
+        'input_record_id':other_run['id']+':paired-input',
         'size_bytes': len(v1_bytes),
     }
     assert other_analysis['data'].get('input_provenance') == other_run['metrics']['input_provenance']
@@ -637,7 +637,7 @@ main()
         assert len(analyses) == 1, analyses
         analysis = analyses[0]
         assert analysis['status'] == 'needs_update', analysis
-        assert analysis['data']['input_provenance']['sha256'] == hashlib.sha256(v1_bytes).hexdigest()
+        assert analysis['data']['input_provenance']['input_record_id']==queued['id']+':paired-input'
         assert analysis['data']['input_provenance']['size_bytes'] == len(v1_bytes)
         assert analysis['data']['stale_reason'] == 'Bound upstream material changed: ' + source_path
         assert any(item['source_id'] == source_path for item in analysis['data']['stale_dependencies'])
@@ -722,7 +722,7 @@ main()
         assert len(analyses) == 1, analyses
         analysis = analyses[0]
         assert analysis['status'] == 'needs_update', analysis
-        assert analysis['data']['input_provenance']['sha256'] == hashlib.sha256(v1_bytes).hexdigest()
+        assert analysis['data']['input_provenance']['input_record_id']==queued['id']+':paired-input'
         assert analysis['data']['input_provenance']['size_bytes'] == len(v1_bytes)
         assert analysis['data']['stale_reason'] == 'Bound upstream material changed: ' + source_path
         assert any(item['source_id'] == source_path for item in analysis['data']['stale_dependencies'])
@@ -811,7 +811,7 @@ main()
         analysis = analyses[0]
         assert analysis['status'] == 'ready_for_review', analysis
         assert 'stale_reason' not in analysis['data'], analysis['data']
-        assert analysis['data']['input_provenance']['sha256'] == hashlib.sha256(v2_bytes).hexdigest()
+        assert analysis['data']['input_provenance']['input_record_id']==queued['id']+':paired-input'
         assert analysis['data']['input_provenance']['size_bytes'] == len(v2_bytes)
         retained = h.client.get(f"/api/projects/{project['id']}/download",
                                 params={'path': analysis['data']['path']})
@@ -934,7 +934,7 @@ main()
         assert len(analyses) == 1, analyses
         analysis = analyses[0]
         assert analysis['status'] == 'needs_update', analysis
-        assert analysis['data']['input_provenance']['sha256'] == hashlib.sha256(transient_bytes).hexdigest()
+        assert analysis['data']['input_provenance']['input_record_id']==queued['id']+':paired-input'
         assert analysis['data']['input_provenance']['size_bytes'] == len(transient_bytes)
         assert analysis['data']['stale_reason'] == 'Bound upstream material changed: ' + source_path
         retained = h.client.get(f"/api/projects/{project['id']}/download",

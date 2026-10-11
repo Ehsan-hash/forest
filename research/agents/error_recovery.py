@@ -1,7 +1,6 @@
 """Persisted diagnosis circuit breaker for repeated Research Agent tool errors."""
 from __future__ import annotations
-import hashlib
-import json
+from copy import deepcopy
 
 
 DIAGNOSTIC_TOOLS = {
@@ -48,13 +47,15 @@ def classify_failure(tool, result):
 
 
 def action_signature(tool, arguments, basis=None):
-    return hashlib.sha256(json.dumps({'tool': tool, 'arguments': arguments or {}, 'source_basis': basis},
-        sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return {'tool': tool, 'arguments': deepcopy(arguments or {}), 'source_basis': deepcopy(basis)}
 
 
 def rejected_action(state, tool, arguments):
     basis = state.get('action_source_basis') if tool in {'python', 'run_command', 'start_process'} else state.get('authorization_basis')
-    failure = (state.get('error_recovery') or {}).get('rejected_actions', {}).get(action_signature(tool, arguments, basis))
+    signature = action_signature(tool, arguments, basis)
+    recovery = state.get('error_recovery') or {}
+    failure = next((item['failure'] for item in recovery.get('operation_failures', [])
+                    if item['operation'] == signature and item.get('rejected')), None)
     if failure:
         return {'error': failure['message'], 'code': failure.get('code'),
                 'exit_code': 1, 'repetition_prevented': True,
@@ -87,14 +88,19 @@ def observe_tool_result(state, tool, result, step, *, arguments=None):
     count = recovery.get('repeat_count', 0) + 1 if prior_category == failure['category'] else 1
     basis = state.get('action_source_basis') if tool in {'python', 'run_command', 'start_process'} else state.get('authorization_basis')
     signature = action_signature(tool, arguments, basis)
-    attempts = recovery.setdefault('action_failures', {})
-    attempts[signature] = attempts.get(signature, 0) + 1
-    if failure['category'] == 'permission_error' or attempts[signature] >= 2:
-        recovery.setdefault('rejected_actions', {})[signature] = failure
-    outcome = 'block' if result.get('repetition_prevented') or attempts[signature] >= 3 else 'diagnose' if count >= 2 else 'continue'
+    attempts = recovery.setdefault('operation_failures', [])
+    operation = next((item for item in attempts if item['operation'] == signature), None)
+    if operation is None:
+        operation = {'operation': signature, 'count': 0}
+        attempts.append(operation)
+    operation['count'] += 1
+    operation['failure'] = failure
+    if failure['category'] == 'permission_error' or operation['count'] >= 2:
+        operation['rejected'] = True
+    outcome = 'block' if result.get('repetition_prevented') or operation['count'] >= 3 else 'diagnose' if count >= 2 else 'continue'
     event = {'step': step, **failure, 'repeat_count': count,
              'state': 'blocked_after_failed_diagnosis' if outcome == 'block' else 'diagnosis_required' if outcome == 'diagnose' else 'observed',
-             'action_signature': signature, 'action_failures': attempts[signature]}
+             'operation': signature, 'action_failures': operation['count']}
     recovery.update(last_category=failure['category'], repeat_count=count,
                     diagnosis_pending=outcome == 'diagnose', last_error=failure['message'],
                     last_failure_tool=tool)

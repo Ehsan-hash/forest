@@ -25,9 +25,9 @@ def fixture():
     runs=[{'id':'old','node_id':'parent','node_revision':0,'status':'completed','created_at':'1','kind':'command'},
           {'id':'current','node_id':'parent','node_revision':1,'status':'completed','created_at':'2','kind':'command',
            'verification':{'verification_status':'accepted'},'goal_applicability':{'ready':True},
-           'metrics':{'observed_metrics':{'score':0.75},'artifact_hashes':{'metrics.json':'abc'},'usage':{'total_tokens':42}}},
+           'metrics':{'observed_metrics':{'score':0.75},'artifact_references':{'metrics.json':{'path':'metrics.json','revision':1}},'usage':{'total_tokens':42}}},
           {'id':'failed-run','node_id':'failed','node_revision':0,'created_at':'3','kind':'command','status':'failed',
-           'error':'Missing executable dependency','config':{'research_task_signature':task_signature(graph['nodes'][1])}}]
+           'error':'Missing executable dependency','config':{'research_task_identity':task_signature(graph['nodes'][1])}}]
     return project,graph,runs
 
 
@@ -95,8 +95,8 @@ def test_control_retries_and_round_status_do_not_reset_recovery_state():
     graph['nodes'][1]['execution_status']='queued';runs[-1]['status']='queued';runs[-1]['metrics']={'steps':9000}
     runs.append({'id':'diagnostic','created_at':'4','kind':'research_plan','status':'failed'})
     second=build_recovery_context(project,graph,runs,node_id='failed')
-    assert first['state_key']==second['state_key']
-    assert first['evidence_fingerprint']==second['evidence_fingerprint']
+    assert first['state']==second['state']
+    assert first['evidence_state']==second['evidence_state']
 
 
 def test_alternating_error_categories_and_round_diagnostics_do_not_reset_fuse():
@@ -109,11 +109,11 @@ def test_alternating_error_categories_and_round_diagnostics_do_not_reset_fuse():
                               ('no_progress','pause')]:
         context=build_recovery_context(project,graph,runs,node_id='failed',
             trigger={'category':category,'message':'Unchanged scientific state'})
-        keys.append(context['state_key'])
+        keys.append(context['state'])
         decision=recovery_decision(control,context)
         assert decision['action']==expected
         control={'recovery':decision['recovery']}
-    assert len(set(keys))==1
+    assert all(value==keys[0] for value in keys)
 
 
 def test_round_hints_and_renamed_ids_do_not_erase_failed_task_identity():
@@ -133,9 +133,9 @@ def test_clone_revision_and_repeated_failure_receipts_do_not_renew_diagnosis():
     first=recovery_decision({},context)
     second=recovery_decision({'recovery':first['recovery']},context)
     control={'recovery':second['recovery']}
-    original_key=context['state_key']
-    original_evidence=context['evidence_fingerprint']
-    original_audit=context['audit_evidence_fingerprint']
+    original_key=context['state']
+    original_evidence=context['evidence_state']
+    original_audit=context['checkpoint_evidence']
     for index in range(4):
         clone=deepcopy(graph['nodes'][1])
         clone.update(id='failed-copy-'+str(index),title='Renamed row',revision=index+1)
@@ -148,9 +148,9 @@ def test_clone_revision_and_repeated_failure_receipts_do_not_renew_diagnosis():
         graph['revision']+=1
         project['revision']+=1
         updated=build_recovery_context(project,graph,runs,node_id='failed')
-        assert updated['state_key']==original_key
-        assert updated['evidence_fingerprint']==original_evidence
-        assert updated['audit_evidence_fingerprint']!=original_audit
+        assert updated['state']==original_key
+        assert updated['evidence_state']==original_evidence
+        assert updated['checkpoint_evidence']!=original_audit
         assert updated['semantic_tasks']==context['semantic_tasks']
         assert recovery_decision(control,updated)['action']=='pause'
     assert len(updated['checkpoint_evidence']['failures'])==5
@@ -164,12 +164,12 @@ def test_meaningful_work_dependency_and_verified_observation_changes_renew_state
     graph['edges'].append({'source':'failed','target':clone['id'],'relation':'depends_on'})
     changed_dependency=build_recovery_context(project,graph,runs,node_id='failed')
     assert changed_dependency['semantic_tasks']!=context['semantic_tasks']
-    assert changed_dependency['state_key']!=context['state_key']
+    assert changed_dependency['state']!=context['state']
     graph['nodes'].pop();graph['edges'].pop()
     runs[1]['metrics']['observed_metrics']['score']=0.875
     changed_evidence=build_recovery_context(project,graph,runs,node_id='failed')
-    assert changed_evidence['evidence_fingerprint']!=context['evidence_fingerprint']
-    assert changed_evidence['state_key']!=context['state_key']
+    assert changed_evidence['evidence_state']!=context['evidence_state']
+    assert changed_evidence['state']!=context['state']
 
 
 def test_progressful_counterexamples_and_graph_planning_have_no_count_limit():
@@ -186,6 +186,14 @@ def test_progressful_counterexamples_and_graph_planning_have_no_count_limit():
         'config':{'research_activity':'counterexample','command':['python','same.py']},
         'metrics':{'observed_metrics':{'score':1}}} for n in range(3)]
     assert route_health(graph,identical)['signals'][0]['kind']=='excessive_counterexample_checks'
+
+
+def test_reordering_graph_rows_cannot_reset_same_state_recovery():
+    project,graph,runs=fixture()
+    before=build_recovery_context(project,graph,runs,node_id='failed')
+    graph['nodes'].reverse();graph['edges'].reverse();runs.reverse()
+    after=build_recovery_context(project,graph,runs,node_id='failed')
+    assert before['state']==after['state'] and before['evidence_state']==after['evidence_state']
 
 
 def test_recorded_refutation_invalidates_downstream_assumptions_but_preserves_negative_evidence():

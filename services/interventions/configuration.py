@@ -12,6 +12,10 @@ from .application import summarize, readback
 def record_change(session, project, observed_revision, intent, request_id=None):
     keys = set(intent) & {'goal', 'mode', 'budget', 'config'}
     if not keys: return None
+    if keys & {'goal','config'}:
+        from services.research_evolution.service import record_goal_transition
+        record_goal_transition(session,project,reason=intent.get('reason','Scientific objective or criteria edited'),
+            evidence_run_ids=intent.get('evidence_run_ids',[]),affected_branch_ids=intent.get('affected_branch_ids',[]))
     parent = Intervention(project_id=project.id, request_id=request_id or uid(), actor='owner', kind='configuration',
         observed_revision=observed_revision, applied_revision=project.revision, intent=deepcopy(intent), accepted_at=now(),
         impact={'changed_fields': sorted(keys), 'boundaries': {'goal': 'next_model_request_and_evidence_use',
@@ -49,7 +53,7 @@ def confirm_context(run_id, request_context, provider_request_id=None):
             if proof is None: continue
             effect.status = 'applied'; effect.applied_at = now()
             effect.attempt_id = request_context.get('execution_attempt_id')
-            effect.observation = {'delivery': deepcopy(proof), 'payload_sha256': request_context['payload_sha256'],
+            effect.observation = {'delivery': deepcopy(proof), 'request_id': request_context['request_id'],
                 'provider_request_id': provider_request_id, 'observed_graph_revision': request_context['observed_graph_revision'],
                 'meaning': 'Current authoritative Goal and effective tools reached successful model transport; understanding is not asserted'}
             parent = get(session, Intervention, effect.intervention_id); summarize(session, parent)

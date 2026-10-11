@@ -8,7 +8,7 @@ from research.planning.route_review import route_health, route_review_transition
 from research.kernel import execution_edges
 from research.agents.research_path import (LOCAL_BLOCKS, HARD_RESOURCE_BLOCKS,
     research_recovery_context, recovery_decision, task_signature, _run_task_signature,
-    failed_dependencies_changed, refuted_paths)
+    failed_dependencies_changed, refuted_paths, unchanged_completed_work)
 
 
 def recover_path(session, project, control, *, node_id=None, trigger=None, parallelism=1):
@@ -29,7 +29,7 @@ def recover_path(session, project, control, *, node_id=None, trigger=None, paral
         attempt=decision['recovery']['diagnostic_attempts']
         with session.begin_nested():
             run=enqueue(session,project.id,'research_plan',{'branch_id':control.get('branch_id'),
-                'research_recovery':context},f"recovery:{context['state_key']}:{attempt}")
+                'research_recovery':context},f"recovery:{decision['recovery']['id']}:{attempt}")
         result.update(status='running',phase='DIAGNOSE',last_run=run.id,
                       replan_required=bool(context['focus_node_ids'] or control.get('replan_required')),
                       route_replan_node_ids=context['focus_node_ids'])
@@ -65,7 +65,7 @@ def ready_work(session, project_id, graph, control, active_node_ids=()):
                n.deliverable_status!='needs_update' and n.extra.get('results_current',True)}
     edges=[(e['source'],e['target']) for e in execution_edges(graph)]
     node_map={node.id:node for node in nodes}
-    failed_signatures=set()
+    failed_signatures=[]
     prior_runs=list(session.scalars(select(TaskRun).where(TaskRun.project_id==project_id)))
     graph_nodes={node.id:asdict(node) for node in nodes}
     history=[asdict(run) for run in prior_runs]
@@ -78,10 +78,11 @@ def ready_work(session, project_id, graph, control, active_node_ids=()):
         if failed_dependencies_changed(asdict(run),history,graph_nodes): continue
         owner=node_map.get(run.node_id)
         if owner and owner.revision==run.node_revision:
-            failed_signatures.add(task_signature(asdict(owner)))
-        elif run.config.get('research_task_signature'):
-            failed_signatures.add(_run_task_signature(asdict(run)))
+            failed_signatures.append(task_signature(asdict(owner)))
+        elif run.config.get('research_task_identity') or run.config.get('instructions') is not None:
+            failed_signatures.append(_run_task_signature(asdict(run)))
     ready=[n for n in selected if n.id not in completed and n.id not in active_node_ids and
+           not unchanged_completed_work(asdict(n),graph_nodes,graph.get('edges',[]),completed,history) and
            task_signature(asdict(n)) not in failed_signatures and
            (n.id not in refuted or n.config.get('research_activity') in ('negative_result_analysis','hypothesis_revision')) and
            (n.execution_status in ('idle','not_started','needs_update','completed') or n.deliverable_status=='needs_update') and

@@ -107,6 +107,45 @@ def test_postgres_concurrent_graph_edits_and_receipts(postgres_workers):
     assert h.request("GET", f"/api/projects/{project['id']}/graph")["revision"] == saved["revision"]
 
 
+def test_postgres_scientific_version_counters_and_replays_are_serialized(postgres_workers):
+    h=postgres_workers
+    project=h.request('POST','/api/projects',json={'name':'Concurrent scientific versions','goal':'Initial question','mode':'manual'})
+    pid=project['id'];path=f'/api/projects/{pid}/goal-contract/versions'
+    def change_goal(index):
+        return h.client.post(path,json={'request_id':f'goal-version-{index}','expected_revision':project['revision'],
+            'expected_goal_revision':1,'objective':f'Question {index}','reason':'Actual competing scientific edits'})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results=list(pool.map(change_goal,range(8)))
+    assert sorted(row.status_code for row in results)==[200]+[409]*7,[(row.status_code,row.text) for row in results]
+    winner=next(index for index,row in enumerate(results) if row.status_code==200)
+    history=h.request('GET',f'/api/projects/{pid}/goal-contract')
+    assert [row['revision'] for row in history['versions']]==[1,2]
+    assert history['current']['parent_version_id']==history['versions'][0]['id']
+    replay=h.client.post(path,json={'request_id':f'goal-version-{winner}','expected_revision':project['revision'],
+        'expected_goal_revision':1,'objective':f'Question {winner}','reason':'Actual competing scientific edits'})
+    assert replay.status_code==200 and replay.json()==results[winner].json()
+    project=h.request('GET',f'/api/projects/{pid}');path=f'/api/projects/{pid}/evaluation-protocols'
+    body={'request_id':'same-protocol-after-response-loss','expected_revision':project['revision'],
+        'protocol_id':'concurrent-protocol','expected_protocol_revision':0,
+        'definition':{'dataset':'observations','split':'validation'},'reason':'Adopt an explicit evaluation definition'}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results=list(pool.map(lambda _:h.client.post(path,json=body),range(8)))
+    assert all(row.status_code==200 for row in results),[(row.status_code,row.text) for row in results]
+    assert all(row.json()==results[0].json() for row in results)
+    assert len(h.request('GET',path))==1
+    project=h.request('GET',f'/api/projects/{pid}')
+    def change_protocol(index):
+        return h.client.post(path,json={**body,'request_id':f'protocol-version-{index}',
+            'expected_revision':project['revision'],'expected_protocol_revision':1,
+            'definition':{'dataset':'observations','split':'validation','seed':index}})
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results=list(pool.map(change_protocol,range(8)))
+    assert sorted(row.status_code for row in results)==[200]+[409]*7,[(row.status_code,row.text) for row in results]
+    versions=h.request('GET',path)
+    assert [row['revision'] for row in versions]==[1,2]
+    assert versions[1]['parent_version_id']==versions[0]['id']
+
+
 def test_postgres_concurrent_run_clicks_create_one_job(postgres_workers):
     h = postgres_workers
     project, node = h.project_node(seconds=1)

@@ -47,7 +47,7 @@ Provider-backed `method` and `image` rendering uses the same production pipeline
    content contract. Organize the figure around the strongest supported contribution.
 2. Design at least two distinct compositions, with a dominant mechanism view and
    useful local detail. Every panel must explain a scientific point.
-3. Compile the complete source overview from its frozen nodes and dependencies.
+3. Compile the complete source overview from its current nodes and dependencies.
    Source-bound semantic groups and a forward chain guide a layered layout.
    The host measures labels, places every operation and reserves separate
    feedback paths and label space before routing. The model designs the

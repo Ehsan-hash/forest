@@ -11,7 +11,8 @@ import time
 import uuid
 
 # Executed by absolute path so it also works in isolated branch workspaces.
-from processes import atomic_json, read_json, configuration_hash, file_hash, workspace_inventory
+from processes import (atomic_json, read_json, configuration_record, binding_matches,
+    record_binding, file_contents_equal, file_metadata, workspace_inventory)
 import psutil
 
 # This supervisor is launched by absolute filename from a task workspace.
@@ -23,11 +24,11 @@ from research.execution.repository import task_environment
 def execute_child(folder):
     request = read_json(folder / 'request.json')
     state=read_json(folder/'state.json')
-    if (not state.get('launch_committed') or state.get('configuration_hash')!=configuration_hash(request)):
+    if (not state.get('launch_committed') or not binding_matches(request,state)):
         raise RuntimeError('Child launch does not match the committed request')
-    for relative,expected_hash in (request.get('source_hashes') or {}).items():
+    for relative,reference in (request.get('source_references') or {}).items():
         source=Path(request['workspace'])/relative
-        if not source.is_file() or file_hash(source)!=expected_hash:
+        if not file_contents_equal(source,reference['snapshot_path']):
             raise RuntimeError('Command source/configuration changed before execution: '+relative)
         if source.suffix=='.py':
             # Timestamp/size based bytecode can otherwise execute old helper
@@ -45,7 +46,7 @@ def execute_child(folder):
         'PYTHONUNBUFFERED': '1', 'MPLBACKEND': 'Agg',
         **{str(k): str(v) for k, v in request['env'].items()}})
     atomic_json(folder / 'identity.json', {'pid': os.getpid(), 'process_created': psutil.Process().create_time(),
-        'launch_id':state['launch_id'],'configuration_hash':state['configuration_hash'],
+        'launch_id':state['launch_id'],**record_binding(request),
         'resolved_executable': shutil.which(request['command'][0], path=env['PATH']), 'python_environment': sys.executable})
     os.execvpe(request['command'][0], request['command'], env)
 
@@ -87,13 +88,13 @@ def supervise(folder):
         if (folder / 'identity.json').exists() or prior.get('launch_committed') or prior.get('status') in ('completed', 'failed', 'cancelled'):
             return
         request = read_json(folder / 'request.json')
-        if request.get('configuration_hash')!=configuration_hash(request):
+        if (request.get('record_version')!=2 or request.get('configuration')!=configuration_record(request)):
             raise RuntimeError('Launch request configuration changed')
         # Committing before Popen closes the crash window that otherwise lets
         # another supervisor launch a second command while its identity is late.
         state = {'status': 'starting', 'host_pid': os.getpid(), 'host_created': psutil.Process().create_time(),
             'started_at': time.time(),'launch_committed':True,'launch_id':str(uuid.uuid4()),
-            'configuration_hash':request['configuration_hash']}
+            **record_binding(request)}
         atomic_json(folder / 'state.json', state)
         with (folder / 'stdout.log').open('ab') as stdout, (folder / 'stderr.log').open('ab') as stderr:
             process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), str(folder), '--child'],
@@ -150,11 +151,12 @@ def supervise(folder):
                     artifact_errors.append({'relative_path':relative,'error':str(exc)})
                     continue
                 artifacts.append({'path':str(snapshot),'original_path':str(path),
-                    'relative_path':relative,'sha256':file_hash(snapshot),**metadata})
+                    'relative_path':relative,'artifact_id':str(uuid.uuid4()),
+                    'metadata':file_metadata(snapshot),**metadata})
             for stream in ('stdout','stderr'):
                 path=folder/(stream+'.log')
-                artifacts.append({'path':str(path),'stream':stream,'sha256':file_hash(path),
-                    'size':path.stat().st_size,'mtime_ns':path.stat().st_mtime_ns})
+                artifacts.append({'path':str(path),'stream':stream,'artifact_id':str(uuid.uuid4()),
+                    'metadata':file_metadata(path)})
             # Publish immutable observations before marking executor terminal.
             atomic_json(folder/'completion.json',{**state,'artifacts':artifacts,
                 'artifact_errors':artifact_errors})
