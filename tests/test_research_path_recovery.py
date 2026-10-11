@@ -10,6 +10,22 @@ from research.agents.research_path import build_recovery_context, recovery_decis
 from research.planning.route_review import route_health
 
 
+def test_predeclared_independent_task_owns_one_execution_without_enabling_later_clones():
+    from research.agents.research_path import unchanged_completed_work
+    original={'id':'original','branch_id':'main','instructions':'Measure the same method',
+        'config':{'kind':'command','command':['python','measure.py']},'inputs':[],
+        'created_at':'2026-10-11T01:00:00Z'}
+    independent={**deepcopy(original),'id':'independent','created_at':'2026-10-11T01:00:01Z'}
+    clone={**deepcopy(original),'id':'late-clone','created_at':'2026-10-11T03:00:00Z'}
+    nodes={item['id']:item for item in (original,independent,clone)}
+    runs=[{'id':'first','node_id':'original','status':'completed','created_at':'2026-10-11T02:00:00Z'}]
+    assert not unchanged_completed_work(independent,nodes,[],{'original'},runs)
+    assert unchanged_completed_work(clone,nodes,[],{'original'},runs)
+    runs.append({'id':'second','node_id':'independent','status':'completed',
+        'created_at':'2026-10-11T02:01:00Z'})
+    assert unchanged_completed_work(independent,nodes,[],{'original','independent'},runs)
+
+
 def fixture():
     project={'id':'project','goal':'Measure the prescribed system','revision':8,
         'budget':{'seconds':900,'allow_paid':False},

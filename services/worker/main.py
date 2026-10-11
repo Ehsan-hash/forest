@@ -195,6 +195,11 @@ def _reconcile_execution_hold(run,output):
         resource.pop('execution_reconciliation_compute_hold',None)
         resource['last_reconciled_jobs']=resource.pop('reconciliation_jobs',[])
         resource.pop('reconciliation_job',None)
+        if resource.get('reconciliation_cancel_requested') or resource.get('reconciliation_cancel_error'):
+            resource['last_reconciliation_cancellation'] = {
+                'jobs':resource['last_reconciled_jobs'],
+                'requested':resource.pop('reconciliation_cancel_requested',False),
+                'error':resource.pop('reconciliation_cancel_error',None),'confirmed_at':now()}
         if resource.get('hard_budget_exhausted'):
             resource.update(blocked_reason='time_budget_exhausted')
             run.status='budget_exhausted';run.exit_code=124

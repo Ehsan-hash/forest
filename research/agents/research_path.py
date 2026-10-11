@@ -148,6 +148,18 @@ def unchanged_completed_work(node, nodes, edges, completed, runs):
     if not matching: return False
     prior=[run for run in runs if run.get('node_id') in matching and run.get('status')=='completed']
     if not prior: return False  # A graph completion label alone is not an executed result.
+    # Independent work declared before another task's first execution still
+    # owns its first execution, even with equal methods. It is not a new clone
+    # created after seeing a result. Reopening an executed node cannot use this
+    # exemption to repeat the same work indefinitely.
+    if not any(run.get('node_id')==node['id'] and run.get('status')=='completed' for run in runs):
+        from datetime import datetime
+        try:
+            declared=datetime.fromisoformat(node['created_at'])
+            first_execution=min(datetime.fromisoformat(run['created_at']) for run in prior)
+            if declared <= first_execution:return False
+        except (KeyError,TypeError,ValueError):
+            pass  # Legacy records still use the available direct evidence below.
     since=max(run.get('created_at','') for run in prior)
     new_ids=(node.get('config') or {}).get('new_evidence_run_ids') or []
     return not any(run['id'] in new_ids and run.get('status')=='completed' and run.get('created_at','')>since

@@ -1,5 +1,4 @@
-"""Verify the recorded request digest against the actual inference child input."""
-import hashlib
+"""Compare the original recorded request with the actual inference child input."""
 import json
 from types import SimpleNamespace
 from pathlib import Path
@@ -9,15 +8,16 @@ from research.agents.schemas import json_action_schema, decode_tool_call
 from research.agents.provider import ModelClient
 
 
-def test_codex_receipt_hashes_actual_cli_prompt(monkeypatch):
+def test_codex_receipt_preserves_actual_cli_prompt_and_effective_controls(monkeypatch):
     from research.agents import codex_transport
+    from research.agents.policy import RESEARCH_POLICY_MARKER
     provider = {'id':'test-only', 'kind':'codex_cli', 'base_url':'http://127.0.0.1',
                 'model':'gpt-6-luna', 'config':{'reasoning_effort':'xhigh'}}
     client = ModelClient(provider, request_guard=lambda event: None)
     messages = [{'role':'system','content':'Current controls'}, {'role':'user','content':'Owner correction 中文'},
                 {'role':'assistant','content':'Previous public action'}]
     path, payload = client.build_request(messages)
-    recorded = hashlib.sha256(json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(',', ':')).encode()).hexdigest()
+    recorded = json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(',', ':')).encode()
     captured = []
     def child(argv, **kwargs):
         captured.append(kwargs['input'])
@@ -28,8 +28,10 @@ def test_codex_receipt_hashes_actual_cli_prompt(monkeypatch):
     monkeypatch.setattr(codex_transport.subprocess, 'run', child)
     client.complete(messages)
     assert path == 'codex_cli'
-    assert hashlib.sha256(captured[0].encode()).hexdigest() == recorded
-    assert json.loads(captured[0])['messages'] == messages
+    assert captured[0].encode() == recorded
+    effective = json.loads(captured[0])['messages']
+    assert RESEARCH_POLICY_MARKER in effective[0]['content']
+    assert effective[1:] == messages
 
 
 def test_codex_action_schema_follows_effective_permissions(monkeypatch):

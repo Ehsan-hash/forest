@@ -212,6 +212,7 @@ def _drop_postgres(parameters, name):
 def quarantine_execution(database_url):
     """Restored process IDs/remote handles must never control old live work."""
     from sqlalchemy import inspect, text
+    from services.interventions.history import historical_resource
     engine = _engine(database_url)
     try:
         with engine.begin() as connection:
@@ -226,10 +227,7 @@ def quarantine_execution(database_url):
                 connection.execute(text(f'UPDATE {table} SET {column}={assignment} WHERE id=:id'),{'value':encoded,'id':ident})
             if 'task_runs' in tables and 'resource' in {c['name'] for c in inspect(connection).get_columns('task_runs')}:
                 for ident,resource in connection.execute(text('SELECT id, resource FROM task_runs')).all():
-                    resource=read_object(resource)
-                    if resource.get('pending_intervention'):
-                        resource['historical_pending_intervention']=resource.pop('pending_intervention')
-                    resource.pop('wait_for',None)
+                    resource=historical_resource(read_object(resource))
                     save_object('task_runs','resource',ident,resource)
             if 'intervention_effects' in tables:
                 for ident,status,observation in connection.execute(text('SELECT id,status,observation FROM intervention_effects')).all():

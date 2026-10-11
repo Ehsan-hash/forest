@@ -311,7 +311,7 @@ def test_changed_source_or_invalid_reference_fails_before_planner(tmp_path, monk
     client, generator = RasterModelDouble(), ImageBatchDouble()
     graph, contract, style = supplied()
     graph['edges'][0]['label'] = 'Invented edge meaning'
-    with pytest.raises(ValueError, match='frozen original source graph'):
+    with pytest.raises(ValueError, match='complete original source graph'):
         invoke(tmp_path, client, generator, monkeypatch, graph=graph, contract=contract, style=style)
     assert not client.calls and not generator.calls
     reference = tmp_path / 'not-a-png.txt'

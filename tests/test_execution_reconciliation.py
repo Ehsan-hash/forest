@@ -64,6 +64,42 @@ def test_unreadable_completion_charges_live_work_and_fuses_actual_timeout(tmp_pa
         completed(manager,job['process_id'])
 
 
+def test_confirmed_stop_does_not_disable_later_owned_job_timeout(tmp_path):
+    workspace=tmp_path/'workspace';workspace.mkdir()
+    manager=ManagedProcesses(workspace)
+    run=SimpleNamespace(status='waiting_input',pid=None,process_created=None,
+        config={'timeout':.35},resource={'elapsed_seconds':0},error=None,exit_code=None)
+    jobs=[]
+    try:
+        for index,limit in enumerate((.35,1.5)):
+            # The explicit resume API validates the refreshed allowance in
+            # test_owner_budget_resume. This actual executor regression proves
+            # that each later owned computation still has its own stop attempt.
+            run.config={'timeout':limit};run.status='waiting_input'
+            run.resource.pop('hard_budget_exhausted',None)
+            job=manager.start([sys.executable,'-c','import time;time.sleep(20)'],
+                process_id='original-'+str(index));jobs.append(job)
+            (manager.folder(job['process_id'])/'completion.json').write_text('{unreadable')
+            run.resource=_waiting_outcome_resource(run.resource,{'status':'waiting_input',
+                'wait_for':{'type':'execution_reconciliation','process_id':job['process_id'],'workspace':str(workspace)}})
+            assert is_alive(job['pid'],job['process_created'])
+            deadline=time.monotonic()+5
+            while run.status!='budget_exhausted' and time.monotonic()<deadline:
+                _reconcile_execution_hold(run,tmp_path);time.sleep(.03)
+            assert run.status=='budget_exhausted',run.resource
+            assert completed(manager,job['process_id'])['status']=='cancelled'
+            assert not is_alive(job['pid'],job['process_created'])
+            assert not run.resource.get('reconciliation_cancel_requested')
+            assert not run.resource.get('reconciliation_cancel_error')
+            assert run.resource['last_reconciliation_cancellation']['requested']
+            assert job['process_id'] in run.resource['last_reconciliation_cancellation']['jobs']
+        assert run.resource['elapsed_seconds']>=1.5
+        assert len(manager.all())==2
+    finally:
+        for job in jobs:
+            manager.cancel(job['process_id']);completed(manager,job['process_id'])
+
+
 @pytest.mark.parametrize('mode',['hard_timeout','receipt_recovered'])
 def test_actual_worker_reconciliation_hold_enforces_original_hard_timeout(tmp_path,mode):
     h=Harness(tmp_path)

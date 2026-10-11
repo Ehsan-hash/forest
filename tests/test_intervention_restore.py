@@ -43,7 +43,7 @@ def test_restored_pending_controls_cannot_target_original_execution(tmp_path,int
 def restore_scenario(directory):
     from fastapi.testclient import TestClient
     from sqlalchemy import create_engine,text
-    from services.api.db import migrate,Session,settings
+    from services.api.db import migrate,Session,settings,TaskRun
     from services.api.main import app
     from services.interventions import application
     from services.interventions.controls import decision_gate
@@ -63,13 +63,28 @@ def restore_scenario(directory):
     fork=client.post(f'/api/projects/{pid}/graph/commands',json={'request_id':str(uuid.uuid4()),'expected_revision':2,
         'operation':'fork_branch','targets':[node['id']],'params':{'name':'Pending copied workspace'}}).json()
     assert fork['intervention']['status']=='accepted',fork
+    from services.interventions.history import EXECUTION_CONTROL_FIELDS
+    controls={key:{'original_execution_id':run['id']} for key in EXECUTION_CONTROL_FIELDS}
+    with Session.begin() as session:
+        source_run=session.get(TaskRun,run['id'])
+        source_run.resource={**source_run.resource,**controls}
     archive=directory/'actual-backup.tar.gz';create_backup(settings.data_dir,settings.database_url,archive)
     restored=restore_backup(archive,directory/'restored',os.environ['RESTORE_TEST_ADMIN'])
-    engine=create_engine(restored['database_url'])
+    database_url=restored['database_url']
+    if restored.get('database_name'):
+        from sqlalchemy.engine import make_url
+        database_url=make_url(os.environ['RESTORE_TEST_ADMIN']).set(
+            drivername='postgresql+psycopg',database=restored['database_name'])
+        assert make_url(restored['database_url']).password=='***'
+    engine=create_engine(database_url)
     try:
         with engine.connect() as session:
             assert session.execute(text('SELECT status FROM task_runs WHERE id=:id'),{'id':run['id']}).scalar_one()=='interrupted'
             assert session.execute(text('SELECT status FROM action_decisions WHERE id=:id'),{'id':decision['id']}).scalar_one()=='stale'
+            resource=session.execute(text('SELECT resource FROM task_runs WHERE id=:id'),{'id':run['id']}).scalar_one()
+            resource=json.loads(resource) if isinstance(resource,str) else resource
+            assert not EXECUTION_CONTROL_FIELDS.intersection(resource)
+            assert resource['historical_execution_control']==controls
             for status,target,lease in session.execute(text('SELECT status,target,lease_until FROM intervention_effects')):
                 assert status=='superseded' and (json.loads(target) if isinstance(target,str) else target)=={} and lease==0
             for status,extra in session.execute(text('SELECT status,extra FROM branches')):
@@ -80,6 +95,7 @@ def restore_scenario(directory):
             from services.interventions.models import ActionDecision,Intervention
             assert session.get(ActionDecision,decision['id']).status=='pending'
             assert session.get(Intervention,instruction['id']).status=='accepted'
+            assert all(session.get(TaskRun,run['id']).resource[key]==value for key,value in controls.items())
         print(json.dumps({'status':'passed','backend':engine.dialect.name,'actual_restore':True,'pending_effect_authority':False,'original_database_unchanged':True}))
     finally:
         engine.dispose()
