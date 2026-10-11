@@ -11,6 +11,10 @@ from pathlib import Path
 from research.agents.context_store import ContextStore
 
 
+class ContextQueryError(ValueError):
+    """A caller supplied an invalid query for existing public evidence."""
+
+
 class ContextPageCapacityError(ValueError):
     """The selected working request cannot deliver even one source character."""
 
@@ -68,30 +72,30 @@ class StudyMemory:
             metadata = {'origin': 'Episode public memory catalog', 'authority': 'metadata'}
         else:
             if segment_id not in self.store.index['segments']:
-                raise ValueError('Unknown segment in this episode public memory')
+                raise ContextQueryError('Unknown segment in this episode public memory')
             metadata = self.store.index['segments'][segment_id]
             path = self.store.root / (segment_id + '.txt')
             value = json.loads(path.read_text(encoding='utf-8'))
         if not isinstance(pointer, str) or pointer and not pointer.startswith('/'):
-            raise ValueError('A JSON Pointer must be empty or start with /')
+            raise ContextQueryError('A JSON Pointer must be empty or start with /')
         if pointer:
             for token in pointer.split('/')[1:]:
                 token = token.replace('~1', '/').replace('~0', '~')
                 if isinstance(value, list):
                     if not token.isdigit() or str(int(token)) != token:
-                        raise ValueError('Array JSON Pointer needs a canonical nonnegative index')
+                        raise ContextQueryError('Array JSON Pointer needs a canonical nonnegative index')
                     try:
                         value = value[int(token)]
                     except IndexError:
-                        raise ValueError('JSON Pointer index is outside the original evidence') from None
+                        raise ContextQueryError('JSON Pointer index is outside the original evidence') from None
                 elif isinstance(value, dict) and token in value:
                     value = value[token]
                 else:
-                    raise ValueError('JSON Pointer is absent from the original evidence')
+                    raise ContextQueryError('JSON Pointer is absent from the original evidence')
         if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
-            raise ValueError('Page offset must be a nonnegative integer')
+            raise ContextQueryError('Page offset must be a nonnegative integer')
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
-            raise ValueError('Page limit must be a positive integer')
+            raise ContextQueryError('Page limit must be a positive integer')
         if response_capacity is not None and (type(response_capacity) is not int or response_capacity < 1):
             raise ValueError('Response interface capacity must be a positive integer')
         if measure_response is not None and not callable(measure_response):

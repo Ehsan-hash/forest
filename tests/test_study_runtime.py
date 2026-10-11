@@ -1377,7 +1377,7 @@ def test_invalid_actual_response_is_saved_and_gets_one_evidence_bound_repair_tur
     second = runtime.run_one(owner="response-repair", client=client)
     assert second["action_result"]["actions"][0]["state"] == "completed"
     delivered = "\n".join(str(message.get("content", "")) for message in client.requests[1])
-    assert "previous actual response was saved" in delivered
+    assert "previous actual response and observed action results were saved" in delivered
     assert "A submit-mode response cannot add unexecuted operations" in delivered
 
 

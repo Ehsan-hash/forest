@@ -1327,7 +1327,7 @@ class StudyRuntime:
             "catalog": catalog, "read_operation": "read_context_segment",
             "scientific_progress_eligible": False}
         if payload.get("messages"):
-            messages = copy.deepcopy(payload["messages"])
+            messages = copy.deepcopy(base_messages)
             catalog_note = ("Arm-public context catalog (metadata only): " + _json(catalog)
                 + "\nUse read_context_segment with the exact segment ID, JSON pointer, offset, and limit to retrieve exact source content. "
                   "Paging is observational and does not count as a scientific operation.")
@@ -2261,8 +2261,8 @@ class StudyRuntime:
             delivered_messages.append({"role": "user", "content": "Observed results from completed source-bound operations in this episode:\n" + _json(context)})
         if payload.get("response_validation_feedback"):
             delivered_messages.append({"role": "user", "content":
-                "The previous actual response was saved in the episode ledger but rejected before any action was executed. "
-                "Correct the response using the original registered context. Validation feedback: " +
+                "The previous actual response and observed action results were saved in the episode ledger. "
+                "Use the registered context and current feedback to make a new decision. Validation feedback: " +
                 _json(payload["response_validation_feedback"])})
         if delivered_messages:
             schema_note = "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(payload["decision_schema"])
@@ -2680,6 +2680,10 @@ class StudyRuntime:
             # a child action. Keep this at the aggregate boundary so recovery
             # does not mistake it for pending GPU work and replay it forever.
             response["request_new_decision"] = True
+        feedback = [result["response_validation_feedback"] for result in results
+                    if result.get("response_validation_feedback")]
+        if feedback:
+            response["response_validation_feedback"] = feedback[0] if len(feedback) == 1 else feedback
         if len(results) == 1:
             response["result"] = results[0].get("result")
         return response
@@ -2710,7 +2714,7 @@ class StudyRuntime:
         if not work_id:
             raise ValueError("Each action binding needs its predeclared action work_id")
         if binding.get("analysis_operation") == "read_context_segment":
-            from .study_memory import ContextPageCapacityError, StudyMemory
+            from .study_memory import ContextPageCapacityError, ContextQueryError, StudyMemory
             requested_workspace = Path(str(binding.get("memory_workspace", ""))).resolve()
             campaign_root = self.campaign.resolve()
             try:
@@ -2724,15 +2728,28 @@ class StudyRuntime:
                 catalog = memory.catalog()
                 segment_id = catalog.get("current", {}).get("study-public:public-context")
             available = set(map(str, binding.get("available_segment_ids", [])))
-            if not isinstance(segment_id, str) or segment_id not in available:
-                raise ValueError("Context read must name an available arm-public segment ID")
             page_limit = 6000 if decision.get("context_limit") is None else decision.get("context_limit")
             measure = context_read_measure
             pointer = decision.get("context_pointer") or ""
             offset = 0 if decision.get("context_offset") is None else decision.get("context_offset")
             try:
+                if not isinstance(segment_id, str) or segment_id not in available:
+                    raise ContextQueryError("Context read must name an available arm-public segment ID")
                 page = memory.read_json(segment_id, pointer=pointer, offset=offset,
                     limit=page_limit, response_capacity=context_response_capacity, measure_response=measure)
+            except ContextQueryError as exc:
+                feedback = {"reason": "invalid_context_query", "error": str(exc),
+                    "segment_id": segment_id, "pointer": pointer, "offset": offset, "limit": page_limit,
+                    "available_segment_ids": sorted(available), "root_pointer": "",
+                    "instruction": "Choose a listed public segment and an existing JSON Pointer in it, "
+                    "or use the empty pointer to read its root. '/' addresses an empty-string key, not the root. "
+                    "Use a nonnegative offset and positive page limit."}
+                return {"action_work_id": work_id, "kind": "analysis", "state": "retryable",
+                    "reason": "invalid_context_query", "request_new_decision": True,
+                    "response_validation_feedback": feedback,
+                    "result": {"operation": "invalid_context_query", "segment_id": segment_id,
+                        "pointer": pointer, "content": None, "delivery_status": "not_delivered",
+                        "observational": True, "scientific_progress_eligible": False}}
             except ContextPageCapacityError as exc:
                 metadata = memory.read_json(segment_id, pointer=pointer, offset=offset, limit=1)
                 page = {key: metadata[key] for key in ("segment_id", "pointer", "total_characters", "complete")
@@ -2810,16 +2827,43 @@ class StudyRuntime:
                     (self.campaign_id, str(binding["selection_work_id"]))).fetchone()
             target = (binding.get("compared_configuration_ids") or [None, None])[-1]
             selected = json.loads(selection["result_json"] or "{}") if selection and selection["state"] == "completed" else {}
+            def action_selectors(entry):
+                return {"action_work_id": entry["work_id"],
+                    "kind": entry.get("action_name", entry.get("analysis_operation", action)),
+                    "configuration_id": entry.get("configuration_id"), "seed": entry.get("seed")}
+            selection_state = selection["state"] if selection else "not_registered"
+            selection_observation = {"work_id": binding["selection_work_id"], "state": selection_state,
+                "result": selected}
             if not selected:
+                reason = "source_selection_must_complete_before_comparison"
+                next_actions = [action_selectors(entry) for entry in bindings if isinstance(entry, Mapping)
+                    and entry.get("work_id") == binding["selection_work_id"]
+                    and entry.get("kind") == "analysis" and entry.get("analysis_operation") == "select"
+                    and entry.get("action_name", "select") == "select"]
                 return {"action_work_id": work_id, "kind": binding["kind"], "state": "retryable",
-                    "request_new_decision": True, "reason": "source_selection_must_complete_before_comparison",
-                    "selection_work_id": binding["selection_work_id"]}
+                    "request_new_decision": True, "reason": reason,
+                    "selection_work_id": binding["selection_work_id"],
+                    "response_validation_feedback": {"reason": reason,
+                        "attempted_action": action_selectors(binding), "source_selection": selection_observation,
+                        "registered_next_actions": next_actions,
+                        "instruction": "The referenced source selection has no completed result. Inspect its current state and prerequisites, or choose its registered selection action when eligible. A pending or failed selection is not completed evidence. The blocked comparison and later actions in this batch were not executed."}}
             if str(selected.get("selected_configuration_id")) != str(target):
+                reason = "comparison_must_use_source_selected_configuration"
+                next_actions = [action_selectors(entry) for entry in bindings if isinstance(entry, Mapping)
+                    and entry.get("work_id") and entry.get("kind") == "analysis"
+                    and entry.get("analysis_operation") == "compare" and entry.get("action_name", "compare") == "compare"
+                    and entry.get("selection_work_id") == binding["selection_work_id"]
+                    and str((entry.get("compared_configuration_ids") or [None, None])[-1])
+                        == str(selected.get("selected_configuration_id"))]
                 return {"action_work_id": work_id, "kind": binding["kind"], "state": "retryable",
-                    "request_new_decision": True, "reason": "comparison_must_use_source_selected_configuration",
+                    "request_new_decision": True, "reason": reason,
                     "selection_work_id": binding["selection_work_id"],
                     "source_selected_configuration_id": selected.get("selected_configuration_id"),
-                    "proposed_comparison_configuration_id": target}
+                    "proposed_comparison_configuration_id": target,
+                    "response_validation_feedback": {"reason": reason,
+                        "attempted_action": action_selectors(binding), "source_selection": selection_observation,
+                        "proposed_comparison_configuration_id": target, "registered_next_actions": next_actions,
+                        "instruction": "The referenced source selection is already completed. This comparison targets a different configuration from that saved result. Repeating the same completed selection returns its cached original result, not new evidence. Choose a matching registered comparison below, or inspect the source evidence if none is available. The blocked comparison and later actions in this batch were not executed."}}
         self.ledger.register_action(self.campaign_id, work_id, binding, parent_id=str(episode["work_id"]))
         if defer_gpu and binding["kind"] in {"fit", "infer"}:
             return {"action_work_id": work_id, "kind": binding["kind"], "state": "retryable",
