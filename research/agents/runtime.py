@@ -608,6 +608,15 @@ def collect_agent_metrics(workspace, config, processes=None):
     if not successful:
         raise ValueError('Numeric completion requires an actual successful managed-process receipt. File writes and model summaries alone are not experimental execution. Run and inspect the real computation before finishing.')
     metrics_path = safe_path(workspace, metrics_file, True)
+    from .processes import file_hash
+    metrics_sha = file_hash(metrics_path)
+    original_artifacts = [artifact for process in successful for artifact in process.get('artifacts', [])
+                          if artifact.get('relative_path') == metrics_file and artifact.get('sha256') == metrics_sha]
+    bound_processes = [process for process in successful if any(
+        artifact.get('relative_path') == metrics_file and artifact.get('sha256') == metrics_sha
+        for artifact in process.get('artifacts', []))]
+    if not bound_processes:
+        raise ValueError('Numeric completion requires an actual successful managed-process receipt bound to this metrics file and its original artifact hash. An unrelated command or an edited measurement cannot establish execution.')
     metrics = json.loads(metrics_path.read_text())
     if not isinstance(metrics, dict):
         raise ValueError('Agent metrics_file must contain a JSON object')
@@ -618,7 +627,8 @@ def collect_agent_metrics(workspace, config, processes=None):
     if missing:
         raise ValueError('The actual metrics file is missing required fields: '+', '.join(missing)+'. Update and execute the computation, then read the resulting file before finishing.')
     return {'observed_metrics': metrics, 'metrics_file': metrics_file,
-            'metrics_evidence': {'label': 'FILE_OBSERVATION', 'successful_process_ids': [process['process_id'] for process in successful],
+            'metrics_evidence': {'label': 'FILE_OBSERVATION', 'successful_process_ids': [process['process_id'] for process in bound_processes],
+                                 'metrics_sha256': metrics_sha, 'original_artifacts': original_artifacts,
                                  'scientific_validity': 'Requires source, method, data and independent-result validation; process success alone does not establish scientific validity.'}}
 
 
@@ -891,12 +901,12 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                                           metrics_file=config.get('metrics_file'))})
         decision = recovery_decision(state['lifecycle'], context)
         state['lifecycle']['recovery'] = decision['recovery']
-        if decision['action'] == 'execute_alternative':
-            from .research_path import enqueue_recovery_alternatives
-            with Session.begin() as s:
-                live = get(s, TaskRun, run_id)
-                project = get(s, Project, live.project_id)
-                decision['run_ids'] = [row.id for row in enqueue_recovery_alternatives(s, project, context, source_run_id=run_id)]
+        # Alternate admission follows the executor's durable yield receipt.
+        # While this run is still running its time reservation is legitimately
+        # held; trying to admit here would mistake that reservation for actual
+        # exhaustion. The worker settles elapsed time, then admits this intent.
+        handoff = {'context': deepcopy(context), 'decision': deepcopy(decision),
+                   'checkpoint_state_key': context['state_key']} if decision['action'] == 'execute_alternative' else None
         state['lifecycle'].setdefault('decisions', []).append({
             'at_step': len(state['transcript']), 'trigger': deepcopy(trigger),
             'action': decision['action'], 'reason': decision['reason'],
@@ -907,12 +917,20 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             state['lifecycle']['state'] = 'blocked'
             state['lifecycle']['round_state'] = 'paused'
             state['lifecycle']['research_state'] = 'active' if decision['action'] == 'execute_alternative' else 'blocked'
-            state.update(status='waiting_input', pending_action=None)
+            state.update(status='waiting_input', pending_action=None,
+                         wait_for={'type': 'graph_recovery_handoff', 'selected_node_ids': context['alternative_ready_node_ids']}
+                             if handoff else None)
+            state['pending_graph_recovery'] = deepcopy(handoff)
             refresh_snapshot(trigger); save()
             with Session.begin() as s:
                 live = get(s, TaskRun, run_id)
+                from services.worker.scheduler import _lock_project
+                _lock_project(s, live.project_id)
+                live = get(s, TaskRun, run_id, for_update=True)
                 live.resource = {**live.resource, 'blocked_reason': 'research_route_replan',
                                  'route_alert': {'kind': trigger.get('category'), 'decision': decision}}
+                if handoff:
+                    live.resource = {**live.resource, 'pending_graph_recovery': handoff}
             raise AgentYield(status='waiting_input', reason=decision['reason'])
         state['lifecycle']['state'] = 'diagnosing'
         state['messages'].append({'role': 'user', 'content':
@@ -948,6 +966,25 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
     state['lifecycle'].setdefault('progress_fingerprint', digest(progress_facts(
         state, required_outputs(config), tool.processes.all(), state['research_recovery_context'],
         metrics_file=config.get('metrics_file'))))
+    if (state.get('wait_for') or {}).get('type') == 'graph_recovery_handoff':
+        # A crash between scientific intent and executor receipt must not turn
+        # the handoff into another model request or a process launch.
+        committed_handoff = None
+        with Session.begin() as s:
+            live = get(s, TaskRun, run_id)
+            from services.worker.scheduler import _lock_project
+            _lock_project(s, live.project_id)
+            live = get(s, TaskRun, run_id, for_update=True)
+            receipt = live.resource.get('graph_recovery_handoff') or {}
+            expected_key = (state.get('pending_graph_recovery') or {}).get('checkpoint_state_key')
+            if expected_key and receipt.get('checkpoint_state_key') == expected_key:
+                committed_handoff = deepcopy(receipt)
+            elif state.get('pending_graph_recovery') and not live.resource.get('pending_graph_recovery'):
+                live.resource = {**live.resource, 'pending_graph_recovery': deepcopy(state['pending_graph_recovery'])}
+        if committed_handoff is None:
+            raise AgentYield(status='waiting_input', reason='Saved Graph recovery handoff awaits settled executor admission')
+        state.update(pending_graph_recovery=None, wait_for=None, graph_recovery_handoff=committed_handoff)
+        save()
     if state.get('wait_for'):
         process = tool.processes.inspect(state['wait_for']['process_id'])
         if process['status'] not in TERMINAL:

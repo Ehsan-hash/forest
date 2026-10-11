@@ -75,7 +75,8 @@ def reservation_for(run):
     # A different worker must not release this slot between executor exit and
     # the owner's committed terminal/recovery transition. Never-started paused
     # nodes have no allocation; their detached work, if any, is checked above.
-    committed=run.status in ('running','pausing') or (run.status=='paused' and run.pid is not None)
+    committed=(run.status in ('running','pausing') or (run.status=='paused' and run.pid is not None)
+        or bool((run.resource or {}).get('graph_recovery_compute_hold')))
     if not committed and not executor_live and not managed and not container_active: return None
     request['memory_bytes']=max(request['memory_bytes'],int(run.resource.get('rss_bytes') or 0),sum(int(item.get('rss_bytes') or 0) for item in managed))
     if run.config.get('execution_backend')!='container': request['cpu']=max(request['cpu'],len(managed))
@@ -221,6 +222,102 @@ def _checkpoint_recovery_config(run, output):
         'checkpoint_step': len(checkpoint['transcript']),
     }}
     return config
+
+
+def _admit_graph_recovery_handoff(session, run, output):
+    """Consume a durable route intent only after the source receipt has settled.
+
+    The caller holds project -> run locks. A live or uncertain detached job
+    keeps its time/capacity reservation and must never release compute for a
+    competing alternate merely because the Agent executor yielded.
+    """
+    pending=(run.resource or {}).get('pending_graph_recovery')
+    if run.status!='waiting_input' or not isinstance(pending,dict): return
+    manager=process_manager(Path(output)/'workspace',run.config)
+    try: jobs=manager.all()
+    except (OSError,ValueError,RuntimeError) as exc:
+        jobs=[{'status':'reconciliation','error':str(exc)}]
+    unfinished=[job for job in jobs if job.get('status') not in ('completed','failed','cancelled')]
+    resource=dict(run.resource or {})
+    if unfinished:
+        started=resource.get('waiting_started_at') or time.time()
+        before=float(resource.get('elapsed_before_wait',resource.get('elapsed_seconds',0)))
+        total=before+max(0,time.time()-float(started))
+        resource.update(waiting_started_at=started,elapsed_before_wait=before,
+            elapsed_seconds=total,graph_recovery_compute_hold=True)
+        if run.config.get('timeout') is not None and total>=float(run.config['timeout']):
+            manager.cancel_all()
+            resource.update(blocked_reason='time_budget_exhausted')
+            run.error='Task time budget exhausted while reconciling its original recovery jobs'
+        elif any(job.get('status') in ('lost','reconciliation') for job in unfinished):
+            resource.update(blocked_reason='execution_reconciliation')
+            run.error='Original recovery jobs require receipt reconciliation before admitting another path'
+        run.resource=resource
+        return
+    if resource.get('waiting_started_at') is not None:
+        resource['elapsed_seconds']=float(resource.get('elapsed_before_wait',resource.get('elapsed_seconds',0)))+max(
+            0,time.time()-float(resource['waiting_started_at']))
+    resource.pop('waiting_started_at',None); resource.pop('elapsed_before_wait',None)
+    resource.pop('graph_recovery_compute_hold',None)
+    run.resource=resource
+    from research.agents.research_path import enqueue_recovery_alternatives
+    context=pending.get('context') or {}
+    decision=dict(pending.get('decision') or {})
+    try:
+        with session.begin_nested():
+            rows=enqueue_recovery_alternatives(session,session.get(Project,run.project_id),context,source_run_id=run.id)
+        decision.update(run_ids=[row.id for row in rows],handoff_status='admitted' if rows else 'superseded')
+    except Exception as exc:
+        detail=getattr(exc,'detail',{})
+        code=detail.get('code') if isinstance(detail,dict) else None
+        decision.update(handoff_status='blocked',admission_error=detail or str(exc))
+        resource={**run.resource,'blocked_reason':'time_budget_exhausted' if code=='TIME_BUDGET_EXHAUSTED' else 'research_route_replan'}
+        run.error=detail.get('message',str(exc)) if isinstance(detail,dict) else str(exc)
+        previous=resource.get('graph_recovery_admission_error') or {}
+        identity=hashlib.sha256(json.dumps({'state':pending.get('checkpoint_state_key'),
+            'error':str(exc)},sort_keys=True).encode()).hexdigest()
+        failures=int(previous.get('failures',0))+1 if previous.get('identity')==identity else 1
+        resource['graph_recovery_admission_error']={'identity':identity,'failures':failures,'error':str(exc)}
+        if not code and failures<2:
+            run.resource={**resource,'pending_graph_recovery':pending}
+            return  # One idempotent retry; recurring admission faults pause.
+        run.resource=resource
+    resource=dict(run.resource or {})
+    resource.pop('pending_graph_recovery',None)
+    resource['graph_recovery_handoff']={'checkpoint_state_key':pending.get('checkpoint_state_key'),**decision}
+    alert=dict(resource.get('route_alert') or {}); alert['decision']=decision
+    resource['route_alert']=alert
+    run.resource=resource
+    emit(session,run.project_id,'research_recovery_handoff',{'run_id':run.id,
+        'checkpoint_state_key':pending.get('checkpoint_state_key'),**decision})
+
+
+def _sync_committed_graph_handoff(run, output):
+    # The archived checkpoint remains the original intent. Only the editable
+    # current scientific checkpoint advances to the admitted graph operation;
+    # the independent usage ledger is never rewritten. This function consumes
+    # an ALREADY committed DB receipt on the next tick, so rollback of admission
+    # cannot leave the scientific checkpoint claiming nonexistent queued jobs.
+    receipt=(run.resource or {}).get('graph_recovery_handoff')
+    if not receipt or run.status!='waiting_input': return
+    if run.pid and process_matches(run.pid,run.process_created): return
+    checkpoint_path=Path(output)/'workspace'/'agent_session.json'
+    try:
+        checkpoint=json.loads(checkpoint_path.read_text())
+        if checkpoint.get('run_id')==run.id:
+            checkpoint['pending_graph_recovery']=None
+            if (checkpoint.get('wait_for') or {}).get('type')=='graph_recovery_handoff':
+                checkpoint['wait_for']=None
+            checkpoint['graph_recovery_handoff']=receipt
+            execution=(checkpoint.get('execution_snapshot') or {}).get('execution')
+            if isinstance(execution,dict):
+                execution['next_operation']={'type':'await_graph_alternatives',
+                    'run_ids':receipt.get('run_ids',[]),'handoff_status':receipt.get('handoff_status')}
+            from research.agents.processes import atomic_json
+            atomic_json(checkpoint_path,checkpoint)
+            run.resource={**run.resource,'graph_recovery_checkpoint_synced':receipt.get('checkpoint_state_key')}
+    except (OSError,ValueError,UnicodeError) as exc:
+        run.resource={**run.resource,'graph_recovery_checkpoint_error':str(exc)}
 
 
 def _invalidate_failed_run_dependents(session, project_id, node_id):
@@ -428,6 +525,26 @@ class WorkerLoop:
     def wake_waiting(self):
         """Waiting yields release executor slots; real process completion wakes work."""
         with Session() as s:
+            committed=[asdict(r) for r in s.scalars(select(TaskRun).where(TaskRun.status=='waiting_input'))
+                if (r.resource or {}).get('graph_recovery_handoff') and
+                r.resource.get('graph_recovery_checkpoint_synced')!=r.resource['graph_recovery_handoff'].get('checkpoint_state_key')]
+        for value in committed:
+            with Session.begin() as s:
+                live=_lock_waiting_snapshot(s,value)
+                if live: _sync_committed_graph_handoff(live,safe_path(project_dir(live.project_id),live.output_path))
+        with Session() as s:
+            handoffs=[asdict(r) for r in s.scalars(select(TaskRun).where(TaskRun.status.in_(
+                ('waiting_input','queued','interrupted','failed'))))
+                if (r.resource or {}).get('pending_graph_recovery')]
+        for value in handoffs:
+            if value.get('pid') and process_matches(value['pid'],value.get('process_created')):
+                continue
+            with Session.begin() as s:
+                live=_lock_waiting_snapshot(s,value)
+                if live:
+                    live.status='waiting_input'; live.pid=None; live.process_created=None
+                    _admit_graph_recovery_handoff(s,live,safe_path(project_dir(live.project_id),live.output_path))
+        with Session() as s:
             waiting=[asdict(r) for r in s.scalars(select(TaskRun).where(TaskRun.status.in_(('waiting','budget_exhausted'))))]
         for value in waiting:
             folder=safe_path(project_dir(value['project_id']),value['output_path'])
@@ -618,7 +735,9 @@ class WorkerLoop:
                 r.resource={**r.resource,'attempts':attempts,'elapsed_seconds':before+attempt['elapsed_seconds']}
                 decision=None
                 container_reconnect_pending=False
-                if outcome['status'] in ('interrupted','failed') and not outcome.get('budget_exhausted'):
+                committed_graph_handoff=bool(r.resource.get('pending_graph_recovery') and
+                    outcome['status'] in ('interrupted','failed') and not outcome.get('budget_exhausted'))
+                if outcome['status'] in ('interrupted','failed') and not outcome.get('budget_exhausted') and not committed_graph_handoff:
                     recovery_config=_checkpoint_recovery_config(r,output)
                     decision=recovery_decision(recovery_config,output,kind=r.kind,failed=outcome['status']=='failed')
                     if r.config.get('execution_backend')=='container' and r.kind in ('command','experiment') and (not decision or decision.get('mode')!='checkpoint'):
@@ -634,9 +753,11 @@ class WorkerLoop:
                         r.resource={**r.resource,'container_reconnect_pending_dispatch':True}
                     r.status='paused' if value['status']=='paused' else 'queued'; r.pid=None; r.process_created=None; r.error=outcome.get('error')
                     emit(s,r.project_id,'run_recovery_queued',{'run_id':r.id,'mode':decision['mode'],'attempt':attempt})
-                elif outcome['status'] in ('waiting','waiting_input','budget_exhausted'):
-                    r.status=outcome['status']; r.pid=None; r.process_created=None; r.error=outcome.get('error')
+                elif outcome['status'] in ('waiting','waiting_input','budget_exhausted') or committed_graph_handoff:
+                    r.status='waiting_input' if committed_graph_handoff else outcome['status']
+                    r.pid=None; r.process_created=None; r.error=outcome.get('error')
                     r.resource=_waiting_outcome_resource(r.resource,outcome)
+                    _admit_graph_recovery_handoff(s,r,output)
                     emit(s,r.project_id,'run_waiting',{'run_id':r.id,'status':r.status,'wait_for':outcome.get('wait_for',{})})
                 else:
                     r.status=outcome['status']; r.exit_code=outcome.get('exit_code'); r.error=outcome.get('error'); r.metrics=outcome.get('metrics',{}); r.finished_at=now()

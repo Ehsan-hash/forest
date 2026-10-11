@@ -382,6 +382,10 @@ def test_metric_file_written_by_agent_requires_successful_real_process(tmp_path)
     assert completed(tool.processes, failed['process_id'])['exit_code'] == 2
     with pytest.raises(ValueError, match='actual successful managed-process receipt'):
         collect_agent_metrics(tmp_path, {}, tool.processes)
+    unrelated = tool.processes.start([sys.executable, '-c', 'print("syntax check only")'])
+    assert completed(tool.processes, unrelated['process_id'])['status'] == 'completed'
+    with pytest.raises(ValueError, match='bound to this metrics file'):
+        collect_agent_metrics(tmp_path, {}, tool.processes)
     launched = tool.processes.start([sys.executable, '-c', "import json; from pathlib import Path; Path('metrics.json').write_text(json.dumps({'squared_sum':sum(i*i for i in range(1000))}))"])
     assert completed(tool.processes, launched['process_id'])['status'] == 'completed'
     observed = collect_agent_metrics(tmp_path, {}, tool.processes)
@@ -392,6 +396,9 @@ def test_metric_file_written_by_agent_requires_successful_real_process(tmp_path)
     assert observed['metrics_evidence']['label'] == 'FILE_OBSERVATION'
     assert observed['metrics_evidence']['successful_process_ids'] == [launched['process_id']]
     assert 'does not establish scientific validity' in observed['metrics_evidence']['scientific_validity']
+    tool.dispatch('write_file', {'path': 'metrics.json', 'content': '{"squared_sum": 0}'}, None)
+    with pytest.raises(ValueError, match='bound to this metrics file'):
+        collect_agent_metrics(tmp_path, {}, tool.processes)
 
 
 def test_nonmetric_research_output_does_not_require_process_execution(tmp_path):

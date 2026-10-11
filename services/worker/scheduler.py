@@ -107,7 +107,8 @@ def finalize_cancelled_run_elapsed(run):
             elapsed = max(elapsed, before + max(0.0, (current - started).total_seconds()))
         except (TypeError, ValueError):
             pass
-    elif run.status in ('waiting', 'budget_exhausted') and resource.get('waiting_started_at') is not None:
+    elif (run.status in ('waiting', 'budget_exhausted') or
+            (run.status=='waiting_input' and resource.get('graph_recovery_compute_hold'))) and resource.get('waiting_started_at') is not None:
         try:
             before = max(0.0, float(resource.get('elapsed_before_wait', elapsed) or 0))
             waiting_since = float(resource['waiting_started_at'])
@@ -163,7 +164,8 @@ def _elapsed_seconds_at(run, current=None):
                 elapsed = max(elapsed, before + max(0.0, (current - started).total_seconds()))
             except (TypeError, ValueError):
                 pass
-    elif run.status in ('waiting', 'budget_exhausted') and resource.get('waiting_started_at') is not None:
+    elif (run.status in ('waiting', 'budget_exhausted') or
+            (run.status=='waiting_input' and resource.get('graph_recovery_compute_hold'))) and resource.get('waiting_started_at') is not None:
         try:
             before = max(0.0, float(resource.get('elapsed_before_wait', elapsed) or 0))
             waiting_since = float(resource['waiting_started_at'])
@@ -180,7 +182,8 @@ def _time_budget_reservation_remaining(run, current=None):
     persist that cap under resource.time_budget so callers that later preserve
     the original task timeout can distinguish it from the project reservation.
     """
-    if run.status not in TIME_BUDGET_RESERVED_STATUSES:
+    if (run.status not in TIME_BUDGET_RESERVED_STATUSES and
+            not (run.status=='waiting_input' and (run.resource or {}).get('graph_recovery_compute_hold'))):
         return 0.0
     resource = run.resource or {}
     policy = resource.get('time_budget') or {}
