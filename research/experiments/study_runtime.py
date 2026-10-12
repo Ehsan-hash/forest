@@ -3028,8 +3028,21 @@ class StudyRuntime:
                 prerequisite = inspect_analysis_prerequisites(binding, registered_actions=bindings,
                     study_work_lookup=source_work, supervisor_work_lookup=supervisor_work)
             if prerequisite is not None:
+                # Keep the classifier's full, read-only diagnosis in the action
+                # result and deliver a compact actionable projection as the
+                # next-turn feedback. Without this bridge request_new_decision
+                # is true, but the Agent only sees its original proposal and
+                # cannot tell which registered inference/config to schedule.
+                feedback = {key: prerequisite[key] for key in (
+                    "status", "classification", "next_executable_operations") if key in prerequisite}
+                feedback["instruction"] = (
+                    "Use these registered source-work IDs and configuration references to choose "
+                    "the next eligible action. Schedule only work that is not already running; "
+                    "wait for active work or reconcile uncertain receipts. Then retry the same "
+                    "analysis action after its source receipts are valid.")
                 return {"action_work_id": work_id, "kind": "analysis", "state": "retryable",
-                    "reason": "MISSING_PREREQUISITES", "request_new_decision": True, "result": prerequisite}
+                    "reason": "MISSING_PREREQUISITES", "request_new_decision": True,
+                    "response_validation_feedback": feedback, "result": prerequisite}
         if prior and prior["state"] in {"failed", "cancelled", "budget_exhausted"}:
             return {"action_work_id": work_id, "kind": binding["kind"], "state": prior["state"],
                     "result": _decode_study_result_json(prior["result_json"])}
