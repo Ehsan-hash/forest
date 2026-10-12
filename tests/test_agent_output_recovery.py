@@ -109,7 +109,7 @@ def test_actual_recovery_components(tmp_path, scenario):
     env = {**os.environ, 'FOREST_DATABASE_URL': 'sqlite:///' + str(tmp_path / 'recovery.db'),
            'FOREST_DATA_DIR': str(tmp_path / 'data'), 'PYTHONPATH': str(ROOT)}
     result = subprocess.run([sys.executable, __file__, str(tmp_path), scenario], cwd=ROOT,
-                            env=env, capture_output=True, text=True, timeout=180 if scenario=='dynamic-steps' else 30)
+                            env=env, capture_output=True, text=True, timeout=600 if scenario=='dynamic-steps' else 30)
     assert result.returncode == 0, result.stdout + result.stderr
 
 

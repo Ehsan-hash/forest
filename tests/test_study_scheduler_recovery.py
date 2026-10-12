@@ -48,10 +48,13 @@ def controller_fixture_runtime(root, arm='FULL', revised=True, delay=0):
     from test_end_to_end_runtime import fixture_runtime, _frontier, _complete_fixture_fit, _complete_fixture_score
     root.mkdir(parents=True, exist_ok=True)
     runtime, payload = fixture_runtime(root)
+    upstream = Path(os.environ.get('FOREST_AIDE_UPSTREAM', str(root / 'executors' / 'aide_upstream')))
+    if arm == 'AIDE' and not (upstream / 'aide' / 'agent.py').is_file():
+        pytest.skip('Actual official AIDE clone not available; set FOREST_AIDE_UPSTREAM')
     payload.update(arm=arm, controller_restart={'required': True,
         'milestone': 'after_c1_checkpoint_before_confirmation'},
         nonformal_controller_fixture_root=str(root), nonformal_controller_delay=delay,
-        aide_upstream_root='/home/space/FOREST_Paper_Compact_v2/campaigns/forest-paper-compact-v2-20261010/executors/aide_upstream',
+        aide_upstream_root=str(upstream),
         aide_search={'num_drafts': 1, 'debug_prob': 0.0, 'max_debug_depth': 3})
     manifest = runtime.manifest
     manifest.update(nonformal_fixture=True, model_provider=NonformalClient([]).provider, manifest_version=2)
