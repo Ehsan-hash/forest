@@ -239,6 +239,9 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
                 ("active-dispatch", runtime.campaign_id, "scheduler", "current-session", "owner", "model", "running", time.time()))
             db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at) VALUES(?,?,?,?,?,?)",
                 ("pending-request", runtime.campaign_id, "ready-work", "{}", "requested", time.time()))
+            db.execute("CREATE TABLE forest_study_aide_sessions(campaign_id TEXT,work_id TEXT,state_json TEXT,updated_at REAL,PRIMARY KEY(campaign_id,work_id))")
+            db.execute("INSERT INTO forest_study_aide_sessions VALUES(?,?,?,?)",
+                (runtime.campaign_id, "ready-work", json.dumps({"history": "x" * 100_000}), time.time()))
             plans = {
                 "work": db.execute("EXPLAIN QUERY PLAN SELECT work_id,kind,state FROM forest_study_work "
                     "WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id",
@@ -248,6 +251,12 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
                     (runtime.campaign_id,)).fetchall(),
                 "unresolved_refs": db.execute("EXPLAIN QUERY PLAN SELECT work_id,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_unresolved_refs "
                     "WHERE campaign_id=? AND state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted')",
+                    (runtime.campaign_id,)).fetchall(),
+                "pending_parent": db.execute("EXPLAIN QUERY PLAN SELECT work_id,decision_json,updated_at FROM forest_study_work INDEXED BY forest_study_work_pending_parent_state "
+                    "WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')",
+                    (runtime.campaign_id,)).fetchall(),
+                "pending_compute": db.execute("EXPLAIN QUERY PLAN SELECT work_id,kind,supervisor_work_id,payload_json FROM forest_study_work INDEXED BY forest_study_work_pending_compute_refs "
+                    "WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')",
                     (runtime.campaign_id,)).fetchall(),
                 "dispatch": db.execute("EXPLAIN QUERY PLAN SELECT dispatch_id FROM forest_study_dispatches "
                     "WHERE campaign_id=? AND session_id<>? AND state IN ('claiming','accepted','running')",
@@ -260,6 +269,16 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
             str(row[3]) for row in plans["ready_refs"])
         assert "COVERING INDEX forest_study_work_live_unresolved_refs" in " ".join(
             str(row[3]) for row in plans["unresolved_refs"])
+        assert "COVERING INDEX forest_study_work_pending_parent_state" in " ".join(
+            str(row[3]) for row in plans["pending_parent"])
+        assert "forest_study_work_pending_compute_refs" in " ".join(
+            str(row[3]) for row in plans["pending_compute"])
+        service._wake_reconciled_parents()
+        with runtime.ledger.connect() as db:
+            aide_plan = db.execute("EXPLAIN QUERY PLAN SELECT work_id,updated_at FROM forest_study_aide_sessions INDEXED BY forest_study_aide_session_live_updated WHERE campaign_id=?",
+                (runtime.campaign_id,)).fetchall()
+        assert "COVERING INDEX forest_study_aide_session_live_updated" in " ".join(
+            str(row[3]) for row in aide_plan)
         assert "forest_study_dispatch_live_session" in " ".join(str(row[3]) for row in plans["dispatch"])
         assert "forest_study_model_call_unsettled" in " ".join(str(row[3]) for row in plans["model_call"])
     finally:

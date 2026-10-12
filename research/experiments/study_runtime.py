@@ -76,6 +76,12 @@ CREATE INDEX IF NOT EXISTS forest_study_work_live_ready_refs
 CREATE INDEX IF NOT EXISTS forest_study_work_live_unresolved_refs
   ON forest_study_work(campaign_id,state,work_id,supervisor_work_id)
   WHERE state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted');
+CREATE INDEX IF NOT EXISTS forest_study_work_pending_parent_state
+  ON forest_study_work(campaign_id,state,kind,work_id,decision_json,updated_at)
+  WHERE state='awaiting_reconciliation' AND kind IN ('episode','replay');
+CREATE INDEX IF NOT EXISTS forest_study_work_pending_compute_refs
+  ON forest_study_work(campaign_id,state,kind,work_id,supervisor_work_id)
+  WHERE state='awaiting_reconciliation' AND kind IN ('fit','infer');
 CREATE INDEX IF NOT EXISTS forest_study_model_call_unsettled
   ON forest_study_model_calls(campaign_id,work_id)
   WHERE status='requested';

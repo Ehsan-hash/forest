@@ -439,6 +439,7 @@ class StudyScheduler:
         self._parent_reconciliation_cache = {}
         self._provider_manifest_identity = object()
         self._provider_profiles_by_work = {}
+        self._aide_session_index_ready = False
         self._refresh_provider_profiles()
         self._executors = {'model': ThreadPoolExecutor(max_workers=self.maximum, thread_name_prefix='forest-model'),
             'gpu': ThreadPoolExecutor(max_workers=1, thread_name_prefix='forest-gpu'),
@@ -716,7 +717,7 @@ class StudyScheduler:
         from .gpu_supervisor import ComputeSupervisor
         active = {entry['item']['work_id'] for entry in self._futures.values()}
         with self.ledger.connect() as db:
-            rows = [dict(row) for row in db.execute("SELECT work_id,kind,supervisor_work_id,payload_json FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')", (self.campaign_id,))]
+            rows = [dict(row) for row in db.execute("SELECT work_id,kind,supervisor_work_id,payload_json FROM forest_study_work INDEXED BY forest_study_work_pending_compute_refs WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('fit','infer')", (self.campaign_id,))]
             attempts = {row['logical_work_id']: dict(row) for row in db.execute(
                 'SELECT logical_work_id,supervisor_work_id,output_directory FROM forest_study_fit_attempts WHERE campaign_id=? ORDER BY attempt_number', (self.campaign_id,))}
             physical_ids = sorted({row['supervisor_work_id'] or row['work_id'] for row in rows})
@@ -826,11 +827,18 @@ class StudyScheduler:
         """Resume a durable pending decision only after all its children settle."""
         active = {entry['item']['work_id'] for entry in self._futures.values()}
         with self.ledger.connect() as db:
-            rows = db.execute("SELECT work_id,decision_json,updated_at FROM forest_study_work WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
+            rows = db.execute("SELECT work_id,decision_json,updated_at FROM forest_study_work INDEXED BY forest_study_work_pending_parent_state WHERE campaign_id=? AND state='awaiting_reconciliation' AND kind IN ('episode','replay')", (self.campaign_id,)).fetchall()
             session_table = db.execute("SELECT 1 FROM sqlite_master WHERE name='forest_study_aide_sessions'").fetchone()
-            sessions = {row['work_id']: row['updated_at'] for row in db.execute(
-                'SELECT work_id,updated_at FROM forest_study_aide_sessions WHERE campaign_id=?',
-                (self.campaign_id,))} if session_table else {}
+            sessions = {}
+            if session_table:
+                if not self._aide_session_index_ready:
+                    db.execute("CREATE INDEX IF NOT EXISTS forest_study_aide_session_live_updated "
+                        "ON forest_study_aide_sessions(campaign_id,work_id,updated_at)")
+                    self._aide_session_index_ready = True
+                sessions = {row['work_id']: row['updated_at'] for row in db.execute(
+                    'SELECT work_id,updated_at FROM forest_study_aide_sessions '
+                    'INDEXED BY forest_study_aide_session_live_updated WHERE campaign_id=?',
+                    (self.campaign_id,))}
             states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
             edges = db.execute("SELECT source_id,target_id FROM forest_study_edges WHERE campaign_id=? AND relation='derived_from'", (self.campaign_id,)).fetchall()
             awakened = []
