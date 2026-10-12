@@ -432,6 +432,7 @@ class StudyScheduler:
         self._closed = False
         self._futures = {}
         self._wave = None
+        self._unsettled_headroom_active = False
         self._observed_samples = []
         self._tested_degrees = set()
         self._pending_decisions = []
@@ -1279,7 +1280,8 @@ class StudyScheduler:
         occupancy = {lane: sum(entry['lane'] == lane for entry in self._futures.values()) for lane in self._executors}
         # Unknown legacy/provider subprocesses may survive coordinator death.
         # Reattached OS controllers already own a future and are excluded.
-        occupancy['model'] += len(self._unsettled_model_owners())
+        unsettled_models = self._unsettled_model_owners()
+        occupancy['model'] += len(unsettled_models)
         ready = {'gpu': self._ready_ids(GPU_KINDS, compute), 'cpu': self._ready_ids(CPU_KINDS, compute), 'model': self._ready_ids(MODEL_KINDS, compute)}
         for lane,ids in ready.items():
             self._observe_ready(lane, ids)
@@ -1289,7 +1291,26 @@ class StudyScheduler:
             ids = ready['gpu']
             if ids:
                 self._dispatch('gpu', ids)
-        for lane,kinds,capacity in [('cpu', CPU_KINDS, self.cpu_degree), ('model', MODEL_KINDS, self.degree)]:
+        measured_headroom = max((int(sample['degree']) for sample in self._observed_samples
+            if isinstance(sample, Mapping) and isinstance(sample.get('degree'), int)
+            and not isinstance(sample.get('degree'), bool)), default=self.degree)
+        model_capacity = self.degree
+        if ready['model'] and unsettled_models and measured_headroom > self.degree:
+            # Keep an unresolved request reserved while using only separately
+            # measured model capacity for independent ready work.
+            model_capacity = min(self.maximum, measured_headroom,
+                max(self.degree, occupancy['model'] + 1))
+        headroom_active = model_capacity > self.degree
+        if headroom_active and not self._unsettled_headroom_active:
+            self._decision({'type': 'unsettled_model_capacity_headroom',
+                'unsettled_model_work_ids': unsettled_models,
+                'measured_model_concurrency': self.degree,
+                'effective_model_capacity': model_capacity,
+                'verified_capacity_ceiling': measured_headroom,
+                'configured_capacity_ceiling': self.maximum,
+                'reason': 'Keep independent ready work moving while an original model request remains unresolved'})
+        self._unsettled_headroom_active = headroom_active
+        for lane,kinds,capacity in [('cpu', CPU_KINDS, self.cpu_degree), ('model', MODEL_KINDS, model_capacity)]:
             available = capacity - occupancy[lane]
             wave_dispatches = []
             for _ in range(available):

@@ -306,6 +306,41 @@ def test_unresolved_external_request_does_not_downrate_pilot_concurrency(tmp_pat
         service.close()
 
 
+def test_unresolved_request_uses_already_measured_spare_model_capacity(tmp_path):
+    runtime = ChildRuntime(tmp_path, [
+        {'work_id': 'unresolved-owner', 'kind': 'episode', 'context': 'uncertain', 'seconds': .01},
+        {'work_id': 'independent-ready-work', 'kind': 'episode', 'context': 'continue', 'seconds': .05},
+    ])
+    runtime.ledger.set_state(runtime.campaign_id, 'unresolved-owner', 'awaiting_reconciliation')
+    with runtime.ledger.connect() as db:
+        db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)',
+            ('unresolved-request', runtime.campaign_id, 'unresolved-owner',
+             json.dumps({'model': 'infrastructure-child'}), 'requested', 1., 1.))
+
+    service = scheduler(runtime, maximum_model_concurrency=2, model_concurrency=1)
+    service._observed_samples = [
+        {'degree': 1, 'calls_per_second': .4, 'p95_seconds': 2.5},
+        {'degree': 2, 'calls_per_second': .35, 'p95_seconds': 2.8},
+    ]
+    service._tested_degrees = {1, 2}
+    try:
+        run_until(service, lambda: next(row for row in rows(runtime)
+            if row['work_id'] == 'independent-ready-work')['state'] == 'completed')
+        assert service.degree == 1
+        with runtime.ledger.connect() as db:
+            assert db.execute("SELECT status FROM forest_study_model_calls WHERE request_id='unresolved-request'").fetchone()[0] == 'requested'
+            decisions = [json.loads(row[0]) for row in db.execute(
+                'SELECT decision_json FROM forest_study_scheduler_decisions WHERE campaign_id=?',
+                (runtime.campaign_id,))]
+        headroom = next(row for row in decisions if row['type'] == 'unsettled_model_capacity_headroom')
+        assert headroom['unsettled_model_work_ids'] == ['unresolved-owner']
+        assert headroom['measured_model_concurrency'] == 1
+        assert headroom['effective_model_capacity'] == 2
+        assert headroom['verified_capacity_ceiling'] == 2
+    finally:
+        service.close()
+
+
 def test_exhausted_cell_is_terminal_for_scheduler(tmp_path):
     runtime = ChildRuntime(tmp_path, [{'work_id': 'exhausted', 'kind': 'episode', 'context': 'own'}])
     runtime.ledger.set_state(runtime.campaign_id, 'exhausted', 'budget_exhausted')
