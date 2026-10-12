@@ -6,6 +6,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import threading
 from types import SimpleNamespace
 import uuid
 
@@ -73,6 +74,10 @@ class ChildRuntime:
             with self.ledger.connect() as db:
                 db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)',
                     (request_id, self.campaign_id, work_id, json.dumps({'work_id': work_id, 'model': 'infrastructure-child', 'context': payload['context']}), 'requested', started, started))
+        barrier = getattr(self, 'request_barriers', {}).get(work_id)
+        if barrier is not None:
+            # Both actual request records exist before either child can finish.
+            barrier.wait(timeout=5)
         output = self.campaign / (work_id + '.json')
         subprocess.run([sys.executable, '-c', CHILD, str(output), str(payload.get('seconds', .15)), work_id, payload.get('context', work_id)],
             check=True, timeout=client.timeout if client is not None else 5)
@@ -389,6 +394,8 @@ def test_compute_wall_policy_does_not_limit_model_controller_or_request(tmp_path
 def test_live_wave_measures_authorized_next_degree_and_persists_choice(tmp_path):
     runtime = ChildRuntime(tmp_path, [
         {'work_id': f'episode-{i}', 'kind': 'episode', 'context': str(i), 'seconds': .15} for i in range(5)])
+    barrier = threading.Barrier(2)
+    runtime.request_barriers = {'episode-1': barrier, 'episode-2': barrier}
     service = scheduler(runtime, maximum_model_concurrency=2)
     try:
         run_until(service, lambda: all(row['state']=='completed' for row in rows(runtime)))
