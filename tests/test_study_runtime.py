@@ -1960,7 +1960,8 @@ def test_cli_leaves_mixed_campaign_provider_resolution_to_each_work_item(tmp_pat
     assert runtime._model_provider_spec(document["execution_state"]["work_items"][0]) == document["execution_state"]["work_items"][0]["model_provider"]
 
 
-def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_path, monkeypatch):
+@pytest.mark.parametrize("completion_reference", ["embedded", "recorded_path", "foreign_path"])
+def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_path, monkeypatch, completion_reference):
     from research.experiments.study_runtime import _verify_required_controller_restart
     campaign = tmp_path / "campaign"
     campaign.mkdir()
@@ -1980,6 +1981,26 @@ def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_pa
     publication = {"checkpoint": checkpoint, "policy": policy, "request_id": "request",
         "dispatch_id": "dispatch-a", "worker": {"pid": 101, "process_created": 1.0}}
     checkpoint_path.write_text(json.dumps(publication), encoding="utf-8")
+    completion = {"status": "completed", "exit_code": 0, "work_id": "dispatch-a",
+        "launch_id": "launch-a", "configuration_version": "config-a",
+        "host_pid": 303, "host_created": 3.0}
+    previous_exit = {"status": "completed", "pid": 101, "process_created": 1.0,
+        "work_id": "dispatch-a", "launch_id": "launch-a", "configuration_version": "config-a",
+        "host_pid": 303, "host_created": 3.0, "artifacts": [artifact]}
+    if completion_reference == "embedded":
+        completion_value = completion
+    else:
+        folder = campaign / ".forest-study-controllers" / "dispatch-a"
+        completion_path = folder / "processes" / "dispatch-a" / "completion.json"
+        completion_path.parent.mkdir(parents=True)
+        completion_path.write_text(json.dumps(completion), encoding="utf-8")
+        with runtime.ledger.connect() as db:
+            db.execute("""CREATE TABLE forest_study_controller_processes (
+                dispatch_id TEXT, campaign_id TEXT, work_id TEXT, folder TEXT)""")
+            db.execute("INSERT INTO forest_study_controller_processes VALUES(?,?,?,?)",
+                ("dispatch-a", runtime.campaign_id, "restart-cell", str(folder)))
+        completion_value = str(completion_path if completion_reference == "recorded_path"
+            else campaign / "unrelated-completion.json")
     monkeypatch.setattr("research.agents.processes.artifact_matches", lambda *_args: True)
     with runtime.ledger.connect() as db:
         db.execute("""CREATE TABLE forest_study_controller_restarts (
@@ -1989,8 +2010,7 @@ def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_pa
             resume_process_created REAL, receipt_json TEXT, requested_at REAL,
             resumed_at REAL, PRIMARY KEY(campaign_id, work_id))""")
         receipt = {"milestone": policy["milestone"], "previous_exit": {
-            "status": "completed", "pid": 101, "process_created": 1.0,
-            "completion_receipt": {"exit_code": 0}, "artifacts": [artifact]},
+            **previous_exit, "completion_receipt": completion_value},
             "previous_worker": {"pid": 101, "process_created": 1.0},
             "resumed_worker": {"pid": 202, "process_created": 2.0},
             "checkpoint_reloaded": True,
@@ -2002,8 +2022,12 @@ def test_required_controller_restart_final_gate_checks_the_source_receipt(tmp_pa
             (runtime.campaign_id, "restart-cell", "request", json.dumps(policy), "resumed", json.dumps(checkpoint),
              "dispatch-a", 101, 1.0, "dispatch-b", 202, 2.0, json.dumps(receipt), 1.0, 2.0))
     checked = _verify_required_controller_restart(runtime, episode, valid_result)
-    assert checked["valid"] is True
-    assert checked["controller_restart"]["previous_worker"]["pid"] != checked["controller_restart"]["resumed_worker"]["pid"]
+    if completion_reference == "foreign_path":
+        assert checked["valid"] is False
+        assert checked["reason"] == "required_controller_restart_receipt_failed_source_validation"
+    else:
+        assert checked["valid"] is True
+        assert checked["controller_restart"]["previous_worker"]["pid"] != checked["controller_restart"]["resumed_worker"]["pid"]
 
 
 def test_aide_verified_metrics_accepts_actual_common_rescore_artifact_shape(tmp_path):

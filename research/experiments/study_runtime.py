@@ -4173,6 +4173,22 @@ def _verify_required_controller_restart(runtime: Any, episode: Mapping[str, Any]
     previous_identity = previous_exit.get("identity") if isinstance(previous_exit, Mapping) else None
     if isinstance(previous_exit, Mapping):
         completion = completion or previous_exit.get("completion_receipt")
+        if isinstance(completion, str):
+            # ManagedProcesses publishes the terminal receipt as a path. Resolve
+            # it only through the persisted source dispatch record, then read the
+            # exact completion.json belonging to that original worker.
+            dispatch_id = str(row["request_dispatch_id"])
+            with runtime.ledger.connect() as db:
+                process = db.execute("SELECT folder FROM forest_study_controller_processes "
+                    "WHERE campaign_id=? AND work_id=? AND dispatch_id=?",
+                    (runtime.campaign_id, str(episode.get("work_id", "")), dispatch_id)).fetchone()
+            if process is not None:
+                expected_completion = Path(str(process["folder"])) / "processes" / dispatch_id / "completion.json"
+                try:
+                    if Path(completion).resolve(strict=True) == expected_completion.resolve(strict=True):
+                        completion = _read_json(expected_completion)
+                except (OSError, RuntimeError, ValueError, TypeError):
+                    completion = None
         previous_identity = previous_identity or previous_exit
     def process_key(value):
         if not isinstance(value, Mapping):
@@ -4219,6 +4235,12 @@ def _verify_required_controller_restart(runtime: Any, episode: Mapping[str, Any]
         and isinstance(previous_exit, Mapping)
         and str(previous_exit.get("status", "")).lower() == "completed"
         and isinstance(completion, Mapping) and completion.get("exit_code") == 0
+        and str(completion.get("status", "")).lower() == "completed"
+        and str(completion.get("work_id", "")) == str(row["request_dispatch_id"])
+        and completion.get("launch_id") == previous_exit.get("launch_id")
+        and completion.get("configuration_version") == previous_exit.get("configuration_version")
+        and completion.get("host_pid") == previous_exit.get("host_pid")
+        and completion.get("host_created") == previous_exit.get("host_created")
         and isinstance(previous_identity, Mapping)
         and same_worker(previous_identity, row["request_pid"], row["request_process_created"])
         and same_worker(previous_worker, row["request_pid"], row["request_process_created"])
