@@ -33,7 +33,8 @@ import uuid
 
 from research.agents.processes import ManagedProcesses, artifact_matches, atomic_json, is_alive
 from .study_runtime import (BLOCKING_RELATIONS, SETTLEMENT_RELATIONS, StudyLedger, StudyRuntime,
-    _decode_study_result_json, _expand_action_history_frontiers, load_saved_codex_client)
+    _decode_study_result_json, _expand_action_history_frontiers, _manifest_work_items,
+    load_saved_codex_client)
 
 
 MODEL_KINDS = ('episode', 'replay', 'calibration_decision')
@@ -436,6 +437,9 @@ class StudyScheduler:
         self._pending_decisions = []
         self._reconciliation_seen = {}
         self._parent_reconciliation_cache = {}
+        self._provider_manifest_identity = object()
+        self._provider_profiles_by_work = {}
+        self._refresh_provider_profiles()
         self._executors = {'model': ThreadPoolExecutor(max_workers=self.maximum, thread_name_prefix='forest-model'),
             'gpu': ThreadPoolExecutor(max_workers=1, thread_name_prefix='forest-gpu'),
             'cpu': ThreadPoolExecutor(max_workers=self.cpu_degree, thread_name_prefix='forest-audit')}
@@ -447,6 +451,20 @@ class StudyScheduler:
                     "ON forest_compute_work(state,work_id) "
                     "WHERE state NOT IN ('completed','failed','cancelled','budget_exhausted')")
         self._read_pilot()
+
+    def _refresh_provider_profiles(self):
+        """Index per-work provider metadata from the already loaded manifest."""
+        identity = getattr(self.runtime, '_manifest_identity', None)
+        if identity == self._provider_manifest_identity:
+            return
+        profiles = {}
+        for item in _manifest_work_items(self.runtime.manifest):
+            work_id = str(item.get('work_id') or item.get('cell_id') or item.get('id') or '')
+            profile = item.get('model_provider')
+            if work_id and isinstance(profile, Mapping):
+                profiles[work_id] = dict(profile)
+        self._provider_profiles_by_work = profiles
+        self._provider_manifest_identity = identity
 
     def _configuration(self):
         return {'version': 1, 'maximum_model_concurrency': self.maximum,
@@ -893,10 +911,7 @@ class StudyScheduler:
                         if edge['source_id'] == row['work_id'] and edge['relation'] == 'derived_from']
                     if any(states.get(child) not in TERMINAL for child in children):
                         continue
-                provider_json = db.execute(
-                    "SELECT json_extract(payload_json,'$.model_provider') FROM forest_study_work WHERE work_id=?",
-                    (row['work_id'],)).fetchone()[0]
-                provider = json.loads(provider_json) if provider_json else None
+                provider = self._provider_profiles_by_work.get(row['work_id'])
                 item = {'work_id': row['work_id'], 'kind': row['kind'], 'payload': {'model_provider': provider}}
                 if not self._source_blocked(item):
                     ready.append(row['work_id'])
@@ -1135,6 +1150,7 @@ class StudyScheduler:
                 except ValueError:
                     pass  # Runtime may have just committed its terminal state.
         self.runtime.reload_manifest()
+        self._refresh_provider_profiles()
         self._read_pilot()
         self._evaluate_wave()
         with self.ledger.connect() as db:

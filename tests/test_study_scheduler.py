@@ -149,8 +149,11 @@ def test_current_formal_progress_excludes_historical_and_withdrawn_cells(tmp_pat
 
 def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, monkeypatch):
     history = 'retained research evidence ' * 10000
+    provider_profile = {'id': 'work-provider', 'kind': 'codex_cli', 'model': 'gpt-6-luna',
+        'config': {'reasoning_effort': 'medium'}}
     runtime = ChildRuntime(tmp_path, [
-        {'work_id': 'large-queued', 'kind': 'replay', 'context': history},
+        {'work_id': 'large-queued', 'kind': 'replay', 'context': history,
+            'model_provider': provider_profile},
         {'work_id': 'large-retryable', 'kind': 'replay', 'context': history}])
     runtime.ledger.register_action(runtime.campaign_id, 'pending-source',
         {'work_id': 'pending-source', 'kind': 'infer', 'phase': 'DEV'}, parent_id='large-retryable')
@@ -167,6 +170,7 @@ def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, 
         return db
 
     monkeypatch.setattr(runtime.ledger, 'connect', traced_connect)
+    assert service._provider_profiles_by_work['large-queued'] == provider_profile
 
     def reject_full_record(value, *args, **kwargs):
         if isinstance(value, str) and ('"context"' in value or '"history"' in value):
@@ -180,6 +184,7 @@ def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, 
             db.execute("UPDATE forest_study_work SET state='completed' WHERE work_id='pending-source'")
         assert service._ready_ids(('replay',), {}) == ['large-queued', 'large-retryable']
         assert not any('json_extract(result_json' in query.lower() for query in statements)
+        assert not any('json_extract(payload_json' in query.lower() for query in statements)
         with runtime.ledger.connect() as db:
             assert original_loads(db.execute('SELECT payload_json FROM forest_study_work WHERE work_id=?',
                 ('large-queued',)).fetchone()[0])['context'] == history
