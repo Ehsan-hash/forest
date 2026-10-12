@@ -1327,6 +1327,37 @@ def test_context_page_continuation_and_new_evidence_frontier_are_not_repeats(tmp
     assert _episode_source_frontier(context_note) == _episode_source_frontier(frontier)
 
 
+def test_context_page_repeat_is_detected_across_immutable_segment_revisions():
+    from research.experiments.study_runtime import _context_page_no_progress
+
+    frontier = {"messages": [{"role": "user", "content": "question"}],
+        "completed_source_actions": {}}
+
+    def read(segment, content="same source page"):
+        return {"kind": "analysis", "state": "completed", "result": {
+            "operation": "read_context_segment", "segment_id": segment,
+            "source_key": "study-public:public-context", "pointer": "/messages/0",
+            "offset": 0, "next_offset": len(content), "returned_characters": len(content),
+            "requested_limit": 100, "content": content, "delivery_status": "delivered"}}
+
+    original = {"source_frontier": frontier, "actions": [read("snapshot-v1")]}
+    first_repeat = _context_page_no_progress([read("snapshot-v2")], [original], frontier)
+    assert first_repeat["state"] == "retryable"
+    assert first_repeat["request_new_decision"] is True
+    diagnosed_turn = {"source_frontier": frontier, "actions": [read("snapshot-v2")],
+        "no_progress_observation": first_repeat["no_progress_observation"]}
+    second_repeat = _context_page_no_progress(
+        [read("snapshot-v3")], [original, diagnosed_turn], frontier)
+    assert second_repeat["state"] == "paused_no_progress"
+    assert second_repeat["no_progress_observation"]["context_page_request_keys"] == [{
+        "source": "study-public:public-context", "pointer": "/messages/0",
+        "offset": 0, "requested_limit": 100}]
+
+    changed_page = _context_page_no_progress(
+        [read("snapshot-v4", "changed source page")], [original], frontier)
+    assert changed_page is None
+
+
 def test_action_batch_is_fully_bound_before_first_operation(tmp_path, monkeypatch):
     campaign = tmp_path / "campaign"
     campaign.mkdir()

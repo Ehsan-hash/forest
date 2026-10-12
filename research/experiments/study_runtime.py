@@ -3851,8 +3851,11 @@ def _context_page_interval(action: Mapping[str, Any]) -> dict[str, Any] | None:
             or start < 0 or end <= start or returned != end - start or len(content) != returned
             or requested_limit < returned):
         return None
-    return {"segment_id": segment_id, "pointer": pointer, "start": start, "end": end,
-        "requested_limit": requested_limit}
+    source_key = result.get("source_key")
+    if source_key is not None and (not isinstance(source_key, str) or not source_key):
+        return None
+    return {"segment_id": segment_id, "source_key": source_key, "pointer": pointer,
+        "start": start, "end": end, "content": content, "requested_limit": requested_limit}
 
 
 def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
@@ -3860,6 +3863,7 @@ def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
                                   frontier: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]:
     """Return covered read ranges and whether this turn returned any new source characters."""
     intervals: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    exact_pages: list[tuple[str, str, int, int, str]] = []
     frontier_turns = _matching_frontier_turns(history, frontier)
     for turn_index, turn in enumerate(history):
         if not isinstance(turn, Mapping) or turn_index not in frontier_turns:
@@ -3871,6 +3875,9 @@ def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
             if page is not None:
                 key = (page["segment_id"], page["pointer"])
                 intervals.setdefault(key, []).append((page["start"], page["end"]))
+                if page["source_key"] is not None:
+                    exact_pages.append((page["source_key"], page["pointer"], page["start"],
+                        page["end"], page["content"]))
 
     repeated: list[dict[str, Any]] = []
     new_characters = False
@@ -3879,6 +3886,12 @@ def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
             continue
         page = _context_page_interval(action)
         if page is None:
+            continue
+        same_source_page = page["source_key"] is not None and any(
+            (page["source_key"], page["pointer"], page["start"], page["end"], page["content"]) == prior
+            for prior in exact_pages)
+        if same_source_page:
+            repeated.append(page)
             continue
         key = (page["segment_id"], page["pointer"])
         existing = sorted(intervals.get(key, []))
@@ -3896,6 +3909,9 @@ def _repeated_context_page_ranges(actions: Sequence[Mapping[str, Any]],
         else:
             new_characters = True
         intervals.setdefault(key, []).append((page["start"], page["end"]))
+        if page["source_key"] is not None:
+            exact_pages.append((page["source_key"], page["pointer"], page["start"],
+                page["end"], page["content"]))
     return repeated, new_characters
 
 
@@ -3914,9 +3930,15 @@ def _context_page_no_progress(actions: Sequence[Mapping[str, Any]],
     normalized_requests = [{"segment_id": segment, "pointer": pointer,
         "offset": offset, "requested_limit": limit}
         for segment, pointer, offset, limit in requests]
+    request_keys = sorted({(row["source_key"] or row["segment_id"], row["pointer"],
+        row["start"], row["requested_limit"]) for row in repeated})
+    normalized_request_keys = [{"source": source, "pointer": pointer,
+        "offset": offset, "requested_limit": limit}
+        for source, pointer, offset, limit in request_keys]
     frontier_turns = _matching_frontier_turns(history, frontier)
     already_diagnosed = any(isinstance(turn.get("no_progress_observation"), Mapping)
-        and turn["no_progress_observation"].get("context_page_requests") == normalized_requests
+        and (turn["no_progress_observation"].get("context_page_request_keys") == normalized_request_keys
+            or turn["no_progress_observation"].get("context_page_requests") == normalized_requests)
         for index, turn in enumerate(history) if index in frontier_turns)
     return {"state": "paused_no_progress" if already_diagnosed else "retryable",
         "request_new_decision": not already_diagnosed,
@@ -3929,6 +3951,7 @@ def _context_page_no_progress(actions: Sequence[Mapping[str, Any]],
             if already_diagnosed else None),
         "no_progress_observation": {"context_page_ranges": normalized,
             "context_page_requests": normalized_requests,
+            "context_page_request_keys": normalized_request_keys,
             "same_source_bound_results": True, "new_evidence_added": False,
             "diagnostic_previously_delivered": already_diagnosed}}
 
