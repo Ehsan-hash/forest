@@ -371,7 +371,11 @@ def verify_replay_submission(runtime,episode,history,submission):
             (runtime.campaign_id,work_id)).fetchall()
     recorded=[json.loads(row[0]) for row in rows]
     completed={row['action_work_id']:row for row in recorded}
-    submitted_actions=[action for entry in history for action in entry.get('actions',[]) if isinstance(action,Mapping)]
+    submitted_actions=[action for entry in history for action in entry.get('actions',[])
+        if isinstance(action,Mapping) and not (
+            action.get('action_name')=='read_context_segment' or
+            isinstance(action.get('result'),Mapping) and
+            action['result'].get('operation')=='read_context_segment')]
     forged=[action.get('action_work_id') for action in submitted_actions if action.get('state')=='completed' and
         (action.get('kind')!='replay_transition' or completed.get(action.get('action_work_id'))!=action)]
     performed={row['result']['record_id'] for row in recorded if row['result']['record_id'] is not None}

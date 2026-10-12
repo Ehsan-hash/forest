@@ -185,6 +185,19 @@ def test_unexecuted_and_forged_operations_cannot_certify_repair(tmp_path):
     assert verify_replay_submission(runtime,episode,history,submission)['valid'] is False
 
 
+def test_observational_context_reads_do_not_count_as_forged_scientific_actions(tmp_path):
+    runtime,episode,_=runtime_fixture(tmp_path)
+    history,submission=repair(runtime,episode)
+    history.append({'actions':[{'kind':'analysis','action_work_id':'episode--replay-fixture--read-context--page-1',
+        'state':'completed','result':{'operation':'read_context_segment','segment_id':'public-context',
+            'pointer':'','offset':0,'next_offset':32,'content':'observational context only'}}]})
+    verified=verify_replay_submission(runtime,episode,history,submission)
+    assert verified['forged_history_actions']==[]
+    assert verified['valid'] is True
+    assert verified['scientific_metric_values_generated'] is False
+    assert verified['gpu_actual_seconds']==0
+
+
 def test_source_artifacts_are_reconciled_after_edit_not_implicitly_reused(tmp_path):
     runtime,episode,prepared=runtime_fixture(tmp_path)
     binding=prepared['action_bindings'][0]
