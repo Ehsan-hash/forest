@@ -77,6 +77,38 @@ def test_manifest_and_action_reregistration_do_not_hydrate_saved_results(tmp_pat
     assert saved["retained_evidence"] == large_result["retained_evidence"]
 
 
+def test_claim_hydrates_only_the_selected_candidate_from_a_large_queue(tmp_path):
+    ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
+    ledger.register(manifest([
+        item("selected", kind="analysis"),
+        item("unselected-large", kind="replay"),
+    ]))
+    large_result = {"retained_evidence": "evidence" * 250_000}
+    ledger.set_state("campaign-test", "unselected-large", "retryable", result=large_result)
+
+    statements = []
+    original_connect = ledger.connect
+    def traced_connect():
+        db = original_connect()
+        db.set_trace_callback(statements.append)
+        return db
+    ledger.connect = traced_connect
+
+    claimed = ledger.claim("campaign-test", "single-claim",
+        work_ids=["selected", "unselected-large"])
+    assert claimed["work_id"] == "selected"
+    full_work_reads = [query.lower() for query in statements
+        if query.strip().lower().startswith("select * from forest_study_work")]
+    assert len(full_work_reads) == 1
+    assert "and work_id='selected'" in full_work_reads[0]
+    assert "state in" not in full_work_reads[0]
+    with original_connect() as db:
+        saved = _decode_study_result_json(db.execute(
+            "SELECT result_json FROM forest_study_work WHERE work_id='unselected-large'"
+        ).fetchone()[0])
+    assert saved == large_result
+
+
 def test_completed_action_id_conflict_returns_replan_feedback_without_reexecution(tmp_path, monkeypatch):
     campaign = tmp_path / "campaign"
     campaign.mkdir()

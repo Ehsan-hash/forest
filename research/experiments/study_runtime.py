@@ -545,7 +545,10 @@ class StudyLedger:
         now = time.time()
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            query = "SELECT * FROM forest_study_work WHERE campaign_id=? AND state IN ('queued','retryable')"
+            # Candidate queues may contain large durable research histories.
+            # Sort and check dependencies using compact metadata, then hydrate
+            # only the single row that this claim actually wins.
+            query = "SELECT work_id,kind,created_at FROM forest_study_work WHERE campaign_id=? AND state IN ('queued','retryable')"
             params: list[Any] = [campaign_id]
             if work_ids is not None:
                 if not work_ids:
@@ -581,7 +584,11 @@ class StudyLedger:
                     db.execute("INSERT INTO forest_study_events VALUES(?,?,?,?,?,?)",
                         (str(uuid.uuid4()), campaign_id, row["work_id"], "work_claimed",
                          _json({"owner": owner, "kind": row["kind"]}), now))
-                    value = dict(row)
+                    full_row = db.execute(
+                        "SELECT * FROM forest_study_work WHERE campaign_id=? AND work_id=?",
+                        (campaign_id, row["work_id"]),
+                    ).fetchone()
+                    value = dict(full_row)
                     value["state"] = "claimed"
                     value["lease_owner"] = owner
                     value["lease_at"] = now
