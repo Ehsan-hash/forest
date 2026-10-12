@@ -516,7 +516,16 @@ def test_saved_completed_action_still_gets_client_for_next_actual_decision(tmp_p
                 'submission': {}, 'rationale': 'Nonformal actual common CPU operation'}), 'usage': {}, 'model': 'infrastructure-child'}
     service = StudyScheduler(runtime, client_factory=lambda item: NonformalClient(), poll_seconds=.01)
     try:
-        run_until(service, lambda: len(calls) >= 2)
+        service.tick()
+        wait_controller_future(service)
+        assert len(calls) == 1
+        with runtime.ledger.connect() as db:
+            assert db.execute('SELECT state FROM forest_study_work WHERE work_id=?', (action_id,)).fetchone()[0] == 'completed'
+            parent = db.execute("SELECT state,decision_json FROM forest_study_work WHERE work_id='parent'").fetchone()
+            assert parent['state'] == 'retryable'
+            assert json.loads(parent['decision_json'])['mode'] == 'action'
+        service.tick()
+        wait_controller_future(service)
         assert len(calls) == 2
         with runtime.ledger.connect() as db:
             assert db.execute("SELECT count(*) FROM forest_study_model_calls WHERE status='completed'").fetchone()[0] == 2

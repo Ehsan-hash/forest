@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import random
 import sqlite3
+import subprocess
+import sys
 import threading
 
 import pytest
@@ -72,6 +74,32 @@ def native_upstream():
     if not root.is_dir():
         pytest.skip("Actual official AIDE clone not available; set FOREST_AIDE_UPSTREAM")
     return root
+
+
+
+def test_native_import_preserves_host_warning_policy(native_upstream):
+    script = """
+import sys
+import warnings
+from pathlib import Path
+from research.experiments.aide_runtime import load_upstream
+load_upstream(Path(sys.argv[1]))
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter('always', RuntimeWarning)
+    warnings.warn('Original host diagnostic', RuntimeWarning)
+    assert len(caught) == 1
+    assert str(caught[0].message) == 'Original host diagnostic'
+with warnings.catch_warnings():
+    warnings.simplefilter('error', RuntimeWarning)
+    try:
+        warnings.warn('Original host failure', RuntimeWarning)
+    except RuntimeWarning:
+        pass
+    else:
+        raise AssertionError('Native import disabled host warning errors')
+"""
+    subprocess.run([sys.executable, '-c', script, str(native_upstream)],
+                   check=True, capture_output=True, text=True, timeout=30)
 
 
 def _program(mode="action", action_work_id=None):
