@@ -6,6 +6,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import threading
 from types import SimpleNamespace
 import uuid
 
@@ -74,6 +75,9 @@ class ChildRuntime:
             with self.ledger.connect() as db:
                 db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)',
                     (request_id, self.campaign_id, work_id, json.dumps({'work_id': work_id, 'model': 'infrastructure-child', 'context': payload['context']}), 'requested', started, started))
+        barrier = getattr(self, 'request_barriers', {}).get(work_id)
+        if barrier is not None:
+            barrier.wait(timeout=5)
         output = self.campaign / (work_id + '.json')
         subprocess.run([sys.executable, '-c', CHILD, str(output), str(payload.get('seconds', .15)), work_id, payload.get('context', work_id)],
             check=True, timeout=client.timeout if client is not None else 5)
@@ -604,6 +608,8 @@ def test_compute_wall_policy_does_not_limit_model_controller_or_request(tmp_path
 def test_live_wave_measures_authorized_next_degree_and_persists_choice(tmp_path):
     runtime = ChildRuntime(tmp_path, [
         {'work_id': f'episode-{i}', 'kind': 'episode', 'context': str(i), 'seconds': .15} for i in range(5)])
+    barrier = threading.Barrier(2)
+    runtime.request_barriers = {'episode-1': barrier, 'episode-2': barrier}
     service = scheduler(runtime, maximum_model_concurrency=2)
     try:
         run_until(service, lambda: all(row['state']=='completed' for row in rows(runtime)))
@@ -692,6 +698,16 @@ def test_actual_original_cpu_receipt_is_polled_without_repeated_dispatch(tmp_pat
                 output=self.campaign/'native-child.json'
                 observation=supervisor.submit([sys.executable,'-c',CHILD,str(output),'.35',item['work_id'],'CPU-only receipt fixture'],
                     self.campaign,work_id=item['work_id'],timeout_seconds=8,gpu_devices=(),configuration={'infrastructure_test':True})
+                # Submission and receipt consumption are separate dispatches.
+                # This CPU fixture has no scientific fit artifacts to reconcile.
+                self.ledger.set_state(self.campaign_id,item['work_id'],'retryable',result={'supervisor':observation},supervisor_work_id=item['work_id'])
+                return {'supervisor':observation}
+            # A launch record may still be publishing when the scheduler polls.
+            # Observe only the accepted original ID; never submit another child.
+            deadline=time.monotonic()+5
+            while observation['status'] not in ('completed','failed','cancelled','budget_exhausted') and time.monotonic()<deadline:
+                time.sleep(.01)
+                observation=supervisor.status(item['work_id'])
             state='completed' if observation['status']=='completed' else 'awaiting_reconciliation' if observation['status']=='reconciliation' else 'retryable'
             self.ledger.set_state(self.campaign_id,item['work_id'],state,result={'supervisor':observation},supervisor_work_id=item['work_id'])
             return {'supervisor':observation}

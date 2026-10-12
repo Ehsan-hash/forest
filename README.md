@@ -114,6 +114,16 @@ After installing the Web workspace:
 ./scripts/test.sh
 ```
 
+FOREST approaches scientific research as a **continuous, evidence-driven process rather than a sequence of isolated experiments**. Its persistent Research Graph connects hypotheses, experimental results, and research decisions, enabling agents to iteratively explore, evaluate, and refine scientific solutions. We evaluated this approach using **GPT-6 Luna (Medium)** as the research model, demonstrating autonomous experimentation and measurable scientific improvements across multiple research domains.
+
+| Research Task | Dataset | Metric | Baseline | FOREST | Improvement |
+|---|---|---|---:|---:|---:|
+| PDE Gradient Optimization | Darcy64 | Relative Gradient L2 | 0.303645 | **0.256810** | **15.42% ** |
+| Time-Series Forecasting (Study 1) | ETTh1 | MAE | 2.914060 | **2.553352** | **12.38% ** |
+| PDE Solution Optimization | Darcy64 | Relative L2 | 0.108735 | **0.099608** | **8.39% ** |
+| Time-Series Forecasting (Study 2) | ETTh1 | MAE | 2.913240 | **2.728309** | **6.35% ** |
+| Medical Image Classification | BloodMNIST | Macro-F1 | 0.965410 | **0.969351** | **+0.394 pp** |
+
 ### Research Modes
 
 - **Manual** — edit the research graph and choose tasks to execute.
