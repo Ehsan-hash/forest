@@ -718,6 +718,97 @@ class StudyScheduler:
                 (self.campaign_id,))}
         return sorted(owners - active)
 
+    def _external_codex_cli_process_count(self):
+        """Count Codex CLI requests surviving outside this coordinator process tree."""
+        try:
+            import psutil
+            owned = {os.getpid()}
+            try:
+                owned.update(child.pid for child in psutil.Process().children(recursive=True))
+            except (psutil.Error, OSError):
+                pass
+            count = 0
+            for process in psutil.process_iter(['pid', 'cmdline']):
+                try:
+                    if process.info['pid'] in owned:
+                        continue
+                    argv = process.info.get('cmdline') or []
+                    executable = Path(argv[0]).name.lower() if argv else ''
+                    if 'codex' in executable and 'exec' in argv[1:] and '--json' in argv:
+                        count += 1
+                except (psutil.Error, OSError):
+                    continue
+            return count
+        except ImportError:
+            # Without process visibility, retain the original conservative
+            # reservation and do not infer that a provider request has ended.
+            return None
+
+    def _capacity_occupying_unsettled_model_owners(self, owners=None):
+        """Keep ambiguous receipts, but do not reserve slots for dead CLI work.
+
+        An unresolved request remains attached to its original work item and
+        supervisor receipt. For local Codex CLI only, a transport trace that is
+        still merely ``prepared`` past its own request timeout cannot consume
+        a live concurrency slot when no matching external CLI process exists.
+        This never makes that work retryable or replays its decision.
+        """
+        owners = self._unsettled_model_owners() if owners is None else list(owners)
+        if not owners:
+            return []
+        default = self.runtime.manifest.get('model_provider') or {}
+        secondary = self.runtime.manifest.get('secondary_model_provider') or {}
+        profiles = [profile for profile in (default, secondary) if isinstance(profile, Mapping) and profile]
+        if not profiles or any(profile.get('kind') != 'codex_cli' for profile in profiles):
+            return owners
+
+        with self.ledger.connect() as db:
+            rows = [dict(row) for row in db.execute(
+                "SELECT request_id,work_id,started_at FROM forest_study_model_calls "
+                "WHERE campaign_id=? AND status='requested'", (self.campaign_id,))
+                if row['work_id'] in owners]
+        by_owner = {owner: [] for owner in owners}
+        for row in rows:
+            by_owner.setdefault(row['work_id'], []).append(row)
+
+        now = time.time()
+        releasable, retained = [], []
+        for owner in owners:
+            calls = by_owner.get(owner) or []
+            owner_releasable = bool(calls)
+            for call in calls:
+                try:
+                    request_id = str(uuid.UUID(call['request_id']))
+                except (TypeError, ValueError, AttributeError):
+                    owner_releasable = False
+                    break
+                trace_path = self.runtime.campaign / 'runs' / 'transport_traces' / (request_id + '.json')
+                try:
+                    trace = json.loads(trace_path.read_text(encoding='utf-8'))
+                except (OSError, ValueError, TypeError):
+                    owner_releasable = False
+                    break
+                state = trace.get('state')
+                if state in {'exited', 'timed_out', 'not_started'}:
+                    continue
+                prepared = trace.get('prepared_at')
+                timeout = trace.get('timeout_seconds')
+                if state != 'prepared' or not isinstance(prepared, (int, float)) or \
+                        not isinstance(timeout, (int, float)) or now < prepared + timeout:
+                    owner_releasable = False
+                    break
+            (releasable if owner_releasable else retained).append(owner)
+
+        if not releasable:
+            return owners
+        live_cli = self._external_codex_cli_process_count()
+        if live_cli is None:
+            return owners
+        # Unknown and non-Codex providers stay reserved. Of expired local CLI
+        # traces, retain only as many slots as live external CLI processes.
+        held_releasable = releasable[:min(len(releasable), live_cli)]
+        return sorted(set(retained).union(held_releasable))
+
     @staticmethod
     def _provider_failure(failure):
         from research.agents.provider import ProviderError
@@ -1281,7 +1372,14 @@ class StudyScheduler:
         # Unknown legacy/provider subprocesses may survive coordinator death.
         # Reattached OS controllers already own a future and are excluded.
         unsettled_models = self._unsettled_model_owners()
-        occupancy['model'] += len(unsettled_models)
+        capacity_owners = self._capacity_occupying_unsettled_model_owners(unsettled_models)
+        capacity_released = sorted(set(unsettled_models) - set(capacity_owners))
+        occupancy['model'] += len(capacity_owners)
+        if capacity_released and getattr(self, '_last_capacity_released_owners', None) != capacity_released:
+            self._decision({'type': 'unsettled_model_capacity_released',
+                'work_ids': capacity_released,
+                'reason': 'Local Codex CLI transport exceeded its persisted request timeout and no matching process remains; original requests and reconciliation states are preserved'})
+            self._last_capacity_released_owners = capacity_released
         ready = {'gpu': self._ready_ids(GPU_KINDS, compute), 'cpu': self._ready_ids(CPU_KINDS, compute), 'model': self._ready_ids(MODEL_KINDS, compute)}
         for lane,ids in ready.items():
             self._observe_ready(lane, ids)
@@ -1295,7 +1393,7 @@ class StudyScheduler:
             if isinstance(sample, Mapping) and isinstance(sample.get('degree'), int)
             and not isinstance(sample.get('degree'), bool)), default=self.degree)
         model_capacity = self.degree
-        if ready['model'] and unsettled_models and measured_headroom > self.degree:
+        if ready['model'] and capacity_owners and measured_headroom > self.degree:
             # Keep an unresolved request reserved while using only separately
             # measured model capacity for independent ready work.
             model_capacity = min(self.maximum, measured_headroom,
@@ -1303,7 +1401,7 @@ class StudyScheduler:
         headroom_active = model_capacity > self.degree
         if headroom_active and not self._unsettled_headroom_active:
             self._decision({'type': 'unsettled_model_capacity_headroom',
-                'unsettled_model_work_ids': unsettled_models,
+                'unsettled_model_work_ids': capacity_owners,
                 'measured_model_concurrency': self.degree,
                 'effective_model_capacity': model_capacity,
                 'verified_capacity_ceiling': measured_headroom,
@@ -1460,9 +1558,13 @@ class StudyScheduler:
                 'completed': len(done), 'remaining': remaining,
                 'observed_wall_seconds': elapsed, 'completed_per_second': stage_rate,
                 'eta_remaining_seconds': remaining/stage_rate if stage_rate else None})
+        unsettled_model_owners = self._unsettled_model_owners()
+        capacity_owners = self._capacity_occupying_unsettled_model_owners(unsettled_model_owners)
         return {'campaign_id': self.campaign_id, 'scheduler_id': self.scheduler_id,
             'model_concurrency': self.degree, 'capacity': self._configuration(),
-            'unsettled_model_work_ids': self._unsettled_model_owners(),
+            'unsettled_model_work_ids': unsettled_model_owners,
+            'capacity_occupying_unsettled_model_work_ids': capacity_owners,
+            'capacity_released_unsettled_model_work_ids': sorted(set(unsettled_model_owners) - set(capacity_owners)),
             'categories': measured, 'categories_can_overlap': True,
             'observed_wall_union_seconds': interval_measure([interval for kind,value in categories.items() if kind != 'unreconciled_model_interval' for interval in value])['wall_union_seconds'],
             'work_states': states, 'remaining_ready': len(ready),

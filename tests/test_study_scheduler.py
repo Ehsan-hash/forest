@@ -489,6 +489,79 @@ def test_crash_after_claim_releases_unstarted_work_but_not_unknown_model_request
         resumed.close()
 
 
+def test_expired_local_codex_request_releases_capacity_without_replaying_owner(tmp_path, monkeypatch):
+    runtime = ChildRuntime(tmp_path, [
+        {'work_id': 'unknown-a', 'kind': 'replay', 'context': 'original decision a'},
+        {'work_id': 'unknown-b', 'kind': 'replay', 'context': 'original decision b'},
+        {'work_id': 'independent-a', 'kind': 'replay', 'context': 'a'},
+        {'work_id': 'independent-b', 'kind': 'replay', 'context': 'b'},
+    ])
+    runtime.manifest['model_provider'] = {
+        'id': 'saved-codex', 'kind': 'codex_cli', 'model': 'gpt-6-luna',
+        'config': {'reasoning_effort': 'medium'}}
+    runtime.ledger.set_state(runtime.campaign_id, 'unknown-a', 'awaiting_reconciliation',
+        error='original response is unavailable')
+    runtime.ledger.set_state(runtime.campaign_id, 'unknown-b', 'awaiting_reconciliation',
+        error='original response is unavailable')
+    started = time.time() - 600
+    trace_dir = tmp_path / 'runs' / 'transport_traces'
+    trace_dir.mkdir(parents=True)
+    with runtime.ledger.connect() as db:
+        for work_id in ('unknown-a', 'unknown-b'):
+            request_id = str(uuid.uuid4())
+            db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)',
+                (request_id, runtime.campaign_id, work_id, json.dumps({'model': 'gpt-6-luna'}),
+                 'requested', started, started))
+            (trace_dir / (request_id + '.json')).write_text(json.dumps({
+                'state': 'prepared', 'prepared_at': started, 'timeout_seconds': 120,
+            }), encoding='utf-8')
+
+    service = scheduler(runtime, maximum_model_concurrency=2, model_concurrency=2)
+    monkeypatch.setattr(service, '_external_codex_cli_process_count', lambda: 1)
+    try:
+        assert service._unsettled_model_owners() == ['unknown-a', 'unknown-b']
+        assert service._capacity_occupying_unsettled_model_owners(['unknown-a', 'unknown-b']) == ['unknown-a']
+        monkeypatch.setattr(service, '_external_codex_cli_process_count', lambda: 0)
+        assert service._capacity_occupying_unsettled_model_owners(['unknown-a', 'unknown-b']) == []
+        run_until(service, lambda: all(row['state'] == 'completed' for row in rows(runtime)
+            if row['work_id'].startswith('independent-')))
+        state = {row['work_id']: row['state'] for row in rows(runtime)}
+        assert state == {'unknown-a': 'awaiting_reconciliation',
+                         'unknown-b': 'awaiting_reconciliation',
+                         'independent-a': 'completed', 'independent-b': 'completed'}
+        assert not (tmp_path / 'unknown-a.json').exists()
+        assert not (tmp_path / 'unknown-b.json').exists()
+        with runtime.ledger.connect() as db:
+            original = db.execute('SELECT work_id,status,response_json FROM forest_study_model_calls WHERE status=\'requested\' ORDER BY work_id').fetchall()
+            assert [tuple(row) for row in original] == [
+                ('unknown-a', 'requested', None), ('unknown-b', 'requested', None)]
+    finally:
+        service.close()
+
+
+def test_unexpired_or_uninspectable_codex_request_keeps_model_slot(tmp_path, monkeypatch):
+    runtime = ChildRuntime(tmp_path, [{'work_id': 'unknown', 'kind': 'replay', 'context': 'original'}])
+    runtime.manifest['model_provider'] = {'id': 'saved-codex', 'kind': 'codex_cli', 'model': 'gpt-6-luna'}
+    request_id = str(uuid.uuid4())
+    started = time.time()
+    with runtime.ledger.connect() as db:
+        db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at) VALUES(?,?,?,?,?,?,?)',
+            (request_id, runtime.campaign_id, 'unknown', '{}', 'requested', started, started))
+    trace_dir = tmp_path / 'runs' / 'transport_traces'
+    trace_dir.mkdir(parents=True)
+    (trace_dir / (request_id + '.json')).write_text(json.dumps({
+        'state': 'prepared', 'prepared_at': started, 'timeout_seconds': 120,
+    }), encoding='utf-8')
+    service = scheduler(runtime)
+    monkeypatch.setattr(service, '_external_codex_cli_process_count', lambda: 0)
+    try:
+        assert service._capacity_occupying_unsettled_model_owners(['unknown']) == ['unknown']
+        (trace_dir / (request_id + '.json')).unlink()
+        assert service._capacity_occupying_unsettled_model_owners(['unknown']) == ['unknown']
+    finally:
+        service.close()
+
+
 def test_two_identical_source_failures_stop_blind_calls_but_keep_other_work(tmp_path):
     runtime = ChildRuntime(tmp_path, [
         {'work_id': 'a', 'kind': 'episode', 'context': 'a', 'fail': True},
