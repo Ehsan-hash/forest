@@ -212,6 +212,29 @@ def test_pilot_uses_only_observed_successful_authorized_degrees():
     assert measured_concurrency(data, 9)['degree'] == 1
 
 
+def test_resume_merges_pilot_and_saved_live_concurrency_samples(tmp_path):
+    runtime = ChildRuntime(tmp_path, [])
+    pilot_path = tmp_path / 'pilot.json'
+    pilot_path.write_text(json.dumps(pilot()), encoding='utf-8')
+    service = scheduler(runtime, maximum_model_concurrency=2, model_concurrency=2,
+        pilot_path=pilot_path)
+    try:
+        saved = service._configuration()
+        saved['model_concurrency'] = 1
+        saved['observed_samples'] = [{'degree': 1, 'calls_per_second': .06,
+            'p95_seconds': 15., 'completed_calls': 2, 'wall_seconds': 30.}]
+        saved['tested_degrees'] = [1, 2]
+        with runtime.ledger.connect() as db:
+            db.execute('INSERT INTO forest_study_schedulers VALUES(?,?,?,?,?,?,?,?,?,?)',
+                (runtime.campaign_id, 'previous-scheduler', 'previous-session', 'old-host',
+                 None, None, 'stopped', json.dumps(saved), 1., 2.))
+        service.acquire()
+        assert service.degree == 2
+        assert {sample['degree'] for sample in service._observed_samples} == {1, 2}
+    finally:
+        service.close()
+
+
 def test_serial_calls_are_not_evidence_of_declared_parallel_capacity():
     data=pilot()
     batch=data['batches'][1]

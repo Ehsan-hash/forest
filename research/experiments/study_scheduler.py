@@ -520,9 +520,30 @@ class StudyScheduler:
                 self.scheduler_id = previous['scheduler_id']
                 saved = json.loads(previous['configuration_json'])
                 if saved.get('maximum_model_concurrency') == self.maximum and saved.get('model_profile') == self.runtime.manifest.get('model_provider', {}) and saved.get('pilot_path') == (str(self.pilot_path) if self.pilot_path else None):
-                    self.degree = min(self.maximum, saved.get('model_concurrency', self.degree))
-                    self._observed_samples = saved.get('observed_samples', self._observed_samples)
+                    saved_degree = min(self.maximum, saved.get('model_concurrency', self.degree))
+                    # Preserve both the measured pilot baseline and successful
+                    # live samples across coordinator recovery. Replacing the
+                    # pilot samples with a stale, downrated saved degree could
+                    # strand all ready work behind an unrelated unresolved
+                    # request even when the pilot proved another degree faster.
+                    samples = {value['degree']: value for value in self._observed_samples
+                        if isinstance(value, Mapping) and isinstance(value.get('degree'), int)}
+                    for value in saved.get('observed_samples', []):
+                        if not isinstance(value, Mapping) or not isinstance(value.get('degree'), int):
+                            continue
+                        current = samples.get(value['degree'])
+                        rank = lambda sample: (sample.get('calls_per_second', 0),
+                            -sample.get('p95_seconds', float('inf')), -sample['degree'])
+                        if current is None or rank(value) > rank(current):
+                            samples[value['degree']] = dict(value)
+                    self._observed_samples = list(samples.values())
                     self._tested_degrees.update(saved.get('tested_degrees', []))
+                    if saved_degree in self._tested_degrees and self._observed_samples:
+                        self.degree = max(self._observed_samples,
+                            key=lambda value: (value.get('calls_per_second', 0),
+                                -value.get('p95_seconds', float('inf')), -value['degree']))['degree']
+                    else:
+                        self.degree = saved_degree
                     self._wave = saved.get('wave')
             db.execute('INSERT INTO forest_study_schedulers VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(campaign_id) DO UPDATE SET session_id=excluded.session_id,hostname=excluded.hostname,pid=excluded.pid,process_created=excluded.process_created,state=excluded.state,configuration_json=excluded.configuration_json,updated_at=excluded.updated_at',
                 (self.campaign_id, self.scheduler_id, self.session_id, socket.gethostname(), os.getpid(), created,
