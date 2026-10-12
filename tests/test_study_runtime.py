@@ -11,7 +11,7 @@ from research.experiments.study_runtime import (StudyLedger, StudyRuntime,
     _c2_evaluation_overrides, _episode_metric_contract, verify_episode_submission,
     execute_registered_analysis, _codex_strict_schema, _restore_strict_optional_nulls,
     _transport_trace_reference, _validate_episode_schema)
-from research.experiments.study_runtime import _validation_signature
+from research.experiments.study_runtime import _semantic_submission, _validation_signature
 
 
 def manifest(items, edges=(), *, version=1):
@@ -129,6 +129,17 @@ def test_submission_validation_signature_ignores_claim_rewording_but_keeps_sourc
 
     assert _validation_signature(first) == _validation_signature(reworded)
     assert _validation_signature(first) != _validation_signature(changed_evidence)
+
+
+def test_semantic_submission_treats_record_id_order_as_non_scientific():
+    first = {"invalidate_record_ids": ["fit-b", "fit-a"], "reuse_record_ids": ["pred-2", "pred-1"],
+        "scientific_repair_complete": False}
+    reordered = {**first, "invalidate_record_ids": ["fit-a", "fit-b"],
+        "reuse_record_ids": ["pred-1", "pred-2"]}
+    changed = {**reordered, "invalidate_record_ids": ["fit-a", "fit-c"]}
+
+    assert _semantic_submission(first) == _semantic_submission(reordered)
+    assert _semantic_submission(first) != _semantic_submission(changed)
 
 
 def test_action_history_events_store_only_changed_turns_and_keep_full_checkpoint(tmp_path):

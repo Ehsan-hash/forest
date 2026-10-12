@@ -3797,9 +3797,12 @@ def _episode_source_frontier(payload: Mapping[str, Any], history: Sequence[Mappi
 def _semantic_submission(value: Mapping[str, Any]) -> dict[str, Any]:
     """Keep decision-bearing fields while ignoring prose that does not change a claim."""
     prose = {"claim", "rationale", "explanation", "notes", "justification"}
+    unordered_ids = {"invalidate_record_ids", "reuse_record_ids"}
     if not isinstance(value, Mapping):
         return {}
-    return {str(key): copy.deepcopy(item) for key, item in value.items() if str(key) not in prose}
+    return {str(key): (sorted(copy.deepcopy(item), key=_json) if str(key) in unordered_ids
+                       and isinstance(item, list) else copy.deepcopy(item))
+            for key, item in value.items() if str(key) not in prose}
 
 
 def _validation_signature(value: Mapping[str, Any]) -> dict[str, Any]:
