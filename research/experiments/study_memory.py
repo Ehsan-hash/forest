@@ -11,6 +11,9 @@ from pathlib import Path
 from research.agents.context_store import ContextStore
 
 
+_LOSSLESS_STORAGE_ENCODING = 'forest.lossless-json-subtrees.v1'
+
+
 class ContextQueryError(ValueError):
     """A caller supplied an invalid query for existing public evidence."""
 
@@ -35,9 +38,26 @@ class StudyMemory:
         if audience != 'arm-public':
             raise ValueError('Study memory accepts only an already filtered arm-public view')
         text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
-        identifier = self.store.put('study-public:' + str(key), text,
+        stored_text = text
+        stored_encoding = None
+        from .study_context import intern_json_with_stats
+        encoded, stats = intern_json_with_stats(json.loads(text))
+        if stats['saved_characters'] > 0:
+            stored_text = json.dumps(encoded, ensure_ascii=False, sort_keys=True,
+                                     separators=(',', ':'), allow_nan=False)
+            stored_encoding = _LOSSLESS_STORAGE_ENCODING
+        identifier = self.store.put('study-public:' + str(key), stored_text,
             origin=origin or str(key), authority='untrusted_evidence')
         metadata = self.store.index['segments'][identifier]
+        # Catalog character counts and page cursors describe the logical source,
+        # while the immutable backing file can use a lossless shared-subtree
+        # representation. Existing plain segments remain readable unchanged.
+        metadata['characters'] = len(text)
+        if stored_encoding:
+            metadata['storage_encoding'] = stored_encoding
+        else:
+            metadata.pop('storage_encoding', None)
+        self.store.save()
         return {**metadata, 'segment_id': identifier, 'audience': audience,
                 'read_operation': 'read_context_segment'}
 
@@ -76,6 +96,11 @@ class StudyMemory:
             metadata = self.store.index['segments'][segment_id]
             path = self.store.root / (segment_id + '.txt')
             value = json.loads(path.read_text(encoding='utf-8'))
+            if metadata.get('storage_encoding') == _LOSSLESS_STORAGE_ENCODING:
+                from .study_context import restore_json
+                value = restore_json(value)
+            elif metadata.get('storage_encoding') is not None:
+                raise ContextQueryError('Unknown study-memory storage encoding')
         if not isinstance(pointer, str) or pointer and not pointer.startswith('/'):
             raise ContextQueryError('A JSON Pointer must be empty or start with /')
         if pointer:

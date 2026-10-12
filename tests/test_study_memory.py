@@ -27,6 +27,38 @@ def test_exact_complete_pages_and_restart(tmp_path):
     assert metadata['segment_id'] == reader.save_json('source', value)['segment_id']
 
 
+def test_repeated_public_history_is_stored_losslessly_without_repeated_payloads(tmp_path):
+    shared = {'data': {'train_ids': list(range(400)), 'validation_ids': list(range(500, 700))},
+        'training': {'width': 64, 'layers': 4, 'learning_rate': 0.0003}, 'seed': 1001}
+    value = {'action_history': [{'action_id': f'action-{index}',
+            'artifacts': [shared, shared], 'observations': [shared, shared],
+            'result': {'score': index / 10}} for index in range(24)]}
+    expected = compact(value)
+    memory = StudyMemory(tmp_path)
+    metadata = memory.save_json('public-context', value)
+    source_path = memory.store.root / (metadata['segment_id'] + '.txt')
+    stored = source_path.read_text(encoding='utf-8')
+
+    assert metadata['storage_encoding'] == 'forest.lossless-json-subtrees.v1'
+    assert metadata['characters'] == len(expected)
+    assert len(stored) < len(expected) * .4
+    reader = StudyMemory(tmp_path)
+    pages, offset = [], 0
+    while True:
+        page = reader.read_json(metadata['segment_id'], offset=offset, limit=997)
+        pages.append(page['content'])
+        assert page['total_characters'] == len(expected)
+        offset = page['next_offset']
+        if page['complete']:
+            break
+    reconstructed = ''.join(pages)
+    assert reconstructed == expected
+    assert json.loads(reconstructed) == value
+    pointer = reader.read_json(metadata['segment_id'], pointer='/action_history/0/artifacts/0')
+    assert json.loads(pointer['content']) == shared
+    assert metadata['segment_id'] == reader.save_json('public-context', value)['segment_id']
+
+
 def test_versions_never_destroy_original_or_leak_other_episode(tmp_path):
     memory = StudyMemory(tmp_path/'episode-one')
     original = memory.save_json('same-key', {'value': 'old'})
