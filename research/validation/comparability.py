@@ -7,7 +7,6 @@ used. Absent or contradictory metadata never creates a comparison group.
 from __future__ import annotations
 
 from copy import deepcopy
-import json
 import math
 
 
@@ -25,8 +24,9 @@ ALIASES = {
 
 
 def _present(value):
-    if value is None or isinstance(value, bool):
+    if value is None:
         return False
+    if isinstance(value,bool): return True  # Explicit protocol flags are meaningful declarations.
     if isinstance(value, str):
         return bool(value.strip())
     if isinstance(value, (int, float)):
@@ -39,10 +39,11 @@ def _present(value):
     return False
 
 
-def comparison_key(signature):
-    """An ordinary inspectable JSON identity, never an artifact hash."""
-    return json.dumps(signature, sort_keys=True, ensure_ascii=False, allow_nan=False,
-                      separators=(',', ':'))
+def _unique(values):
+    result=[]
+    for value in values:
+        if value not in result: result.append(deepcopy(value))
+    return result
 
 
 def _read(record, path):
@@ -109,6 +110,9 @@ def comparison_declaration(run, objective=None):
             values = [value.get('id', value.get('name'))
                       if isinstance(value, dict) and ('id' in value or 'name' in value)
                       else value for value in values]
+        if field=='evaluation_protocol':
+            values=[{key:item for key,item in value.items() if key not in ('id','revision')}
+                    if isinstance(value,dict) and 'definition' in value else value for value in values]
         # The objective selects an explicitly named metric. A supplied metric
         # definition can add units/aggregation, rather than losing that context.
         if field=='metric':
@@ -116,16 +120,16 @@ def comparison_declaration(run, objective=None):
                    if isinstance(value,dict) else value for value in values]
             if objective.get('metric'):names.append(objective['metric'])
             names=[name for name in names if _present(name)]
-            if len({comparison_key(name) for name in names})>1:conflicting.append(field)
+            if len(_unique(names))>1:conflicting.append(field)
             definition={}
             for value in values:
                 if not isinstance(value,dict):continue
                 for name,item in value.items():
                     if name in ('id','name','path'):continue
-                    if name in definition and comparison_key(definition[name])!=comparison_key(item):conflicting.append(field)
+                    if name in definition and definition[name]!=item:conflicting.append(field)
                     definition[name]=deepcopy(item)
             values=[{'name':names[0],**definition} if definition else names[0]] if names else []
-        identities = {comparison_key(value) for value in values if _present(value)}
+        identities = _unique(value for value in values if _present(value))
         if len(identities) > 1:
             conflicting.append(field)
         if not identities:
@@ -143,7 +147,7 @@ def comparison_declaration(run, objective=None):
             continue
         values = [_read(record, field) for record in records]
         values = [value for value in values if _present(value)]
-        identities = {comparison_key(value) for value in values}
+        identities = _unique(values)
         if not identities:
             missing.append(field)
         elif len(identities) > 1:
@@ -174,13 +178,19 @@ def assess_comparability(runs, objective=None):
         status, reason = 'incomparable', 'A run contains contradictory comparison declarations'
     elif any(not row['complete'] for row in declarations):
         status, reason = 'unverified', 'Required scientific comparison declarations are missing'
-    elif len({comparison_key(row['signature']) for row in declarations}) > 1:
+    elif len(_unique(row['signature'] for row in declarations)) > 1:
         status, reason = 'incomparable', 'Dataset/version, split, evaluation, metric, statistical unit, budget or configured comparison fields differ; rerun under a shared protocol'
     elif len(runs) < 2:
         status, reason = 'unverified', 'A measured comparison requires at least two distinct completed runs'
     else:
         status, reason = 'directly_comparable', 'Complete declared scientific comparison scopes agree'
-    return {'directly_comparable': status == 'directly_comparable',
+    classification='adaptive' if any((run.get('config') or {}).get('evaluation_context',{}).get('classification')=='adaptive' or
+        (run.get('config') or {}).get('evaluation_context',{}).get('feedback_run_ids') for run in runs) else 'exploratory' if any(
+        (run.get('config') or {}).get('evaluation_context',{}).get('classification')!='independent_confirmation' for run in runs) else 'independent_confirmation'
+    return {'directly_comparable': status == 'directly_comparable', 'evaluation_classification':classification,
+            'held_out_confirmation_eligible':classification=='independent_confirmation',
+            'independent_held_out_confirmation':classification=='independent_confirmation' and status=='directly_comparable' and all(
+                run.get('verification_status')=='accepted' and run.get('numerical_verification',{}).get('ready') is True for run in runs),
             'comparison_status': status, 'reason': reason,
             'declarations': declarations, 'noncompleted_run_ids': pending,
             'verification_scope': 'Declaration equality only; source-bound independent verification is separate'}

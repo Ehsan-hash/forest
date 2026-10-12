@@ -1734,6 +1734,60 @@ Success `200`: `application/json`: `RecordItem`.
 
 Known domain failures: `400` INVALID_EXPRESSION; `404` NOT_FOUND; `422` EXPRESSION_FAILED.
 
+### Research evolution
+
+#### `GET /api/projects/{project_id}/evaluation-protocols`
+
+Return a bare array of original evaluation versions ordered by creation time. Definitions and feedback history remain inspectable after revision.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Success `200`: `application/json`: `EvaluationProtocolVersion[]`.
+
+Known domain failures: `404` NOT_FOUND.
+
+#### `POST /api/projects/{project_id}/evaluation-protocols`
+
+Record a nonempty definition with optional protocol_id, expected revisions and request_id. A missing protocol_id creates a new explicit identity. Actual feedback use marks evaluation adaptive and persists across revisions of that scope. Declaring independent_confirmation is a scope label, not proof of execution or independent verification. Accepted replay returns the original version; changed intent conflicts.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Body: `application/json`: `EvaluationProtocolRevisionRequest`; required.
+
+Success `200`: `application/json`: `EvaluationProtocolVersion`.
+
+Known domain failures: `404` NOT_FOUND; `409` REVISION_CONFLICT or REQUEST_ID_CONFLICT; `422` Invalid protocol, classification, evidence or request identity.
+
+#### `GET /api/projects/{project_id}/goal-contract`
+
+Return the current editable Goal Contract and every original version. Legacy projects initialize their original contract under the project writer lock. Historical results retain their saved goal conditions.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Success `200`: `application/json`: `GoalContractHistory`.
+
+Known domain failures: `404` NOT_FOUND.
+
+#### `POST /api/projects/{project_id}/goal-contract/versions`
+
+Revise objective, criteria or contract with a reason and existing same-project evidence/branch references. Revision guards are optional. request_id replays the original accepted result before stale revision checks; conflicting reuse is rejected. A completed controller can reopen; prior runs and resource accounting are preserved.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Body: `application/json`: `GoalContractRevisionRequest`; required.
+
+Success `200`: `application/json`: `GoalContractHistory`.
+
+Known domain failures: `404` NOT_FOUND; `409` REVISION_CONFLICT or REQUEST_ID_CONFLICT; `422` Invalid goal, evidence, branch or request identity.
+
 ### Resources
 
 #### `GET /api/analyses`
@@ -2867,6 +2921,41 @@ Additional properties: extensible JSON.
 
 Additional properties: extensible JSON.
 
+### `EvaluationProtocolRevisionRequest`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `request_id` | string | no |  |
+| `expected_revision` | integer | no |  |
+| `expected_protocol_revision` | integer | no |  |
+| `protocol_id` | string | no |  |
+| `name` | string | no |  |
+| `definition` | JsonObject | yes |  |
+| `reason` | string | no |  |
+| `feedback_run_ids` | string[] | no |  |
+| `classification` | string | no |  Values: `adaptive`, `exploratory`, `independent_confirmation`. |
+
+Additional properties: extensible JSON.
+
+### `EvaluationProtocolVersion`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `id` | string | yes | Record identifier. |
+| `created_at` | string | no | Creation timestamp, normally UTC ISO 8601. |
+| `updated_at` | string | no | Last database update timestamp, normally UTC ISO 8601. |
+| `project_id` | string | yes |  |
+| `protocol_id` | string | yes |  |
+| `revision` | integer | yes |  |
+| `parent_version_id` | string or null | no |  |
+| `name` | string | no |  |
+| `definition` | JsonObject | yes |  |
+| `reason` | string | no |  |
+| `feedback_run_ids` | string[] | yes |  |
+| `classification` | string | yes |  Values: `adaptive`, `exploratory`, `independent_confirmation`. |
+
+Additional properties: extensible JSON.
+
 ### `ExperimentCompareRequest`
 
 | Field | Type | Required | Details |
@@ -3126,6 +3215,56 @@ Additional properties: extensible JSON.
 | `path` | string | yes |  |
 | `revision` | integer | yes |  |
 | `origin` | string | yes |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractHistory`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `current` | GoalContractVersion | yes |  |
+| `versions` | GoalContractVersion[] | yes |  |
+| `history_endpoint` | string | yes |  |
+| `rule` | string | yes |  |
+| `project_revision` | integer | no |  |
+| `intervention` | JsonObject | no |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractRevisionRequest`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `request_id` | string | no |  |
+| `expected_revision` | integer | no |  |
+| `expected_goal_revision` | integer | no |  |
+| `objective` | string | no |  |
+| `success_criteria` | JsonValue[] | no |  |
+| `contract` | JsonObject | no |  |
+| `reason` | string | no |  |
+| `evidence_run_ids` | string[] | no |  |
+| `affected_branch_ids` | string[] | no |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractVersion`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `id` | string | yes | Record identifier. |
+| `created_at` | string | no | Creation timestamp, normally UTC ISO 8601. |
+| `updated_at` | string | no | Last database update timestamp, normally UTC ISO 8601. |
+| `project_id` | string | yes |  |
+| `revision` | integer | yes |  |
+| `parent_version_id` | string or null | no |  |
+| `project_revision` | integer | no |  |
+| `objective` | string | yes |  |
+| `success_criteria` | JsonValue[] | yes |  |
+| `contract` | JsonObject | yes |  |
+| `reason` | string | yes |  |
+| `changes` | JsonObject | no |  |
+| `evidence_run_ids` | string[] | no |  |
+| `affected_branch_ids` | string[] | no |  |
 
 Additional properties: extensible JSON.
 

@@ -1,6 +1,6 @@
 """Declared measured trial comparison without discarding editable work."""
 import math
-from research.validation.comparability import comparison_declaration, comparison_key
+from research.validation.comparability import comparison_declaration
 
 def metric_value(metrics,path):
     value=metrics
@@ -14,7 +14,7 @@ def compare_trials(runs,objective):
     if not objective or not objective.get('metric'):return []
     direction=objective.get('direction','min')
     if direction not in ('min','max'):raise ValueError('Objective direction must be min or max')
-    best={};rows=[]
+    best=[];rows=[]
     for run in sorted(runs,key=lambda r:r.get('created_at','')):
         if run.get('kind') not in ('experiment','command','agent'):continue
         row={'run_id':run['id'],'status':run['status'],'metric':objective['metric'],'value':None,'disposition':'unmeasured'}
@@ -34,6 +34,11 @@ def compare_trials(runs,objective):
                    comparison_eligible=declaration['complete'] and (not required or (verification=='accepted' and numerical_ready)),
                    verification_status=verification,numerical_verification=numerical,
                    evidence_label='MEASURED' if run.get('kind')!='agent' or numerical_ready else 'REPORTED')
+        evaluation=(run.get('config') or {}).get('evaluation_context') or {}
+        classification='adaptive' if evaluation.get('feedback_run_ids') else evaluation.get('classification','exploratory')
+        row.update(evaluation_context=evaluation,evaluation_classification=classification,
+            held_out_confirmation_eligible=classification=='independent_confirmation',
+            independent_held_out_confirmation=classification=='independent_confirmation' and verification=='accepted' and numerical_ready)
         applicability = run.get('goal_applicability')
         if applicability is not None:
             row['goal_applicability'] = applicability
@@ -48,11 +53,13 @@ def compare_trials(runs,objective):
                 # An explicit tentative display group does not select a winner.
                 row['exploratory_group']={key:value for key,value in declaration['signature'].items() if key!='comparison_fields'}
             rows.append(row);continue
-        key=comparison_key(declaration['signature']);previous=best.get(key)
+        previous=next((item for item in best if item['conditions']==declaration['signature']),None)
         improved=previous is None or (value<previous['value'] if direction=='min' else value>previous['value'])
         row.update(disposition='baseline' if previous is None else 'improved' if improved else 'no_improvement',
                    comparison_status='declared' if previous is None else 'directly_comparable',
                    comparator_run_id=previous['run_id'] if previous else None)
-        if improved:best[key]=row
+        if improved:
+            if previous is not None: best.remove(previous)
+            best.append(row)
         rows.append(row)
     return rows

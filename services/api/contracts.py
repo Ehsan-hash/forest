@@ -479,6 +479,40 @@ operation("delete", "/api/projects/{ident}", "Projects", "Delete a project",
     "Cancel active local/container/remote execution, interrupt cost reservations, delete project database records and remove its workspace. Return the removed identifier.", ref("Deleted"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/duplicate", "Projects", "Duplicate a project and its workspace",
     "Copy graph/resources/manuscripts/runs/files with remapped identifiers, excluding symlinks and private graph edit history. Active copied runs are marked interrupted; duplication does not replay experiments. Return the new project.", ref("Project"), errors={404: "NOT_FOUND"})
+SCHEMAS["GoalContractVersion"] = obj({**IDENTITY, "project_id": S, "revision": I,
+    "parent_version_id": field("string", nullable=True), "project_revision": I,
+    "objective": S, "success_criteria": array(JSON), "contract": J, "reason": S,
+    "changes": J, "evidence_run_ids": STRINGS, "affected_branch_ids": STRINGS},
+    ("id", "project_id", "revision", "objective", "success_criteria", "contract", "reason"))
+SCHEMAS["GoalContractHistory"] = obj({"current": ref("GoalContractVersion"),
+    "versions": array(ref("GoalContractVersion")), "history_endpoint": S, "rule": S,
+    "project_revision": I, "intervention": J}, ("current", "versions", "history_endpoint", "rule"))
+SCHEMAS["GoalContractRevisionRequest"] = obj({"request_id": S, "expected_revision": I,
+    "expected_goal_revision": I, "objective": S, "success_criteria": array(JSON),
+    "contract": J, "reason": S, "evidence_run_ids": STRINGS, "affected_branch_ids": STRINGS})
+SCHEMAS["EvaluationProtocolVersion"] = obj({**IDENTITY, "project_id": S, "protocol_id": S,
+    "revision": I, "parent_version_id": field("string", nullable=True), "name": S,
+    "definition": J, "reason": S, "feedback_run_ids": STRINGS,
+    "classification": field("string", enum=["adaptive", "exploratory", "independent_confirmation"])},
+    ("id", "project_id", "protocol_id", "revision", "definition", "classification", "feedback_run_ids"))
+SCHEMAS["EvaluationProtocolRevisionRequest"] = obj({"request_id": S, "expected_revision": I,
+    "expected_protocol_revision": I, "protocol_id": S, "name": S, "definition": J,
+    "reason": S, "feedback_run_ids": STRINGS,
+    "classification": field("string", enum=["adaptive", "exploratory", "independent_confirmation"])}, ("definition",))
+operation("get", "/api/projects/{project_id}/goal-contract", "Research evolution", "Read the scientific goal history",
+    "Return the current editable Goal Contract and every original version. Legacy projects initialize their original contract under the project writer lock. Historical results retain their saved goal conditions.",
+    ref("GoalContractHistory"), errors={404: "NOT_FOUND"})
+operation("post", "/api/projects/{project_id}/goal-contract/versions", "Research evolution", "Revise a scientific goal",
+    "Revise objective, criteria or contract with a reason and existing same-project evidence/branch references. Revision guards are optional. request_id replays the original accepted result before stale revision checks; conflicting reuse is rejected. A completed controller can reopen; prior runs and resource accounting are preserved.",
+    ref("GoalContractHistory"), body="GoalContractRevisionRequest",
+    errors={404: "NOT_FOUND", 409: "REVISION_CONFLICT or REQUEST_ID_CONFLICT", 422: "Invalid goal, evidence, branch or request identity"})
+operation("get", "/api/projects/{project_id}/evaluation-protocols", "Research evolution", "Read evaluation protocol versions",
+    "Return a bare array of original evaluation versions ordered by creation time. Definitions and feedback history remain inspectable after revision.",
+    array(ref("EvaluationProtocolVersion")), errors={404: "NOT_FOUND"})
+operation("post", "/api/projects/{project_id}/evaluation-protocols", "Research evolution", "Revise an evaluation protocol",
+    "Record a nonempty definition with optional protocol_id, expected revisions and request_id. A missing protocol_id creates a new explicit identity. Actual feedback use marks evaluation adaptive and persists across revisions of that scope. Declaring independent_confirmation is a scope label, not proof of execution or independent verification. Accepted replay returns the original version; changed intent conflicts.",
+    ref("EvaluationProtocolVersion"), body="EvaluationProtocolRevisionRequest",
+    errors={404: "NOT_FOUND", 409: "REVISION_CONFLICT or REQUEST_ID_CONFLICT", 422: "Invalid protocol, classification, evidence or request identity"})
 operation("get", "/api/projects/{ident}/graph", "Graph", "Read the full editable graph",
     "Return nodes, typed edges, branches, project revision, goal, budget and additional public graph metadata. Exclude _history.", ref("GraphState"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/graph/preview", "Graph", "Preview a graph command",

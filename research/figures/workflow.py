@@ -276,7 +276,7 @@ def review_requests(bundle, context=None):
             instruction += (
                 '\nCheck every visible transformation and short display alias against the actual original '
                 'source_context in production_contract. A generated storyboard, operation identity or '
-                'frozen topology is an interpretation of that source, not independent scientific evidence. '
+                'rendered topology is an interpretation of that source, not independent scientific evidence. '
                 'Reject an unsupported internal operation even if its graph binding is structurally valid. '
                 'Verify mask direction, blocked/allowed cells, objective-specific paths, tensor shapes and '
                 'feedback timing when present. For label_visible:false, inspect the actual arrow and '

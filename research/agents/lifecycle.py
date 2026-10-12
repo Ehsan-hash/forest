@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-import hashlib
 import json
 import time
 import uuid
-import ast
 from pathlib import Path
 
 from services.api.common import safe_path
@@ -64,13 +62,9 @@ def resume_round(state):
     return True
 
 
-def digest(value):
-    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                    default=str).encode()).hexdigest()
-
-
 def artifact_manifest(state, workspace, required):
-    """Hash task outputs and actually written files without reading datasets."""
+    """Record output versions and original references without reading datasets."""
+    from .artifacts import record_file
     names = set(required)
     for turn in state.get('transcript', []):
         action = turn.get('executed_action') or {}
@@ -89,16 +83,7 @@ def artifact_manifest(state, workspace, required):
                 if cached and cached[0] == identity:
                     manifest[name] = deepcopy(cached[1])
                     continue
-                sha = hashlib.sha256()
-                with path.open('rb') as handle:
-                    for chunk in iter(lambda: handle.read(1024 * 1024), b''):
-                        sha.update(chunk)
-                manifest[name] = {'sha256': sha.hexdigest(), 'size_bytes': path.stat().st_size}
-                if path.suffix == '.py':
-                    try:
-                        manifest[name]['semantic_sha256'] = digest(ast.dump(ast.parse(path.read_text()), include_attributes=False))
-                    except (SyntaxError, UnicodeError):
-                        manifest[name]['semantic_sha256'] = sha.hexdigest()
+                manifest[name] = record_file(path, Path(workspace).parent / 'artifact-records', relative_path=name)
                 _MANIFEST_CACHE[str(path)] = (identity, deepcopy(manifest[name]))
         except (ValueError, OSError):
             manifest[name] = {'unavailable': True}
@@ -108,7 +93,7 @@ def artifact_manifest(state, workspace, required):
 def progress_facts(state, required, processes, research_context, *, metrics_file=None):
     """External observations excluding counters, notes and arbitrary file churn."""
     reads = state.get('execution_snapshot', {}).get('file_observations', {})
-    outputs = state.get('execution_snapshot', {}).get('artifact_hashes', {})
+    outputs = state.get('execution_snapshot', {}).get('artifact_records', {})
     generated = set(outputs) | set(required)
     generated.update(artifact.get('relative_path') for process in processes
                      for artifact in process.get('artifacts', []))
@@ -126,7 +111,7 @@ def progress_facts(state, required, processes, research_context, *, metrics_file
         return (path.name not in bookkeeping and
                 not any(part.startswith('.forest-') for part in path.parts) and
                 str(path) not in generated and path.name not in generated and not authored)
-    pages = sorted((key, value.get('sha256'), value.get('offset'), value.get('next_offset'))
+    pages = sorted((key, value.get('file_revision'), value.get('offset'), value.get('next_offset'))
                    for key, value in reads.items() if original_observation(value))
     context_pages = state.get('execution_snapshot', {}).get('context_observations', {})
     def original_segment(ident):
@@ -134,27 +119,44 @@ def progress_facts(state, required, processes, research_context, *, metrics_file
         if 'progress_eligible' in metadata:
             return metadata['progress_eligible'] is True
         return metadata.get('origin', '').startswith(('Original ', 'Task materials ', 'Branch material '))
-    coverage = sorted((context_pages.get('segments', {}).get(ident, {}).get('sha256', ident), intervals)
+    coverage = sorted((ident, intervals)
                       for ident, intervals in context_pages.get('coverage', {}).items()
                       if intervals and original_segment(ident))
     bindings = state.get('execution_snapshot', {}).get('job_bindings', {})
     semantic_jobs = {value['job_id']: value.get('progress_identity') for value in bindings.values()}
-    receipts = sorted({digest({'configuration': semantic_jobs.get(process.get('process_id')) or process.get('command'),
-        'artifacts': [{key: artifact.get(key) for key in ('sha256', 'relative_path')}
-                      for artifact in process.get('artifacts', [])]})
-        for process in processes if process.get('status') == 'completed' and process.get('exit_code') == 0})
+    receipts = []
+    from .artifacts import equal_files, matches_record
+    for process in processes:
+        if process.get('status') != 'completed' or process.get('exit_code') != 0:
+            continue
+        receipt = {'configuration': semantic_jobs.get(process.get('process_id')) or process.get('command'),
+                   'artifacts': [{'snapshot_path': artifact.get('snapshot_path') or artifact.get('path'),
+                                  'relative_path': artifact.get('relative_path') or artifact.get('stream')}
+                                 for artifact in process.get('artifacts', [])]}
+        # Compare real original artifacts when distinct job identities produced
+        # the same observations. Administrative IDs cannot manufacture progress.
+        def same(previous):
+            if previous['configuration'] != receipt['configuration']:
+                return False
+            a, b = previous['artifacts'], receipt['artifacts']
+            return len(a) == len(b) and all(x['relative_path'] == y['relative_path'] and
+                equal_files(x['snapshot_path'], y['snapshot_path']) for x, y in zip(a, b)
+                if x.get('snapshot_path') and y.get('snapshot_path')) and all(
+                x.get('snapshot_path') and y.get('snapshot_path') for x, y in zip(a, b))
+        if not any(same(previous) for previous in receipts):
+            receipts.append(receipt)
     def measured_output(key):
         if key not in {'metrics.json', metrics_file}:
             return True
-        return any(artifact.get('sha256') == outputs[key].get('sha256') and
+        return any(matches_record(outputs[key].get('snapshot_path', ''), artifact) and
                    artifact.get('relative_path') == key
                    for process in processes if process.get('status') == 'completed' and process.get('exit_code') == 0
                    for artifact in process.get('artifacts', []))
-    task_outputs = {key: outputs[key].get('semantic_sha256', outputs[key].get('sha256'))
+    task_outputs = {key: outputs[key].get('semantic_source', outputs[key].get('artifact_id'))
                     for key in required if key in outputs and measured_output(key)}
     return {'input_observations': pages, 'context_coverage': coverage, 'task_outputs': task_outputs,
             'terminal_receipts': receipts,
-            'research_evidence': research_context.get('evidence_fingerprint'),
+            'research_evidence': research_context.get('evidence_state', research_context.get('semantic_evidence', [])),
             'graph_tasks': research_context.get('semantic_tasks', [])}
 
 
@@ -165,7 +167,7 @@ def checkpoint_round(state, *, reason, decision=None):
     entry = {'checkpoint_id': ident, 'round_index': life['round_index'],
              'step': len(state.get('transcript', [])), 'reason': reason,
              'created_at': time.time(),
-             'snapshot_sha256': digest(state.get('execution_snapshot', {})),
+             'snapshot_version': len(life.get('checkpoints', [])) + 1,
              'pending_action': deepcopy(state.get('pending_action')),
              'decision': deepcopy(decision)}
     life.setdefault('checkpoints', []).append(entry)
@@ -251,18 +253,16 @@ def save_session(state, workspace):
         archive = workspace.parent / 'checkpoints' / (entry['checkpoint_id'] + '.json')
         if not archive.exists():
             scientific = deepcopy(snapshot.get('execution_snapshot', {}))
-            # save() has now overlaid the accepted pending operation and latest
-            # observations. Hash this exact logical snapshot, resolving the
-            # content-addressed graph reference when auditing the archive.
-            entry['snapshot_sha256'] = digest(scientific)
-            entry['snapshot_digest_scheme'] = 'scientific_state_with_resolved_graph_v1'
+            # The checkpoint identity binds one actual logical snapshot. Graph
+            # revisions remain historical state, freely editable in future work.
+            entry.pop('snapshot_sha256', None)
+            entry.pop('snapshot_digest_scheme', None)
             state['lifecycle']['checkpoints'][-1].update(entry)
             graph = scientific.pop('research_graph', {})
-            graph_sha = digest(graph)
-            graph_path = workspace.parent / 'graph-snapshots' / (graph_sha + '.json')
+            graph_path = workspace.parent / 'graph-snapshots' / (entry['checkpoint_id'] + '.json')
             if not graph_path.exists():
                 atomic_json(graph_path, graph)
-            scientific['research_graph_reference'] = {'sha256': graph_sha,
+            scientific['research_graph_reference'] = {'record_id': entry['checkpoint_id'],
                 'revision': graph.get('revision'), 'path': str(graph_path)}
             atomic_json(archive, {'schema_version': 1, 'run_id': state['run_id'],
                 'checkpoint': entry, 'scientific_state': scientific,

@@ -27,7 +27,7 @@ The worker uses `draft_with_model` for actual provider calls. `paper_draft_attem
 
 `compare_result_files` directly compares selected numeric JSON pointers in two existing result files. Tolerances are explicit and default to exact equality. It reports `NUMERIC_MATCH` or `NUMERIC_DIFFERENCE`; a match alone is not presented as proof that a second experiment was executed. Reproducibility review also needs distinct run receipts, commands, data and environment information. Timing fields should be excluded from deterministic scientific comparisons using an explicit pointer selection.
 
-The methodological review catalog covers eleven statistical pitfalls, following the [ARS experiment workflow](https://github.com/Imbad0202/academic-research-skills-codex/tree/main/plugins/ars-codex/skills/academic-research-suite/ars/experiment-agent). An evidence-aware reviewer must mark each as supported, an issue, not applicable, or not assessed. The output distinguishes catalog coverage from actual assessed coverage. Unknown information never becomes an automatic pass.
+The project's methodological review catalog covers eleven statistical pitfalls. An evidence-aware reviewer must mark each as supported, an issue, not applicable, or not assessed. The output distinguishes catalog coverage from actual assessed coverage. Unknown information never becomes an automatic pass. The active research and review instructions come from FOREST's own packaged skills.
 
 ## Minimal wording review
 

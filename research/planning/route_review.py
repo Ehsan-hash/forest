@@ -96,8 +96,8 @@ def route_health(graph, runs, config=None):
         measured=metrics.get('observed_metrics',metrics)
         measured={key:value for key,value in measured.items() if key not in
                   ('usage','model','elapsed_seconds','elapsed','execution_context','processes','steps')}
-        return json.dumps({'task':cfg.get('research_task_signature') or _run_task_signature(run),
-            'status':run.get('status'),'measurements':measured},sort_keys=True,default=str)
+        return {'task':cfg.get('research_task_identity') or _run_task_signature(run),
+            'status':run.get('status'),'measurements':measured}
     repeated=[]
     if counterexamples:
         key=observation_key(counterexamples[0])

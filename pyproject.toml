@@ -17,6 +17,7 @@ include = ["forest_cli*", "research*", "services*", "runners*"]
 
 [tool.setuptools.package-data]
 "research.publication" = ["*.json"]
+"research.agents" = ["skills/*/SKILL.md"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

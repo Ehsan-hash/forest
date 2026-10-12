@@ -4,6 +4,19 @@ from services.api.db import asdict
 from .models import Intervention, InterventionEffect, ActionDecision
 from .application import readback
 
+# A portable record is evidence of a past action, never authorization to
+# reissue its side effects in the importing/copying project.
+EXECUTION_CONTROL_FIELDS = {
+    'pending_submission', 'submission_receipts', 'awaited_submission_action_id',
+    'submission_admission_error', 'submission_cancel_error',
+    'pending_graph_recovery', 'graph_recovery_handoff',
+    'graph_recovery_checkpoint_synced', 'graph_recovery_compute_hold',
+    'execution_handoff_compute_hold', 'wait_for', 'resume_after',
+    'waiting_started_at', 'elapsed_before_wait', 'live_process_pending_dispatch',
+    'execution_reconciliation_compute_hold', 'reconciliation_jobs',
+    'reconciliation_job', 'reconciliation_cancel_requested', 'reconciliation_cancel_error',
+}
+
 
 def validate_history(history):
     from .contracts import InterventionView, DecisionView
@@ -54,7 +67,12 @@ def historical_resource(resource):
     value=dict(resource or {})
     if value.get('pending_intervention'):
         value['historical_pending_intervention']=value.pop('pending_intervention')
-    value.pop('wait_for',None)
+    controls = dict(value.get('historical_execution_control') or {})
+    for key in EXECUTION_CONTROL_FIELDS:
+        if key in value:
+            controls[key] = value.pop(key)
+    if controls:
+        value['historical_execution_control'] = controls
     return value
 
 

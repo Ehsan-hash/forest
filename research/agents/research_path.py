@@ -8,8 +8,7 @@ or project transaction and uses the ordinary scheduler for admission.
 from __future__ import annotations
 
 from copy import deepcopy
-import hashlib
-import json
+from uuid import uuid4
 
 from research.kernel.graph import execution_edges, _closure, PROPAGATION
 from research.planning.route_review import CONTROL_KINDS, review_context_value
@@ -75,16 +74,27 @@ def refuted_paths(graph, records=()):
     return roots,_closure(graph,roots,relations=PROPAGATION)
 
 
-def _digest(value):
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
-    return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
+def _value_order(value):
+    """Order readable records; no serialized identity or digest is produced."""
+    if isinstance(value,dict):return ('object',tuple((key,_value_order(item)) for key,item in sorted(value.items())))
+    if isinstance(value,list):return ('array',tuple(_value_order(item) for item in value))
+    return (type(value).__name__,str(value))
+
+
+def _distinct(values):
+    """Readable direct equality, without content-addressed research identities."""
+    result=[]
+    for value in values:
+        if value not in result: result.append(deepcopy(value))
+    return sorted(result,key=_value_order)
 
 
 def research_observations(metrics):
     observations=(metrics or {}).get('observed_metrics',metrics or {})
     return {key:deepcopy(value) for key,value in observations.items() if key not in
         ('usage','elapsed_seconds','elapsed','execution_context','processes','steps',
-         'total_tokens','completion_tokens','prompt_tokens','cost_microusd','gpu_seconds')}
+         'total_tokens','completion_tokens','prompt_tokens','cost_microusd','gpu_seconds',
+         'artifact_hashes')}
 
 
 def task_signature(node):
@@ -97,21 +107,51 @@ def task_signature(node):
                'allow_paid', 'goal_scope', 'execution_context', 'host_snapshot',
                'branch_id', 'project_id', 'source_revision', 'research_recovery', 'input_references',
                '_workspace_source_snapshot', '_recovery_failures', '_next_attempt', 'context_overrides'}
-    ignored.add('research_task_signature')
-    return _digest(review_context_value({
+    ignored.update({'research_task_signature','research_task_identity','new_evidence_run_ids',
+        'goal_contract_version_id','goal_contract_revision','goal_contract',
+        'evaluation_protocol_version_id','evaluation_context'})
+    scientific={key:deepcopy(value) for key,value in cfg.items() if key not in ignored}
+    comparison=scientific.get('comparison_signature')
+    if isinstance(comparison,dict):
+        protocol=comparison.get('evaluation_protocol')
+        if isinstance(protocol,dict) and 'definition' in protocol:
+            comparison['evaluation_protocol']={key:value for key,value in protocol.items()
+                if key not in ('id','revision')}
+    return review_context_value({
         'instructions': node.get('instructions', ''),
-        'config': {key: value for key, value in cfg.items() if key not in ignored},
+        'config': scientific,
         'inputs': node.get('inputs', []),
-    }))
+    })
 
 
 def _run_task_signature(run):
     config = run.get('config') or {}
-    if config.get('research_task_signature'):
-        return config['research_task_signature']
+    if isinstance(config.get('research_task_identity'),dict):
+        return deepcopy(config['research_task_identity'])
     return task_signature({'type': config.get('node_type'),
         'instructions': config.get('instructions', ''), 'config': config,
         'inputs': config.get('input_references', config.get('inputs', []))})
+
+
+def _semantic_task_binding(ident, nodes, edges):
+    dependencies = _distinct({'task_identity': task_signature(nodes[edge['source']]),
+        'relation': edge.get('relation', 'depends_on')}
+        for edge in edges if edge.get('target')==ident and edge.get('source') in nodes)
+    return {'task_identity':task_signature(nodes[ident]),'dependency_bindings':dependencies}
+
+
+def unchanged_completed_work(node, nodes, edges, completed, runs):
+    """Exclude administrative clones, allow changed work or actual new evidence."""
+    work=_semantic_task_binding(node['id'],nodes,edges)
+    matching=[ident for ident in completed if nodes[ident].get('branch_id')==node.get('branch_id')
+        and _semantic_task_binding(ident,nodes,edges)==work]
+    if not matching: return False
+    prior=[run for run in runs if run.get('node_id') in matching and run.get('status')=='completed']
+    if not prior: return False  # A graph completion label alone is not an executed result.
+    since=max(run.get('created_at','') for run in prior)
+    new_ids=(node.get('config') or {}).get('new_evidence_run_ids') or []
+    return not any(run['id'] in new_ids and run.get('status')=='completed' and run.get('created_at','')>since
+        for run in runs)
 
 
 def semantic_graph_tasks(graph, *, branch_id=None):
@@ -122,24 +162,16 @@ def semantic_graph_tasks(graph, *, branch_id=None):
     exact clone of an existing task and its dependencies.
     """
     nodes = {node['id']: node for node in graph.get('nodes', [])}
-    signatures = {ident: task_signature(node) for ident, node in nodes.items()}
     active = {branch['id'] for branch in graph.get('branches', [])
               if branch.get('status', 'active') == 'active' and not branch.get('workspace_intervention')}
-    tasks = {}
+    tasks = []
     for ident, node in nodes.items():
         if (node.get('archived') or node.get('branch_id') not in active or
                 (branch_id and node.get('branch_id') != branch_id)):
             continue
-        dependencies = {_digest({'task_signature': signatures[edge['source']],
-            'relation': edge.get('relation', 'depends_on')}): {
-            'task_signature': signatures[edge['source']],
-            'relation': edge.get('relation', 'depends_on')}
-            for edge in graph.get('edges', [])
-            if edge.get('target') == ident and edge.get('source') in signatures}
-        card = {'task_signature': signatures[ident],
-            'dependency_bindings': [dependencies[key] for key in sorted(dependencies)]}
-        tasks[_digest(card)] = card
-    return [tasks[key] for key in sorted(tasks)]
+        card = _semantic_task_binding(ident,nodes,graph.get('edges',[]))
+        if card not in tasks: tasks.append(card)
+    return sorted(tasks,key=_value_order)
 
 
 def _semantic_evidence(cards, nodes):
@@ -148,32 +180,32 @@ def _semantic_evidence(cards, nodes):
     Failed execution receipts remain in the complete audit/history; adding a
     failure ID does not establish progress or reset same-state diagnosis.
     """
-    observations = {}
+    observations = []
     for card in cards:
         node = nodes.get(card['node_id'], {})
-        value = {'task_signature': task_signature(node),
+        value = {'task_identity': task_signature(node),
             'current_execution': card['current_execution'],
             'scientifically_verified': card['scientifically_verified'],
             'verification_status': card['verification'].get('verification_status'),
             'goal_applicability': {key: card['goal_applicability'].get(key)
                 for key in ('status', 'ready')},
-            'artifact_hashes': card.get('artifact_hashes', {}),
+            'artifact_references': card.get('artifact_references', {}),
             'observations': card.get('observations', {})}
-        observations[_digest(value)] = value
-    return [observations[key] for key in sorted(observations)]
+        if value not in observations: observations.append(value)
+    return sorted(observations,key=_value_order)
 
 
 def _semantic_records(records, nodes):
-    values = {}
+    values = []
     for record in records:
         value = {key: deepcopy(record.get(key)) for key in ('kind', 'title', 'status', 'data')}
         if isinstance(value['data'], dict):
             value['data'] = {key: item for key, item in value['data'].items()
                              if key not in {'node_id', 'created_at', 'updated_at', 'revision'}}
         if record.get('node_id') in nodes:
-            value['task_signature'] = task_signature(nodes[record['node_id']])
-        values[_digest(value)] = value
-    return [values[key] for key in sorted(values)]
+            value['task_identity'] = task_signature(nodes[record['node_id']])
+        if value not in values: values.append(value)
+    return sorted(values,key=_value_order)
 
 
 def failed_dependencies_changed(run, runs, nodes):
@@ -192,7 +224,7 @@ def failed_dependencies_changed(run, runs, nodes):
 
 
 def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
-                           records=(), working_set_nodes=24):
+                           records=(), working_set_nodes=24,goal_contract=None):
     """Return compact current decision state plus locators for full history.
 
     ``runs`` may carry server-resolved ``verification`` and ``goal_applicability``.
@@ -216,7 +248,12 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
     active = {branch['id'] for branch in graph.get('branches', [])
               if branch.get('status', 'active') == 'active' and not branch.get('workspace_intervention')}
     edges = execution_edges(graph)
-    failed_tasks, failures, completed, valid_evidence, stale_evidence = {}, [], set(), [], []
+    failed_tasks, failures, completed, valid_evidence, stale_evidence = [], [], set(), [], []
+    def record_failure(identity,run_id):
+        item=next((value for value in failed_tasks if value['task_identity']==identity),None)
+        if item is None:
+            item={'task_identity':deepcopy(identity),'run_ids':[]};failed_tasks.append(item)
+        if run_id not in item['run_ids']: item['run_ids'].append(run_id)
     accepted_nodes=set()
     for ident, node in nodes.items():
         attempts = by_node.get(ident, [])
@@ -235,7 +272,7 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
             if _execution_kind(node)!='verification' or verdict=='accepted':
                 completed.add(ident)
             elif verdict in ('rejected','inconclusive'):
-                failed_tasks.setdefault(task_signature(node),[]).append(latest['id'])
+                record_failure(task_signature(node),latest['id'])
         signature = task_signature(node)
         for run in attempts:
             card = {'run_id': run['id'], 'node_id': ident,
@@ -247,7 +284,7 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
                 observations=research_observations(metrics)
                 card.update(verification=deepcopy(run.get('verification', {'verification_status': 'unverified'})),
                     goal_applicability=deepcopy(run.get('goal_applicability', {'status': 'unknown', 'ready': False})),
-                    artifact_hashes=deepcopy(metrics.get('artifact_hashes', {})), observations=observations)
+                    artifact_references=deepcopy(metrics.get('artifact_references', {})), observations=observations)
                 accepted = card['verification'].get('verification_status') == 'accepted'
                 card['scientifically_verified'] = bool(card['current_execution'] and accepted
                     and card['goal_applicability'].get('ready') and ident not in invalidated)
@@ -265,9 +302,9 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
                 if failed_dependencies_changed(run,ordered,nodes):
                     continue
                 if run.get('node_revision', 0) == node.get('revision', 0):
-                    failed_tasks.setdefault(signature, []).append(run['id'])
+                    record_failure(signature,run['id'])
                 elif (run.get('config') or {}).get('instructions') is not None:
-                    failed_tasks.setdefault(_run_task_signature(run), []).append(run['id'])
+                    record_failure(_run_task_signature(run),run['id'])
     blocked = set(focus_ids)
     scoped = [node for node in nodes.values() if not node.get('archived')
               and node.get('branch_id') in active
@@ -283,8 +320,10 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
         elif (ident in invalidated and (node.get('config') or {}).get('research_activity') not in
                 ('negative_result_analysis','hypothesis_revision')):
             reason = 'recorded_hypothesis_refuted'
-        elif task_signature(node) in failed_tasks:
+        elif any(task_signature(node)==item['task_identity'] for item in failed_tasks):
             reason = 'unchanged_failed_task'
+        elif unchanged_completed_work(node,nodes,graph.get('edges',[]),completed,ordered):
+            reason = 'unchanged_completed_task'
         elif node.get('execution_status') in ('failed', 'interrupted', 'waiting_input', 'budget_exhausted', 'cancelled'):
             reason = 'path_requires_repair'
         elif any(edge['source'] not in completed for edge in edges if edge['target'] == ident):
@@ -314,33 +353,31 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
     semantic_records = _semantic_records(records, nodes)
     # New diagnostic runs do not reset this key. Only goal, task/evidence,
     # permissions, or actual research state changes permit a fresh recovery.
-    key = _digest(review_context_value({
+    state = review_context_value({
         'goal': project.get('goal'), 'goal_contract': config.get('goal_contract'),
         'scope': control.get('branch_id'),
         'tasks': semantic_tasks,
         'evidence': semantic_evidence,
         'records': semantic_records,
-        'refuted_tasks': sorted({task_signature(nodes[ident]) for ident in invalidated if ident in nodes}),
+        'refuted_tasks': _distinct(task_signature(nodes[ident]) for ident in sorted(invalidated) if ident in nodes),
         'permissions': {key: config.get(key) for key in ('tools', 'agent_execution')},
         # Diagnostics describe the same stalled scientific state. Changing an
         # error category (or reaching a work-round boundary) must not grant a
         # fresh recovery allowance without changed goals, evidence or paths.
-        'focus_tasks': sorted({task_signature(nodes[ident]) for ident in focus_ids}),
-    }))
-    evidence_fingerprint = _digest({'observations': semantic_evidence, 'records': semantic_records})
-    audit_evidence_fingerprint = _digest({'current': valid_evidence, 'historical': stale_evidence,
-                                         'failures': failures, 'records': list(records)})
+        'focus_tasks': _distinct(task_signature(nodes[ident]) for ident in sorted(focus_ids)),
+    })
+    evidence_state = {'observations': semantic_evidence, 'records': semantic_records}
     return review_context_value({
-        'schema_version': 1, 'state_key': key, 'evidence_fingerprint': evidence_fingerprint,
-        'audit_evidence_fingerprint': audit_evidence_fingerprint, 'semantic_tasks': semantic_tasks,
-        'goal_contract': {'goal': project.get('goal', ''), 'revision': project.get('revision', graph.get('revision')),
+        'schema_version': 2, 'state':state, 'evidence_state':evidence_state,'semantic_tasks': semantic_tasks,
+        'goal_contract':deepcopy(goal_contract) if goal_contract is not None else {
+            'goal': project.get('goal', ''), 'revision': project.get('revision', graph.get('revision')),
             'contract': deepcopy(config.get('goal_contract', {}))},
         'trigger': trigger, 'focus_node_ids': sorted(focus_ids), 'ancestor_node_ids': sorted(ancestors - focus_ids),
         'graph_revision': graph.get('revision'), 'nodes': node_cards,
         'edges': [edge for edge in graph.get('edges', []) if edge['source'] in chosen or edge['target'] in chosen],
         'selected_node_ids': sorted(focus_ids), 'alternative_ready_node_ids': ready,
         'refuted_node_ids': sorted(refuted), 'invalidated_path_node_ids': sorted(invalidated),
-        'failed_task_signatures': failed_tasks, 'unavailable_paths': unavailable,
+        'failed_tasks': failed_tasks, 'unavailable_paths': unavailable,
         'evidence': [card for card in valid_evidence if card['node_id'] in relevant],
         'historical_evidence': [card for card in stale_evidence if card['node_id'] in ancestors],
         'failures': [card for card in failures if card['node_id'] in ancestors or card['node_id'] in {item['node_id'] for item in unavailable}],
@@ -355,10 +392,10 @@ def build_recovery_context(project, graph, runs, *, node_id=None, trigger=None,
             'total_nodes': len(nodes), 'total_runs': len(runs)},
         'decision_constraints': [
             'Use current task-bound evidence; historical success remains historical.',
-            'Preserve the goal, protocol, raw observations, negative evidence and resource ledger.',
+            'Preserve goal/protocol version history, raw observations, negative evidence and the external resource ledger; evolve current scientific decisions explicitly.',
             'Diagnose a concrete cause and materially repair or select a feasible existing path.',
             'Do not repeat a rejected operation or grant permissions during recovery.',
-            'Unchanged validated files retain hashes and locators; reread only for a decision or changed content.',
+            'Unchanged observed files retain direct references and metadata; reread only for a decision or changed content.',
             'Do not manufacture progress with summaries, duplicate nodes or unused files.',
         ],
     })
@@ -409,8 +446,9 @@ def research_recovery_context(session, project, *, node_id=None, trigger=None):
             records.append({'id': row.id, 'kind': model.__tablename__, 'title': row.title,
                 'status': row.status, 'revision': row.revision, 'data': row.data,
                 'node_id': row.data.get('node_id')})
+    from services.research_evolution.service import goal_context
     return build_recovery_context(asdict(project), graph, runs,
-        node_id=node_id, trigger=trigger, records=records)
+        node_id=node_id, trigger=trigger, records=records,goal_contract=goal_context(session,project))
 
 
 def recovery_decision(control, context, *, autonomous=True, max_diagnostics=2):
@@ -421,9 +459,10 @@ def recovery_decision(control, context, *, autonomous=True, max_diagnostics=2):
     blocked decision is a saved pause, not scientific failure or completion.
     """
     previous = control.get('recovery') or {}
-    attempts = previous.get('diagnostic_attempts', 0) if previous.get('state_key') == context['state_key'] else 0
+    attempts = previous.get('diagnostic_attempts', 0) if previous.get('state') == context['state'] else 0
     saved_context={key:deepcopy(value) for key,value in context.items() if key!='shared_resource_ledger'}
-    recovery = {'state_key': context['state_key'], 'diagnostic_attempts': attempts,
+    recovery = {'state':deepcopy(context['state']), 'diagnostic_attempts': attempts,
+        'id':previous.get('id') if previous.get('state')==context['state'] and previous.get('id') else str(uuid4()),
         'trigger': context.get('trigger'), 'context': saved_context}
     category = (context.get('trigger') or {}).get('category')
     if category in HARD_RESOURCE_BLOCKS:
@@ -456,8 +495,17 @@ def enqueue_recovery_alternatives(session, project, context, *, source_run_id):
         raise ValueError('Recovery source must belong to the same project')
     if source.status in ('cancelled', 'completed'):
         return []
+    from services.api.db import uid
+    requests=deepcopy((source.resource or {}).get('graph_recovery_requests',[]))
+    recovery_request=next((row for row in requests if row['state']==context['state'] and
+        row['node_ids']==context.get('alternative_ready_node_ids',[])),None)
+    if recovery_request is None:
+        recovery_request={'id':uid(),'state':deepcopy(context['state']),
+            'node_ids':deepcopy(context.get('alternative_ready_node_ids',[]))}
+        requests.append(recovery_request)
+        source.resource={**(source.resource or {}),'graph_recovery_requests':requests}
     def request_for(ident):
-        return 'path-recovery:'+_digest({'source':source_run_id,'state':context['state_key'],'node':ident})[:40]
+        return 'path-recovery:'+recovery_request['id']
     existing = []
     for ident in context.get('alternative_ready_node_ids', []):
         request = request_for(ident)

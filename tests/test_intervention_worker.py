@@ -224,7 +224,7 @@ def test_intervention_crosses_actual_worker_and_transport_boundaries(tmp_path, c
             goal_receipt=h.request('GET','/api/interventions/'+goal_change['id'])
             assert goal_receipt['status']=='applied'
             proof=goal_receipt['effects'][0]['observation']
-            assert proof['delivery']['fields']['goal']=='CORRECTED_GOAL' and proof['payload_sha256']
+            assert proof['delivery']['fields']['goal']=='CORRECTED_GOAL' and proof['request_id']
             assert received['status'] == 'applied'
             assert received['effects'][0]['observation']['request_context']['instruction_intervention_ids'] == [instruction['id']]
             assert received['effects'][0]['attempt_id'] == completed['config']['execution_attempt']['id']

@@ -23,7 +23,7 @@ DISPLAY_FIELDS = {"title", "comments", "description"}
 RUNTIME_FIELDS = {"execution_status", "research_status", "last_run_id", "last_run_revision", "outputs", "last_result", "run_ids", "rerun_generation"}
 OPERATIONS = {"add_node", "edit_node", "delete_node", "add_dependency", "remove_dependency", "fork_branch", "clone_subtree",
               "insert_before", "insert_after", "reparent_subtree", "merge_branches", "split_node", "group_nodes", "prune_branch",
-              "restore_branch", "set_main_branch", "apply_instruction_patch", "undo", "redo"}
+              "restore_branch", "reopen_branch", "revise_goal", "set_main_branch", "apply_instruction_patch", "undo", "redo"}
 ANALYSIS_TYPES = {"analysis", "statistics", "statistical_analysis", "evaluation"}
 FIGURE_TYPES = {"figure", "chart"}
 PAPER_TYPES = {"paper", "writing", "review"}
@@ -587,14 +587,45 @@ class GraphCommandService:
                 node["group_id"] = group_id
                 changed(node, "layout")
             graph.setdefault("groups", []).append({"id": group_id, "title": params.get("title", "Subworkflow"), "node_ids": list(targets), "collapsed": params.get("collapsed", False)})
-        elif operation in {"prune_branch", "restore_branch", "set_main_branch"}:
+        elif operation == "revise_goal":
+            objective=params.get('objective',graph.get('goal',''))
+            contract=params.get('contract',graph.get('goal_contract',{}))
+            criteria=params.get('success_criteria',(contract or {}).get('success_criteria',[]))
+            if not isinstance(objective,str) or not isinstance(contract,dict) or not isinstance(criteria,list):
+                raise GraphError('invalid_goal','Goal objective, contract and success criteria have invalid types')
+            graph['goal']=objective
+            graph['goal_contract']={**deepcopy(contract),'success_criteria':deepcopy(criteria)}
+            graph['goal_revision_reason']={key:deepcopy(params.get(key,[] if key.endswith('_ids') else 'Scientific objective revised'))
+                for key in ('reason','evidence_run_ids','affected_branch_ids')}
+            for node in graph['nodes']:
+                # The scientific objective has its own version identity. A
+                # goal edit does not change the configuration that produced a
+                # completed numeric result or invalidate its computation.
+                changes.append({'id':node['id'],'category':'goal','reason':operation})
+        elif operation in {"prune_branch", "restore_branch", "reopen_branch", "set_main_branch"}:
             selected_branch = branch()
+            previous_status=selected_branch.get('status','active')
             if operation == "set_main_branch":
                 for b in graph["branches"]:
                     b["is_main"] = b["id"] == selected_branch["id"]
                 selected_branch["status"] = "active"
             else:
                 selected_branch["status"] = "pruned" if operation == "prune_branch" else "active"
+            if operation in {'restore_branch','reopen_branch'}:
+                selected_branch['revision']=int(selected_branch.get('revision',0))+1
+                selected_branch.setdefault('evolution_history',[]).append({
+                    'revision':selected_branch['revision'],'project_revision':previous_revision+1,
+                    'operation':operation,'previous_status':previous_status,'status':'active',
+                    'reason':params.get('reason','Existing scientific branch reopened'),
+                    'evidence_run_ids':deepcopy(params.get('evidence_run_ids',[]))})
+                for ident in params.get('reconsider_node_ids',[]):
+                    node=require(ident)
+                    if node['branch_id']!=selected_branch['id']:
+                        raise GraphError('cross_branch_reference','Reconsider nodes within the reopened branch')
+                    node.setdefault('scientific_status_history',[]).append({
+                        'research_status':node.get('research_status'),'project_revision':previous_revision,
+                        'reason':params.get('reason'),'evidence_run_ids':deepcopy(params.get('evidence_run_ids',[]))})
+                    node['research_status']='under_review'
             for n in graph["nodes"]:
                 if n["branch_id"] == selected_branch["id"]:
                     changed(n, "archive")
@@ -614,6 +645,18 @@ class GraphCommandService:
             for restored in graph['branches']:
                 live = current_branches.get(restored['id'])
                 if live:
+                    # Undo changes the selected route, not the identity or
+                    # history of scientific decisions already made on it.
+                    for key in ('revision', 'evolution_history'):
+                        if key in live:
+                            restored[key] = deepcopy(live[key])
+                    if restored.get('status') != live.get('status'):
+                        restored['revision'] = int(live.get('revision', 0)) + 1
+                        restored.setdefault('evolution_history', []).append({
+                            'revision': restored['revision'], 'project_revision': previous_revision + 1,
+                            'operation': operation, 'previous_status': live.get('status'),
+                            'status': restored.get('status'), 'reason': 'Restored an earlier route selection',
+                            'evidence_run_ids': []})
                     for key in ('workspace_intervention', 'workspace_receipt'):
                         restored.pop(key, None)
                         if key in live: restored[key] = deepcopy(live[key])

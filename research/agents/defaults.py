@@ -1,10 +1,11 @@
 """Versioned built-in role defaults; preserve explicit/custom tool selections."""
 from __future__ import annotations
 
-from .policy import ROLES, TOOLS, LEGACY_ROLE_INSTRUCTIONS, VERSION_SEVEN_ROLE_INSTRUCTIONS
+from .policy import ROLES, TOOLS, LEGACY_ROLE_INSTRUCTIONS, VERSION_SEVEN_ROLE_INSTRUCTIONS, VERSION_EIGHT_ROLE_INSTRUCTIONS
 
-TOOLSET_VERSION = 8
-VERSION_SEVEN_TOOLS = [tool for tool in TOOLS if tool != 'verification_run']
+TOOLSET_VERSION = 9
+VERSION_EIGHT_TOOLS = [tool for tool in TOOLS if tool != 'delegate_research']
+VERSION_SEVEN_TOOLS = [tool for tool in VERSION_EIGHT_TOOLS if tool != 'verification_run']
 VERSION_SIX_TOOLS = [tool for tool in VERSION_SEVEN_TOOLS if tool not in ('figure_create','paper_generate')]
 VERSION_FOUR_TOOLS = [tool for tool in VERSION_SIX_TOOLS if tool not in ('literature_import','literature_read')]
 VERSION_THREE_TOOLS = [tool for tool in VERSION_FOUR_TOOLS if tool != 'read_context_segment']
@@ -33,15 +34,15 @@ def upgrade_default_tools(agent):
     role = agent.role
     if role not in ROLES or config.get('tools_customized'):
         return False
-    instructions=(ROLES[role], VERSION_SEVEN_ROLE_INSTRUCTIONS.get(role), LEGACY_ROLE_INSTRUCTIONS.get(role))
+    instructions=(ROLES[role], VERSION_EIGHT_ROLE_INSTRUCTIONS.get(role), VERSION_SEVEN_ROLE_INSTRUCTIONS.get(role), LEGACY_ROLE_INSTRUCTIONS.get(role))
     if (agent.name != role or agent.instructions not in instructions or
             agent.provider_id is not None or not agent.enabled):
         return False
     version = config.get('builtin_toolset_version')
-    versioned = config.get('builtin_role') == role and version in (1, 2, 3, 4, 5, 6, 7)
+    versioned = config.get('builtin_role') == role and version in (1, 2, 3, 4, 5, 6, 7, 8)
     if config and not versioned:
         return False
-    expected = VERSION_SEVEN_TOOLS if versioned and version == 7 else VERSION_SIX_TOOLS if versioned and version == 6 else VERSION_FOUR_TOOLS if versioned and version in (4,5) else VERSION_THREE_TOOLS if versioned and version == 3 else VERSION_TWO_TOOLS if versioned and version == 2 else LEGACY_TOOLS
+    expected = VERSION_EIGHT_TOOLS if versioned and version == 8 else VERSION_SEVEN_TOOLS if versioned and version == 7 else VERSION_SIX_TOOLS if versioned and version == 6 else VERSION_FOUR_TOOLS if versioned and version in (4,5) else VERSION_THREE_TOOLS if versioned and version == 3 else VERSION_TWO_TOOLS if versioned and version == 2 else LEGACY_TOOLS
     if list(agent.tools or []) != expected:
         return False
     agent.tools = list(TOOLS)

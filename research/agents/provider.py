@@ -288,6 +288,9 @@ class ModelClient:
         return self.api == 'responses'
 
     def build_request(self, messages, json_mode=True, tools=None, max_output_tokens=None):
+        from .policy import ensure_research_messages
+        messages = ensure_research_messages(messages, self.config,
+            self.config.get('output_stage') or self.config.get('research_stage'))
         cfg, model = self.config, self.provider['model']
         maximum = (max_output_tokens if max_output_tokens is not None else
                    cfg.get('max_output_tokens', cfg.get('max_tokens')))
@@ -344,11 +347,13 @@ class ModelClient:
     def complete(self, messages, json_mode=True, tools=None, max_output_tokens=None,
                  output_stage=None, recover_truncation=True, _output_recovery_depth=0,
                  _output_recovery_history=None):
+        from .policy import ensure_research_messages
+        output_stage = output_stage or self.config.get('output_stage') or self.config.get('research_stage')
+        messages = ensure_research_messages(messages, self.config, output_stage)
         self._discover_local_capabilities()
         recovery_history = list(_output_recovery_history or [])
         if max_output_tokens is None:
             from .output_budget import output_allocation
-            output_stage = output_stage or self.config.get('output_stage')
             max_output_tokens = output_allocation(self.config, messages, stage=output_stage)['tokens']
             if max_output_tokens < 1:
                 raise ProviderError('No output capacity remains in the declared model context window',

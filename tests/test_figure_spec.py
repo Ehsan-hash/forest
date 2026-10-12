@@ -56,7 +56,7 @@ def test_contract_retains_sources_without_mutating_input():
 
 
 @pytest.mark.parametrize('stored_context', [False, True])
-def test_repeated_render_freezes_science_without_nesting_previous_production(stored_context):
+def test_repeated_render_retains_current_source_record_without_nesting_previous_production(stored_context):
     graph, _, _ = supplied()
     method = deepcopy(graph)
     method['source_note'] = 'A user-supplied causal mask definition.'
@@ -70,7 +70,7 @@ def test_repeated_render_freezes_science_without_nesting_previous_production(sto
                       production_raster={'selected_image': 'saved.png'})
         before = deepcopy(method)
         repeated = build_figure_contract(graph, context)
-        assert repeated['source_fingerprint'] == first['source_fingerprint']
+        assert repeated['source_record'] == first['source_record']
         assert repeated['source_context']['method']['source_note'] == method['source_note']
         assert not {'production_contract', 'production_scene', 'production_composition',
                     'asset_data', 'production_raster'} & repeated['source_context']['method'].keys()
@@ -423,15 +423,15 @@ def test_optional_generated_caption_must_be_nonempty_and_bounded(caption):
         validate_scene(scene, contract)
 
 
-def test_layout_grounded_caption_patch_preserves_the_frozen_scientific_contract():
+def test_layout_grounded_caption_patch_preserves_the_versioned_scientific_contract():
     _, contract, scene = supplied()
     scene['caption_text'] = 'Encoded token representations enter the causal attention mechanism.'
-    source_fingerprint = contract['source_fingerprint']
+    source_record = contract['source_record']
     revised = apply_scene_revision(scene, {'caption_text': (
         'Encoded token representations enter the causal attention mechanism; '
         'the triangular cells denote permitted positions.')}, contract)
     assert 'triangular cells' in revised['caption_text']
     assert 'triangular cells' not in scene['caption_text']
-    assert contract['source_fingerprint'] == source_fingerprint
+    assert contract['source_record'] == source_record
     assert revised['connections'] == scene['connections']
     assert 'Caption edits receive new independent source review' in revision_instructions(contract)

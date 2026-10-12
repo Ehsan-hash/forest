@@ -114,7 +114,7 @@ if __name__=='__main__':
             session.add(ToolExecution(id=action,run_id=run_id,tool='run_command',arguments=arguments,
                 status='pending',result={}))
         atomic_json(directory/'agent_job_bindings.json',{action:{'job_id':'job-unconfirmed',
-            'configuration_hash':'unconfirmed','command':arguments['command'],
+            'configuration':{'revision':1},'command':arguments['command'],
             'launch_arguments':{'cwd':'.','env':None,'timeout':None}}})
         result=runtime.execute('run_command',arguments,action)
         assert result['status']=='reconciliation'

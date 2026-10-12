@@ -16,7 +16,7 @@ def test_bubblewrap_hides_private_files_blocks_network_and_limits_writes():
     root = Path(tempfile.mkdtemp(prefix="forest-bwrap-", dir="/var/tmp"))
     workspace = root / "workspace"
     secret_dir = root / "evaluator"
-    public_dir = root / "researcher-data"
+    public_dir = root / "tests"
     workspace.mkdir()
     secret_dir.mkdir()
     public_dir.mkdir()
@@ -41,7 +41,7 @@ result = {{'secret_visible': secret.exists(), 'public_text': public.read_text(),
 Path('sandbox-result.json').write_text(json.dumps(result), encoding='utf-8')
 """.format(secret=str(secret_file), public=str(public_file))
     manager = BubblewrapProcesses(workspace, {
-        "bubblewrap": {"hidden_paths": [str(secret_dir)], "readonly_paths": [str(public_dir)]}
+        "bubblewrap": {"denied_readonly_paths": [str(secret_dir)], "readonly_paths": [str(public_dir)]}
     })
     state = manager.start(["/usr/bin/python3", "-c", script], cwd=".", timeout=20)
     deadline = time.monotonic() + 25
@@ -87,3 +87,22 @@ def test_project_configuration_cannot_expand_runtime_mounts_or_replace_bubblewra
     wrapped = manager._wrap(['/usr/bin/python3', '-c', 'pass'], manager.workspace, {})
     assert str(secret) not in wrapped
     assert wrapped[0] == manager.executable
+
+
+def test_command_preflight_rejects_explicit_denied_subtree_in_writable_workspace(tmp_path):
+    manager=object.__new__(BubblewrapProcesses)
+    manager.workspace=tmp_path.resolve()
+    forbidden=tmp_path/'private'/'authorized-by-name-is-insufficient.txt'
+    manager.config={'denied_readonly_paths':[str(forbidden)]}
+    with pytest.raises(PermissionError,match='explicitly denied'):
+        manager._wrap(['/usr/bin/python3','-c','pass'],manager.workspace,{})
+
+
+def test_command_preflight_does_not_expose_denied_runtime_mounted_files(tmp_path):
+    manager=object.__new__(BubblewrapProcesses)
+    manager.workspace=tmp_path.resolve()
+    runtime=tmp_path.parent/'runtime-records'
+    manager.runtime_roots=[runtime]
+    manager.config={'denied_readonly_paths':[str(runtime/'protected-evaluation.csv')]}
+    with pytest.raises(PermissionError,match='explicitly denied'):
+        manager._wrap(['/usr/bin/python3','-c','pass'],manager.workspace,{})
