@@ -459,9 +459,10 @@ class StudyScheduler:
         if identity == self._provider_manifest_identity:
             return
         profiles = {}
+        default_profile = self.runtime.manifest.get('model_provider')
         for item in _manifest_work_items(self.runtime.manifest):
             work_id = str(item.get('work_id') or item.get('cell_id') or item.get('id') or '')
-            profile = item.get('model_provider')
+            profile = item.get('model_provider') or default_profile
             if work_id and isinstance(profile, Mapping):
                 profiles[work_id] = dict(profile)
         self._provider_profiles_by_work = profiles
@@ -527,6 +528,7 @@ class StudyScheduler:
                 (self.campaign_id, self.scheduler_id, self.session_id, socket.gethostname(), os.getpid(), created,
                  'running', _json(self._configuration()), now, now))
         self._owned = True
+        self._recover_provider_configuration_circuits()
         self._recover_dispatches()
         for value in self._pending_decisions:
             self._decision(value)
@@ -615,6 +617,75 @@ class StudyScheduler:
                 sources.append(self._source(item, provider=True))
             rows = db.execute('SELECT state FROM forest_study_scheduler_circuits WHERE campaign_id=? AND source_id IN (' + ','.join('?' for _ in sources) + ')', [self.campaign_id, *sources]).fetchall()
         return any(row['state'] == 'blocked' for row in rows)
+
+    def _recover_provider_configuration_circuits(self):
+        """Release only work circuits made stale by a repaired provider DB path.
+
+        Earlier provider-table lookup failures happened before a model request
+        was submitted. Keep their original last_error and counter, but once the
+        exact saved local provider validates again, let its registered work be
+        claimed. Ambiguous or completed model-call receipts are not affected.
+        """
+        with self.ledger.connect() as db:
+            rows = db.execute("SELECT source_id,last_error,consecutive_errors FROM forest_study_scheduler_circuits "
+                "WHERE campaign_id=? AND state='blocked' AND instr(last_error,'no such table: providers')>0",
+                (self.campaign_id,)).fetchall()
+        if not rows:
+            return []
+
+        verified: dict[str, bool] = {}
+        recoverable = []
+        for row in rows:
+            try:
+                source = json.loads(row['source_id'])
+            except (TypeError, ValueError):
+                continue
+            work_id = source.get('work_id') if isinstance(source, Mapping) else None
+            profile = self._provider_profiles_by_work.get(str(work_id)) if work_id else None
+            if not isinstance(profile, Mapping):
+                continue
+            provider_id = str(profile.get('id') or '')
+            if not provider_id:
+                continue
+            if provider_id not in verified:
+                try:
+                    load_saved_codex_client(provider_id, model=str(profile.get('model') or ''),
+                        reasoning_effort=str((profile.get('config') or {}).get('reasoning_effort', 'medium')))
+                except Exception:
+                    verified[provider_id] = False
+                else:
+                    verified[provider_id] = True
+            if verified[provider_id]:
+                # Do not release a circuit while the same logical work still
+                # owns an unsettled provider request. Its outcome must be
+                # reconciled before a new invocation can become eligible.
+                with self.ledger.connect() as db:
+                    unsettled = db.execute("SELECT 1 FROM forest_study_model_calls "
+                        "WHERE campaign_id=? AND work_id=? AND status='requested' LIMIT 1",
+                        (self.campaign_id, str(work_id))).fetchone()
+                if unsettled:
+                    continue
+                recoverable.append((row['source_id'], str(work_id), int(row['consecutive_errors'])))
+
+        if not recoverable:
+            return []
+        now = time.time()
+        with self.ledger.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            changed = []
+            for source_id, work_id, prior_errors in recoverable:
+                if db.execute("UPDATE forest_study_scheduler_circuits SET state='ready' "
+                        "WHERE campaign_id=? AND source_id=? AND state='blocked' "
+                        "AND instr(last_error,'no such table: providers')>0",
+                        (self.campaign_id, source_id)).rowcount:
+                    changed.append({'work_id': work_id, 'preserved_error_count': prior_errors})
+            if changed:
+                db.execute('INSERT INTO forest_study_events VALUES(?,?,?,?,?,?)',
+                    (str(uuid.uuid4()), self.campaign_id, None, 'provider_configuration_revalidated',
+                     _json({'provider_ids': sorted(verified), 'released_work_circuits': changed,
+                            'prior_errors_preserved': True,
+                            'verification': 'saved local provider kind/model/reasoning validated; no request sent'}), now))
+        return [value['work_id'] for value in changed]
 
     def _unsettled_model_owners(self):
         """A dead coordinator cannot release an unconfirmed external model slot."""

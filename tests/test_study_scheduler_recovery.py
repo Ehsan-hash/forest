@@ -285,6 +285,52 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
         service.close()
 
 
+def test_recovered_saved_provider_releases_only_unsettled_environment_circuits(tmp_path, monkeypatch):
+    import research.experiments.study_scheduler as module
+
+    profile = {'id': 'saved-local', 'kind': 'codex_cli', 'model': 'gpt-6-luna',
+        'config': {'reasoning_effort': 'medium'}}
+    runtime = ChildRuntime(tmp_path, [
+        {'work_id': 'safe-retry', 'kind': 'replay', 'context': 'saved', 'model_provider': profile},
+        {'work_id': 'uncertain-retry', 'kind': 'replay', 'context': 'saved', 'model_provider': profile},
+        {'work_id': 'different-error', 'kind': 'replay', 'context': 'saved', 'model_provider': profile}])
+    service = scheduler(runtime)
+    provider_table_error = 'RuntimeError: OperationalError: no such table: providers'
+    with runtime.ledger.connect() as db:
+        for work_id, error in (('safe-retry', provider_table_error),
+                               ('uncertain-retry', provider_table_error),
+                               ('different-error', 'RuntimeError: unrelated failure')):
+            source = service._source({'work_id': work_id, 'kind': 'replay',
+                'payload': {'model_provider': profile}})
+            db.execute('INSERT INTO forest_study_scheduler_circuits VALUES(?,?,?,?,?)',
+                (runtime.campaign_id, source, error, 2, 'blocked'))
+        db.execute("INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at) "
+            "VALUES(?,?,?,?,?,?)", ('unsettled-original', runtime.campaign_id, 'uncertain-retry', '{}',
+                'requested', time.time()))
+
+    loaded = []
+    monkeypatch.setattr(module, 'load_saved_codex_client',
+        lambda provider_id, **kwargs: loaded.append((provider_id, kwargs)) or object())
+    try:
+        assert service._recover_provider_configuration_circuits() == ['safe-retry']
+        assert loaded == [('saved-local', {'model': 'gpt-6-luna', 'reasoning_effort': 'medium'})]
+        with runtime.ledger.connect() as db:
+            states = {row['source_id']: (row['state'], row['consecutive_errors'], row['last_error'])
+                for row in db.execute('SELECT source_id,state,consecutive_errors,last_error '
+                    'FROM forest_study_scheduler_circuits WHERE campaign_id=?', (runtime.campaign_id,))}
+            event = db.execute("SELECT payload_json FROM forest_study_events "
+                "WHERE event_type='provider_configuration_revalidated'").fetchone()
+        assert states[service._source({'work_id': 'safe-retry', 'kind': 'replay',
+            'payload': {'model_provider': profile}})] == ('ready', 2, provider_table_error)
+        assert states[service._source({'work_id': 'uncertain-retry', 'kind': 'replay',
+            'payload': {'model_provider': profile}})] == ('blocked', 2, provider_table_error)
+        assert states[service._source({'work_id': 'different-error', 'kind': 'replay',
+            'payload': {'model_provider': profile}})] == ('blocked', 2, 'RuntimeError: unrelated failure')
+        assert json.loads(event['payload_json'])['prior_errors_preserved'] is True
+    finally:
+        service.close()
+
+
 def test_tick_compute_reconciliation_hydrates_only_referenced_receipts(tmp_path, monkeypatch):
     from research.experiments.gpu_supervisor import ComputeSupervisor
     import research.experiments.study_scheduler as module
