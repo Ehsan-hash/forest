@@ -147,7 +147,10 @@ def test_real_candidate_pixels_reach_each_transport(tmp_path,api):
     message=image_content(client,[paths['png']],'Inspect these actual computed observations.')
     _,payload=client.build_request([message])
     if api=='ollama':
-        assert payload['messages'][0]['images'] and isinstance(payload['messages'][0]['content'],str)
+        from research.agents.policy import RESEARCH_POLICY_MARKER
+        assert RESEARCH_POLICY_MARKER in payload['messages'][0]['content']
+        observed=next(item for item in payload['messages'] if item['role']=='user')
+        assert observed['images']==message['images'] and isinstance(observed['content'],str)
     else:
         import base64,io,re
         from PIL import Image

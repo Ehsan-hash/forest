@@ -219,6 +219,45 @@ def read_json(path, default=None):
         return {} if default is None else default
 
 
+def _record_versions(folder):
+    versions = {}
+    for name in ('request', 'state', 'identity', 'completion'):
+        try:
+            stat = (folder / (name + '.json')).stat()
+            versions[name] = (stat.st_dev, stat.st_ino, stat.st_size,
+                              stat.st_mtime_ns, stat.st_ctime_ns)
+        except FileNotFoundError:
+            versions[name] = None
+    return versions
+
+
+def _read_record_snapshot(folder):
+    """Observe one stable publication without relaxing original bindings.
+
+    The host atomically replaces individual files, so sequential JSON reads
+    can straddle its launch or completion publication. File versions bracket
+    all reads, including absent files; only a changed observation is retried.
+    """
+    for attempt in range(3):
+        before = _record_versions(folder)
+        error = None
+        try:
+            records = (read_json(folder / 'request.json'),
+                       read_json(folder / 'state.json', {'status': 'starting'}),
+                       read_json(folder / 'identity.json'),
+                       read_json(folder / 'completion.json'))
+        except (OSError, ValueError, UnicodeError) as exc:
+            error = exc
+        after = _record_versions(folder)
+        if before == after:
+            if error is not None:
+                raise error
+            return records, before['state'] is not None
+        if attempt < 2:
+            time.sleep(.005)
+    raise ValueError('Concurrent executor record publication did not settle after three observations')
+
+
 def is_alive(pid, created):
     if not pid or created is None:
         return False
@@ -314,10 +353,7 @@ class ManagedProcesses:
     def inspect(self, process_id):
         folder = self.folder(process_id)
         try:
-            request = read_json(folder / 'request.json')
-            state = read_json(folder / 'state.json', {'status': 'starting'})
-            identity = read_json(folder / 'identity.json')
-            receipt = read_json(folder / 'completion.json')
+            (request, state, identity, receipt), state_present = _read_record_snapshot(folder)
         except (OSError,ValueError,UnicodeError) as exc:
             return {'process_id':process_id,'status':RECONCILIATION,
                 'error':'Executor record is unreadable; reconcile original launch records: '+str(exc)}
@@ -328,7 +364,7 @@ class ManagedProcesses:
             return {**request,**state,'status':RECONCILIATION,
                 'error':'Legacy or changed executor record requires reconciliation of its original configuration and observations'}
         if any(record and not binding_matches(request,record) for record in
-                (state if (folder/'state.json').exists() else {},identity,receipt)):
+                (state if state_present else {},identity,receipt)):
             return {**request,**state,'status':RECONCILIATION,'error':'Executor identity/state/receipt work records disagree'}
         for reference in (request.get('source_references') or {}).values():
             try: valid=reference.get('snapshot_metadata')==file_metadata(reference['snapshot_path'])

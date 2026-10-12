@@ -39,6 +39,8 @@ def prepare_resume(s, project, r, body):
     other_runs=s.scalars(select(TaskRun).where(TaskRun.project_id==r.project_id,TaskRun.id!=r.id))
     other_elapsed=sum(_elapsed_seconds_at(item) for item in other_runs)
     elapsed=_elapsed_seconds_at(r)
+    if requested_timeout is not None and elapsed >= requested_timeout:
+        error('TIME_BUDGET_EXHAUSTED','The requested task time budget is exhausted',409)
     time_budget=dict((r.resource or {}).get('time_budget') or {})
     time_budget['requested_task_timeout_seconds']=requested_timeout
     r.resource={**(r.resource or {}),'elapsed_seconds':elapsed,'time_budget':time_budget}
@@ -58,6 +60,19 @@ def prepare_resume(s, project, r, body):
                    'project_budget_seconds':project_budget.get('seconds'),
                    'project_revision':project.revision,'other_run_elapsed_seconds':other_elapsed,
                    'other_run_reserved_seconds':held_by_other,'run_elapsed_seconds':elapsed}
+    exhausted = resource.get('hard_budget_exhausted')
+    if isinstance(exhausted, dict) and exhausted.get('kind') == 'seconds':
+        # A successful explicit resume grants a newly calculated allowance.
+        # Retire only the old time gate; receipts, elapsed usage and uncertain
+        # original jobs remain owned by this same run and its supervisor.
+        resource.pop('hard_budget_exhausted')
+        if resource.get('blocked_reason') == 'time_budget_exhausted':
+            resource.pop('blocked_reason')
+        time_budget['exhaustion_history'] = [*time_budget.get('exhaustion_history', []),
+            {**deepcopy(exhausted), 'retired_by_explicit_resume': deepcopy(resume_record)}]
+        r.resource = resource
+        emit(s,r.project_id,'run_time_budget_reopened',{'run_id':r.id,
+            'previous_exhaustion':exhausted,**resume_record})
     time_budget.update(project_budget_seconds_at_resume=project_budget.get('seconds'),
                        project_revision_at_resume=project.revision,
                        resume_history=[*time_budget.get('resume_history',[]),resume_record])

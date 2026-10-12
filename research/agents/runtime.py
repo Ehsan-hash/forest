@@ -1041,7 +1041,8 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         action_id = state['wait_for']['action_id']
         with Session() as session:
             receipt = session.get(ToolExecution, action_id)
-            submitted = deepcopy(receipt.result) if receipt and receipt.run_id == run_id and receipt.status == 'completed' else None
+            submitted = deepcopy(receipt.result) if (receipt and receipt.run_id == run_id and
+                receipt.status == 'completed' and receipt.result.get('status') == 'submission_settled') else None
         if submitted is None:
             save()
             raise AgentYield(status='waiting_input', wait_for=state['wait_for'],
