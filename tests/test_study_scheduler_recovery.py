@@ -243,13 +243,23 @@ def test_scheduler_live_poll_paths_use_partial_indexes(tmp_path):
                 "work": db.execute("EXPLAIN QUERY PLAN SELECT work_id,kind,state FROM forest_study_work "
                     "WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id",
                     (runtime.campaign_id,)).fetchall(),
+                "ready_refs": db.execute("EXPLAIN QUERY PLAN SELECT work_id,kind,state,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_ready_refs "
+                    "WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id",
+                    (runtime.campaign_id,)).fetchall(),
+                "unresolved_refs": db.execute("EXPLAIN QUERY PLAN SELECT work_id,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_unresolved_refs "
+                    "WHERE campaign_id=? AND state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted')",
+                    (runtime.campaign_id,)).fetchall(),
                 "dispatch": db.execute("EXPLAIN QUERY PLAN SELECT dispatch_id FROM forest_study_dispatches "
                     "WHERE campaign_id=? AND session_id<>? AND state IN ('claiming','accepted','running')",
                     (runtime.campaign_id, "other-session")).fetchall(),
                 "model_call": db.execute("EXPLAIN QUERY PLAN SELECT work_id FROM forest_study_model_calls "
                     "WHERE campaign_id=? AND status='requested'", (runtime.campaign_id,)).fetchall(),
             }
-        assert "forest_study_work_live_state" in " ".join(str(row[3]) for row in plans["work"])
+        assert "forest_study_work_live_ready_refs" in " ".join(str(row[3]) for row in plans["work"])
+        assert "COVERING INDEX forest_study_work_live_ready_refs" in " ".join(
+            str(row[3]) for row in plans["ready_refs"])
+        assert "COVERING INDEX forest_study_work_live_unresolved_refs" in " ".join(
+            str(row[3]) for row in plans["unresolved_refs"])
         assert "forest_study_dispatch_live_session" in " ".join(str(row[3]) for row in plans["dispatch"])
         assert "forest_study_model_call_unsettled" in " ".join(str(row[3]) for row in plans["model_call"])
     finally:

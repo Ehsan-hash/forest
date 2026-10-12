@@ -866,7 +866,7 @@ class StudyScheduler:
             # checks need them, and pass only the provider profile to circuit
             # classification.  The full payload remains untouched for the
             # eventual execution claim.
-            rows = db.execute("SELECT work_id,kind,state,supervisor_work_id,decision_json FROM forest_study_work WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id", (self.campaign_id,)).fetchall()
+            rows = db.execute("SELECT work_id,kind,state,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_ready_refs WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id", (self.campaign_id,)).fetchall()
             states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
             edges = db.execute('SELECT source_id,target_id,relation FROM forest_study_edges WHERE campaign_id=?', (self.campaign_id,)).fetchall()
             active = {entry['item']['work_id'] for entry in self._futures.values()}
@@ -1138,7 +1138,7 @@ class StudyScheduler:
         self._read_pilot()
         self._evaluate_wave()
         with self.ledger.connect() as db:
-            candidates = db.execute("SELECT work_id,supervisor_work_id FROM forest_study_work "
+            candidates = db.execute("SELECT work_id,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_unresolved_refs "
                 "WHERE campaign_id=? AND state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted')",
                 (self.campaign_id,)).fetchall()
         compute_ids = {value for row in candidates for value in (row['work_id'], row['supervisor_work_id']) if value}

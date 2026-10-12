@@ -70,6 +70,12 @@ CREATE TABLE IF NOT EXISTS forest_study_aide_programs (
   PRIMARY KEY(campaign_id,work_id,node_id));
 CREATE INDEX IF NOT EXISTS forest_study_work_live_state
   ON forest_study_work(campaign_id,state,created_at,work_id,kind);
+CREATE INDEX IF NOT EXISTS forest_study_work_live_ready_refs
+  ON forest_study_work(campaign_id,state,created_at,work_id,kind,supervisor_work_id)
+  WHERE state IN ('queued','retryable');
+CREATE INDEX IF NOT EXISTS forest_study_work_live_unresolved_refs
+  ON forest_study_work(campaign_id,state,work_id,supervisor_work_id)
+  WHERE state NOT IN ('completed','failed','cancelled','not_run','budget_exhausted');
 CREATE INDEX IF NOT EXISTS forest_study_model_call_unsettled
   ON forest_study_model_calls(campaign_id,work_id)
   WHERE status='requested';
