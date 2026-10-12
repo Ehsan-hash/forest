@@ -1553,6 +1553,40 @@ def test_large_model_context_interning_preserves_exact_json_and_tail_text():
     assert stats[0]["output_characters"] < stats[0]["input_characters"]
 
 
+def test_aide_artifact_observation_payload_bloat_is_losslessly_shared_before_codex_transport():
+    """Keep full evidence while sharing duplicated AIDE fields in the actual wire request."""
+    from research.experiments.study_context import restore_messages
+    from research.experiments.study_runtime import _intern_delivered_messages
+    from research.agents.codex_transport import request_payload
+
+    manifest = {"train_ids": [f"sample-{index:06d}" for index in range(10_000)],
+        "validation_ids": [f"validation-{index:06d}" for index in range(2_000)],
+        "dataset_contract": "registered-dataset-manifest," * 4_300}
+    training_config = {"optimizer": "AdamW", "learning_rate": 0.0003,
+        "batch_size": 64, "updates": 1200, "normalization": {"mean": [0.1] * 64,
+            "scale": [0.9] * 64}}
+    observations = [{"artifact_id": f"run-{index}", "dataset_manifest": manifest,
+        "training_configuration": training_config,
+        "validation_log": (f"validation-run-{index}:" + ("observed-value," * 6_500))}
+        for index in range(6)]
+    aide_context = {"view": "native_agent_public_artifact_index",
+        "artifacts": observations, "observations": observations}
+    original = [{"role": "user", "content": "AIDE public evidence:\n" +
+        json.dumps(aide_context, ensure_ascii=False, separators=(",", ":"))}]
+
+    delivered, stats = _intern_delivered_messages(original)
+    wire = request_payload(delivered, json_mode=True)
+    wire_characters = len(json.dumps(wire, ensure_ascii=False, separators=(",", ":")))
+
+    assert stats and stats[0]["input_characters"] > 5_000_000
+    assert stats[0]["output_characters"] < stats[0]["input_characters"]
+    # This is the observed Codex CLI input-envelope capacity, not an Agent
+    # reasoning quota. The repeated immutable evidence is still losslessly
+    # represented in the request, below that transport's real limit.
+    assert wire_characters < 1_050_000
+    assert restore_messages(delivered) == original
+
+
 def test_downstream_executor_error_preserves_actual_model_response(tmp_path, monkeypatch):
     campaign = tmp_path / "campaign"
     campaign.mkdir()
