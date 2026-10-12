@@ -1355,7 +1355,9 @@ class StudyRuntime:
                 "delivery_status": fitted.get("delivery_status", "delivered"),
                 "response_capacity": capacity, "response_capacity_sources":
                     copy.deepcopy(getattr(self, "_context_capacity_sources", [])),
-                "result": fitted}, str(payload.get("work_id", "")))
+                "result_reference": {"segment_id": fitted["segment_id"], "pointer": fitted["pointer"],
+                    "offset": fitted["offset"], "next_offset": fitted["next_offset"]}},
+                str(payload.get("work_id", "")))
         return history
 
     def _attach_public_context(self, source_payload: Mapping[str, Any], prepared: Mapping[str, Any], *,
@@ -2822,7 +2824,9 @@ class StudyRuntime:
                     "requested_limit": page.get("requested_limit"), "returned_characters": page.get("returned_characters"),
                     "complete": page.get("complete"), "capacity_limited": page.get("capacity_limited"),
                     "response_capacity": page.get("response_capacity"),
-                    "response_capacity_sources": list(context_response_capacity_sources), "result": page},
+                    "response_capacity_sources": list(context_response_capacity_sources),
+                    "result_reference": {"segment_id": page.get("segment_id"), "pointer": page.get("pointer"),
+                        "offset": page.get("offset"), "next_offset": page.get("next_offset")}},
                     str(episode.get("work_id", "")))
         selected = (submission or {}).get("selected_configuration_id")
         selection_results = [r for r in results if r["kind"] == "analysis" and r.get("result", {}).get("operation") == "select"]

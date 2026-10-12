@@ -344,6 +344,14 @@ def test_arm_public_context_is_exactly_paged_and_reads_are_observational(tmp_pat
     assert page["content"] == encoded_source_string[19:56]
     with runtime.ledger.connect() as db:
         assert db.execute("SELECT count(*) FROM forest_study_work WHERE work_id=?", (context_binding["work_id"],)).fetchone()[0] == 0
+        event = db.execute("SELECT payload_json FROM forest_study_events WHERE event_type='context_page_read'").fetchone()
+    payload_reference = json.loads(event[0])
+    assert "result" not in payload_reference
+    assert payload_reference["result_reference"] == {"segment_id": source_segment,
+        "pointer": "/messages/1/content", "offset": 19, "next_offset": 56}
+    restored_page = memory.read_json(source_segment, pointer=payload_reference["pointer"],
+        offset=payload_reference["offset"], limit=payload_reference["next_offset"]-payload_reference["offset"])
+    assert restored_page["content"] == page["content"]
     history = [{"actions": result["actions"]}]
     repeated_payload = runtime._attach_public_context(prepared, payload, history=history)
     assert repeated_payload["context_memory"]["segment_id"] == source_segment

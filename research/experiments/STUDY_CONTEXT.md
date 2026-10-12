@@ -132,12 +132,16 @@ against the original scientific validator after optional null placeholders are
 restored. A later executor error preserves the completed model response and
 its physical inference timing.
 
-A `context_page_read` ledger event records the exact locally constructed page
-and its source cursor before the parent episode checkpoint. It does not prove
-physical model delivery. The request record and actual CLI trace identify the
-page or reference representation sent; the verified transport outcome records
-whether that request completed. Native AIDE prompt selection must preserve its
-ordinary saved Journal, action receipts and RNG state.
+A `context_page_read` ledger event records the source segment and exact cursor
+before the parent episode checkpoint. The complete delivered page remains in
+the canonical action history; the event points to it instead of copying its
+contents. This follows the same checkpoint-plus-reference pattern used by
+LangGraph's persistence layer and avoids multiplying large evidence pages in
+append-only audit logs. The event does not prove physical model delivery. The
+request record and actual CLI trace identify the page or reference
+representation sent; the verified transport outcome records whether that
+request completed. Native AIDE prompt selection must preserve its ordinary
+saved Journal, action receipts and RNG state.
 
 ## Regression coverage
 

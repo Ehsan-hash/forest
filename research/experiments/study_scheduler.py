@@ -1027,8 +1027,10 @@ class StudyScheduler:
             with self.ledger.connect() as db:
                 db.execute('UPDATE forest_study_dispatches SET state=?,finished_at=?,error=? WHERE dispatch_id=?',
                     ('failed' if error else 'returned', time.time(), error, dispatch))
-                db.execute('UPDATE forest_study_dispatches SET result_json=? WHERE dispatch_id=?',
-                    (_json(result) if result is not None else None, dispatch))
+                # The complete result is already durably stored by StudyRuntime
+                # in forest_study_work (and its event delta). Duplicating it in
+                # every dispatch row multiplied episode histories in the ledger;
+                # dispatch.work_id is the canonical result reference.
             self._record_outcome(item, error, failure=failure)
 
     def _evaluate_wave(self):

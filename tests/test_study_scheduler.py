@@ -318,6 +318,12 @@ def test_real_independent_children_overlap_and_gpu_lane_is_serial(tmp_path):
         with runtime.ledger.connect() as db:
             assert db.execute('SELECT lane FROM forest_study_dispatches ORDER BY accepted_at LIMIT 1').fetchone()[0] == 'gpu'
             assert db.execute('SELECT count(*) FROM forest_study_dispatches WHERE state=\'returned\'').fetchone()[0] == 4
+            # Full outputs belong to the canonical study-work checkpoint.
+            # Dispatch rows retain the work ID and lifecycle receipt only.
+            assert db.execute("SELECT count(*) FROM forest_study_dispatches "
+                "WHERE state='returned' AND result_json IS NOT NULL").fetchone()[0] == 0
+            assert all(json.loads(row[0]) for row in db.execute(
+                "SELECT result_json FROM forest_study_work WHERE state='completed'"))
         value = service.metrics()
         assert value['categories']['model_wait']['summed_seconds'] > value['categories']['model_wait']['wall_union_seconds']
         assert value['completed_work_items'] == 4 and value['remaining_ready'] == 0
