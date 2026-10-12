@@ -185,6 +185,9 @@ def test_ready_poll_reads_only_small_state_from_large_durable_records(tmp_path, 
         assert service._ready_ids(('replay',), {}) == ['large-queued', 'large-retryable']
         assert not any('json_extract(result_json' in query.lower() for query in statements)
         assert not any('json_extract(payload_json' in query.lower() for query in statements)
+        state_reads = [query.lower() for query in statements
+            if 'select work_id,state from forest_study_work' in query.lower()]
+        assert state_reads and all('indexed by forest_study_work_live_state' in query for query in state_reads)
         with runtime.ledger.connect() as db:
             assert original_loads(db.execute('SELECT payload_json FROM forest_study_work WHERE work_id=?',
                 ('large-queued',)).fetchone()[0])['context'] == history

@@ -1023,7 +1023,9 @@ class StudyScheduler:
                     'SELECT work_id,updated_at FROM forest_study_aide_sessions '
                     'INDEXED BY forest_study_aide_session_live_updated WHERE campaign_id=?',
                     (self.campaign_id,))}
-            states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
+            states = {row['work_id']: row['state'] for row in db.execute(
+                'SELECT work_id,state FROM forest_study_work INDEXED BY forest_study_work_live_state WHERE campaign_id=?',
+                (self.campaign_id,))}
             edges = db.execute("SELECT source_id,target_id FROM forest_study_edges WHERE campaign_id=? AND relation='derived_from'", (self.campaign_id,)).fetchall()
             awakened = []
             for row in rows:
@@ -1077,7 +1079,9 @@ class StudyScheduler:
             # classification.  The full payload remains untouched for the
             # eventual execution claim.
             rows = db.execute("SELECT work_id,kind,state,supervisor_work_id FROM forest_study_work INDEXED BY forest_study_work_live_ready_refs WHERE campaign_id=? AND state IN ('queued','retryable') ORDER BY created_at,work_id", (self.campaign_id,)).fetchall()
-            states = {row['work_id']: row['state'] for row in db.execute('SELECT work_id,state FROM forest_study_work WHERE campaign_id=?', (self.campaign_id,))}
+            states = {row['work_id']: row['state'] for row in db.execute(
+                'SELECT work_id,state FROM forest_study_work INDEXED BY forest_study_work_live_state WHERE campaign_id=?',
+                (self.campaign_id,))}
             edges = db.execute('SELECT source_id,target_id,relation FROM forest_study_edges WHERE campaign_id=?', (self.campaign_id,)).fetchall()
             active = {entry['item']['work_id'] for entry in self._futures.values()}
             ready = []
