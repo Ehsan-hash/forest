@@ -1142,6 +1142,19 @@ class StudyScheduler:
         self._wave = None
         if not calls:
             return  # Resuming saved actions is not a new inference sample.
+        # A crashed coordinator can leave a provider request in ``requested``
+        # while its external outcome is being reconciled. That is neither a
+        # successful latency sample nor evidence that the chosen concurrency
+        # failed. Keep the request reserved by _unsettled_model_owners(), but
+        # let unrelated work use other capacity measured by the pilot.
+        unresolved = [call for call in calls
+            if call['status'] == 'requested' and call['finished_at'] is None]
+        if unresolved:
+            self._decision({'type': 'live_concurrency_observation_deferred',
+                'degree': self.degree,
+                'reason': 'An external model request remains unresolved; preserve its reservation without treating it as a failed throughput sample',
+                'request_ids': [call['request_id'] for call in unresolved]})
+            return
         failed = [call for call in calls if call['status'] != 'completed' or call['finished_at'] is None]
         if failed:
             previous = self.degree

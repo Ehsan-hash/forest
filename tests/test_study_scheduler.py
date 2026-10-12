@@ -256,6 +256,33 @@ def test_live_sequential_requests_use_actual_overlap_degree(tmp_path):
         service.close()
 
 
+def test_unresolved_external_request_does_not_downrate_pilot_concurrency(tmp_path):
+    runtime = ChildRuntime(tmp_path, [])
+    service = scheduler(runtime, model_concurrency=2, maximum_model_concurrency=2)
+    with runtime.ledger.connect() as db:
+        db.execute('INSERT INTO forest_study_dispatches(dispatch_id,campaign_id,scheduler_id,session_id,owner,work_id,lane,state,accepted_at,started_at,finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+            ('dispatch-unresolved-wave', runtime.campaign_id, service.scheduler_id, service.session_id,
+             'owner', 'native-node', 'model', 'reconciled', 0., 0., 5.))
+        for request_id,status,started,finished,elapsed in (
+                ('completed-wave-call', 'completed', 1., 2., 1.),
+                ('unresolved-wave-call', 'requested', 1.1, None, None)):
+            db.execute('INSERT INTO forest_study_model_calls(request_id,campaign_id,work_id,request_json,status,recorded_at,started_at,finished_at,elapsed_seconds) VALUES(?,?,?,?,?,?,?,?,?)',
+                (request_id, runtime.campaign_id, 'native-node', json.dumps({'model': 'infrastructure-child'}),
+                 status, started, started, finished, elapsed))
+    service._wave = {'degree': 2, 'dispatch_ids': ['dispatch-unresolved-wave']}
+    try:
+        service._evaluate_wave()
+        assert service.degree == 2
+        assert service._wave is None
+        with runtime.ledger.connect() as db:
+            request = db.execute("SELECT status FROM forest_study_model_calls WHERE request_id=?",
+                ('unresolved-wave-call',)).fetchone()
+        assert service._pending_decisions[-1]['type'] == 'live_concurrency_observation_deferred'
+        assert request['status'] == 'requested'
+    finally:
+        service.close()
+
+
 def test_exhausted_cell_is_terminal_for_scheduler(tmp_path):
     runtime = ChildRuntime(tmp_path, [{'work_id': 'exhausted', 'kind': 'episode', 'context': 'own'}])
     runtime.ledger.set_state(runtime.campaign_id, 'exhausted', 'budget_exhausted')
