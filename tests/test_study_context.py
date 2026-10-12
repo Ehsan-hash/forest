@@ -79,6 +79,19 @@ def test_key_order_numeric_types_negative_zero_and_unicode_are_preserved():
     assert math.copysign(1, restored[0]["n"]) == -1
 
 
+def test_deep_repeated_subtrees_use_exact_bottom_up_identity_and_roundtrip():
+    nested = {"value": [1, 1.0, True, "x"], "empty": {}}
+    for index in range(180):
+        nested = {"level": index, "child": nested}
+    source = {"left": deepcopy(nested), "right": deepcopy(nested)}
+
+    document, stats = intern_json_with_stats(source)
+
+    assert document["encoding"] == "interned"
+    assert stats["saved_characters"] > 0
+    assert compact(restore_json(document)) == compact(source)
+
+
 def test_stable_reference_ids_follow_first_source_traversal():
     earlier = {"outer": list(range(200)), "name": "earlier"}
     later = {"outer": list(range(400, 600)), "name": "later"}

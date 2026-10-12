@@ -63,6 +63,7 @@ class _Node:
     children: list = field(default_factory=list)
     group: Any = None
     characters: int = 0
+    canonical_id: int = 0
 
 
 @dataclass
@@ -73,11 +74,21 @@ class _Group:
 
 
 def _source_tree(value):
-    # The complete literal serialization is the equality key. No content hash,
-    # shortened fingerprint or source identity is created or substituted.
-    groups_by_literal = {}
+    # Intern exact structural identities bottom-up. Re-serializing each nested
+    # subtree as an equality key made deeply nested evidence quadratic in input
+    # size before transport. Child IDs preserve exact JSON types and order while
+    # keeping each parent key proportional to its immediate children.
+    canonical_ids = {}
+    groups_by_identity = {}
     groups = []
     active = set()
+
+    def canonical_id(identity):
+        identifier = canonical_ids.get(identity)
+        if identifier is None:
+            identifier = len(canonical_ids) + 1
+            canonical_ids[identity] = identifier
+        return identifier
 
     def visit(current, path):
         if type(current) not in (dict, list):
@@ -85,7 +96,9 @@ def _source_tree(value):
                 raise TypeError("Context requires ordinary JSON values at " + (path or "/"))
             if isinstance(current, float) and not math.isfinite(current):
                 raise ValueError("Context requires finite JSON numbers at " + (path or "/"))
-            return _Node("scalar", value=current, characters=len(_dumps(current)))
+            literal = _dumps(current)
+            return _Node("scalar", value=current, characters=len(literal),
+                         canonical_id=canonical_id(("scalar", type(current).__name__, literal)))
         if id(current) in active:
             raise ValueError("Cyclic source is not a JSON tree at " + (path or "/"))
         if isinstance(current, dict) and any(type(key) is not str for key in current):
@@ -102,11 +115,15 @@ def _source_tree(value):
             node.children = [visit(child, _pointer(path, index)) for index, child in enumerate(current)]
             node.characters = len('["array",[]]') + sum(child.characters for child in node.children) + max(0, len(node.children)-1)
         active.remove(id(current))
-        literal = _dumps(current)
-        group = groups_by_literal.get(literal)
+        if node.kind == "object":
+            identity = ("object", tuple((key, child.canonical_id) for key, child in node.children))
+        else:
+            identity = ("array", tuple(child.canonical_id for child in node.children))
+        node.canonical_id = canonical_id(identity)
+        group = groups_by_identity.get(node.canonical_id)
         if group is None:
             group = _Group(len(groups), node)
-            groups_by_literal[literal] = group
+            groups_by_identity[node.canonical_id] = group
             groups.append(group)
         else:
             # Literal equality includes scalar types and all original order.
