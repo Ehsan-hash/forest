@@ -3805,7 +3805,7 @@ def _semantic_submission(value: Mapping[str, Any]) -> dict[str, Any]:
 def _validation_signature(value: Mapping[str, Any]) -> dict[str, Any]:
     volatile = {"state", "reason", "response_validation_feedback", "request_new_decision",
         "pause_reason", "no_progress_observation", "source_validation_reason",
-        "source_validation_signature", "observed_request_usage"}
+        "source_validation_signature", "observed_request_usage", "submitted_claim"}
     if not isinstance(value, Mapping):
         return {}
     return {str(key): copy.deepcopy(item) for key, item in value.items() if str(key) not in volatile}

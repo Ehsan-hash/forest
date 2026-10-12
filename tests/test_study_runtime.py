@@ -11,6 +11,7 @@ from research.experiments.study_runtime import (StudyLedger, StudyRuntime,
     _c2_evaluation_overrides, _episode_metric_contract, verify_episode_submission,
     execute_registered_analysis, _codex_strict_schema, _restore_strict_optional_nulls,
     _transport_trace_reference, _validate_episode_schema)
+from research.experiments.study_runtime import _validation_signature
 
 
 def manifest(items, edges=(), *, version=1):
@@ -117,6 +118,17 @@ def test_completed_action_id_conflict_returns_replan_feedback_without_reexecutio
         saved = db.execute("SELECT state,result_json FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
     assert saved["state"] == "completed"
     assert _decode_study_result_json(saved["result_json"]) == saved_result
+
+
+def test_submission_validation_signature_ignores_claim_rewording_but_keeps_source_evidence():
+    first = {"valid": False, "reason": "unverified_claim",
+        "submitted_claim": "The revised result is unresolved.",
+        "unavailable_action_work_ids": ["fit-a"], "scientific_repair_complete": False}
+    reworded = {**first, "submitted_claim": "No revised result has been established."}
+    changed_evidence = {**reworded, "unavailable_action_work_ids": ["fit-b"]}
+
+    assert _validation_signature(first) == _validation_signature(reworded)
+    assert _validation_signature(first) != _validation_signature(changed_evidence)
 
 
 def test_action_history_events_store_only_changed_turns_and_keep_full_checkpoint(tmp_path):
