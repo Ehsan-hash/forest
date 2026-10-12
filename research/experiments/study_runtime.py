@@ -345,6 +345,13 @@ def _intern_delivered_messages(messages: Sequence[Mapping[str, Any]]) -> tuple[l
     return intern_messages(messages)
 
 
+def _decision_schema_note(schema: Mapping[str, Any], *, provider_kind: str) -> str:
+    """Avoid serializing Codex CLI's already-attached output schema twice."""
+    if provider_kind == "codex_cli":
+        return "\n\nReturn JSON matching the attached response schema."
+    return "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(schema)
+
+
 def _validate_action_bindings(payload: Mapping[str, Any], actions: Sequence[Any]) -> None:
     """Check an entire proposed batch before any registered operation can run."""
     bindings = payload.get("action_bindings")
@@ -1262,8 +1269,10 @@ class StudyRuntime:
             "Observed results from completed source-bound operations in this episode:\n" + _json(context)})
         schema = next_payload.get("decision_schema", {})
         if messages:
+            provider_kind = ((getattr(client, "provider", {}) or {}).get("kind")
+                or getattr(client, "api", ""))
             messages[-1]["content"] = str(messages[-1].get("content", "")) + \
-                "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(schema)
+                _decision_schema_note(schema, provider_kind=str(provider_kind))
         from research.agents.policy import ensure_research_messages
         messages = ensure_research_messages(messages, client.config, str(next_payload.get("output_stage", "experiment")))
         messages, _ = _intern_delivered_messages(messages)
@@ -2442,7 +2451,9 @@ class StudyRuntime:
                 "Use the registered context and current feedback to make a new decision. Validation feedback: " +
                 _json(payload["response_validation_feedback"])})
         if delivered_messages:
-            schema_note = "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(payload["decision_schema"])
+            provider_kind = ((getattr(client, "provider", {}) or {}).get("kind")
+                or getattr(client, "api", ""))
+            schema_note = _decision_schema_note(payload["decision_schema"], provider_kind=str(provider_kind))
             delivered_messages[-1]["content"] = str(delivered_messages[-1].get("content", "")) + schema_note
         delivered_messages = ensure_research_messages(delivered_messages, client.config, output_stage)
         source_messages = copy.deepcopy(delivered_messages)

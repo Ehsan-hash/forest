@@ -11,11 +11,21 @@ from research.experiments.study_context import (
     DOCUMENT_HEADER, FORMAT, MESSAGE_FORMAT, MESSAGE_HEADER, _message_json_blocks,
     intern_json_with_stats, restore_json, restore_messages,
 )
-from research.experiments.study_runtime import _intern_delivered_messages
+from research.experiments.study_runtime import _decision_schema_note, _intern_delivered_messages, _json
 
 
 def compact(value):
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def test_only_codex_cli_uses_its_out_of_band_schema_without_inline_duplication():
+    schema = {"type": "object", "properties": {"decision": {"type": "string"}},
+        "required": ["decision"], "additionalProperties": False}
+    codex_note = _decision_schema_note(schema, provider_kind="codex_cli")
+    other_note = _decision_schema_note(schema, provider_kind="ollama")
+    assert "attached response schema" in codex_note
+    assert compact(schema) not in codex_note
+    assert _json(schema) in other_note
 
 
 def public_receipt(size=1400):
@@ -167,26 +177,58 @@ def test_saved_failed_request_projects_below_observed_capacity_read_only():
     """Opt-in exact incident proof; never opens a campaign in writable mode."""
     database = os.environ.get("FOREST_SHARED_CONTEXT_REQUEST_DB")
     request_id = os.environ.get("FOREST_SHARED_CONTEXT_REQUEST_ID")
-    if not database or not request_id:
-        pytest.skip("Set an explicit read-only saved-request fixture to verify the incident")
-    with sqlite3.connect("file:" + str(Path(database).resolve()) + "?mode=ro", uri=True) as db:
-        raw = db.execute("SELECT request_json FROM forest_study_model_calls WHERE request_id=?", (request_id,)).fetchone()[0]
-    request = json.loads(raw)
-    trace = json.loads(Path(request["transport_trace_path"]).read_text(encoding="utf-8"))
-    payload = deepcopy(request["transport_payload"])
+    trace_path = os.environ.get("FOREST_SHARED_CONTEXT_TRACE_PATH")
+    raw_request = None
+    request = None
+    if trace_path:
+        trace = json.loads(Path(trace_path).read_text(encoding="utf-8"))
+        payload = json.loads(trace["stdin"])
+        if database and request_id:
+            with sqlite3.connect("file:" + str(Path(database).resolve()) + "?mode=ro", uri=True) as db:
+                raw_request = db.execute("SELECT request_json FROM forest_study_model_calls WHERE request_id=?",
+                    (request_id,)).fetchone()[0]
+            request = json.loads(raw_request)
+    elif database and request_id:
+        with sqlite3.connect("file:" + str(Path(database).resolve()) + "?mode=ro", uri=True) as db:
+            raw_request = db.execute("SELECT request_json FROM forest_study_model_calls WHERE request_id=?",
+                (request_id,)).fetchone()[0]
+        request = json.loads(raw_request)
+        trace = json.loads(Path(request["transport_trace_path"]).read_text(encoding="utf-8"))
+        # Older study-call records used ``transport_payload``; the current episode
+        # runtime stores the same exact wire object as ``request_payload``.
+        original_payload = request.get("transport_payload", request.get("request_payload"))
+        assert isinstance(original_payload, dict)
+        payload = deepcopy(original_payload)
+    else:
+        pytest.skip("Set a saved trace path or read-only saved-request fixture to verify the incident")
+    original_schema = deepcopy(payload.get("response_schema"))
+    original_messages = deepcopy((request or {}).get("original_messages", payload["messages"]))
+    schema_note_schema = (request or {}).get("decision_schema") or original_schema
+    if schema_note_schema and "--output-schema" in trace.get("argv", []):
+        from research.experiments.study_runtime import _decision_schema_note, _json
+        old_note = "\n\nReturn exactly one JSON object satisfying this decision contract:\n" + _json(schema_note_schema)
+        new_note = _decision_schema_note(schema_note_schema, provider_kind="codex_cli")
+        matching = [index for index, message in enumerate(original_messages)
+            if isinstance(message.get("content"), str) and message["content"].endswith(old_note)]
+        if matching:
+            assert len(matching) == 1
+            index = matching[0]
+            original_messages[index]["content"] = original_messages[index]["content"][:-len(old_note)] + new_note
     assert compact(payload) == trace["stdin"]
     from research.agents.codex_transport import _input_rejection
     capacity = _input_rejection(trace["stderr"])["max_chars"]
     assert len(compact(payload)) > capacity
-    delivered, stats = _intern_delivered_messages(request["original_messages"])
-    assert restore_messages(delivered) == request["original_messages"]
+    delivered, stats = _intern_delivered_messages(original_messages)
+    assert restore_messages(delivered) == original_messages
     payload["messages"] = delivered
     assert len(compact(payload)) < capacity
-    assert stats[0]["scope"] == "request_messages"
+    assert stats and sum(int(row.get("saved_characters", 0)) for row in stats) > 0
     # The original source schema and immutable receipt are unaffected.
-    assert payload["response_schema"] == request["transport_payload"]["response_schema"]
-    with sqlite3.connect("file:" + str(Path(database).resolve()) + "?mode=ro", uri=True) as db:
-        assert db.execute("SELECT request_json FROM forest_study_model_calls WHERE request_id=?", (request_id,)).fetchone()[0] == raw
+    assert payload["response_schema"] == original_schema
+    if raw_request is not None:
+        with sqlite3.connect("file:" + str(Path(database).resolve()) + "?mode=ro", uri=True) as db:
+            assert db.execute("SELECT request_json FROM forest_study_model_calls WHERE request_id=?",
+                (request_id,)).fetchone()[0] == raw_request
 
 
 def _legacy_delivery(messages):
