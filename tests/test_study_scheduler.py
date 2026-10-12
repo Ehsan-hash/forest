@@ -484,6 +484,16 @@ def test_actual_original_cpu_receipt_is_polled_without_repeated_dispatch(tmp_pat
                 output=self.campaign/'native-child.json'
                 observation=supervisor.submit([sys.executable,'-c',CHILD,str(output),'.35',item['work_id'],'CPU-only receipt fixture'],
                     self.campaign,work_id=item['work_id'],timeout_seconds=8,gpu_devices=(),configuration={'infrastructure_test':True})
+                # Submission and receipt consumption are separate dispatches.
+                # This CPU fixture has no scientific fit artifacts to reconcile.
+                self.ledger.set_state(self.campaign_id,item['work_id'],'retryable',result={'supervisor':observation},supervisor_work_id=item['work_id'])
+                return {'supervisor':observation}
+            # A launch record may still be publishing when the scheduler polls.
+            # Observe only the accepted original ID; never submit another child.
+            deadline=time.monotonic()+5
+            while observation['status'] not in ('completed','failed','cancelled','budget_exhausted') and time.monotonic()<deadline:
+                time.sleep(.01)
+                observation=supervisor.status(item['work_id'])
             state='completed' if observation['status']=='completed' else 'awaiting_reconciliation' if observation['status']=='reconciliation' else 'retryable'
             self.ledger.set_state(self.campaign_id,item['work_id'],state,result={'supervisor':observation},supervisor_work_id=item['work_id'])
             return {'supervisor':observation}
