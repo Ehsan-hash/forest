@@ -313,14 +313,22 @@ def test_runtime_agent_feedback_inference_select_and_compare_dev_chain(tmp_path)
     assert first["action_result"]["request_new_decision"] is True
     assert first["action_result"]["actions"][0]["result"]["status"] == "MISSING_PREREQUISITES"
     assert first_source_id in first["action_result"]["actions"][0]["result"]["missing_work_ids"]
+    feedback = first["response_validation_feedback"]
+    assert feedback["status"] == "MISSING_PREREQUISITES"
+    assert any(row["work_id"] == first_source_id
+        and row["config_reference"] == registered_infers[0]["inference_spec"]["config_path"]
+        for row in feedback["next_executable_operations"])
 
     for index, binding in enumerate(registered_infers):
         inference_turn = runtime.run_one(owner="dev-fixture", client=client, defer_gpu=True)
         assert inference_turn["decision"]["actions"][0]["kind"] == "infer"
         assert inference_turn["decision"]["actions"][0]["action_work_id"] == binding["work_id"]
         if index == 0:
-            assert any("MISSING_PREREQUISITES" in str(message.get("content", ""))
+            delivered = "\n".join(str(message.get("content", ""))
                 for message in client.requests[1])
+            assert "MISSING_PREREQUISITES" in delivered
+            assert first_source_id in delivered
+            assert registered_infers[0]["inference_spec"]["config_path"] in delivered
         deferred = inference_turn["action_result"]["actions"][0]
         assert deferred["result"]["deferred_to_gpu_queue"] is True
 
