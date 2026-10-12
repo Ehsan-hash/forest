@@ -34,6 +34,21 @@ def get(g, identifier):
     return next(n for n in g["nodes"] if n["id"] == identifier)
 
 
+def test_branch_reopen_undo_preserves_decisions_and_monotonic_versions(tmp_path):
+    g = apply(graph(), tmp_path, 'prune_branch', branch_id='main')['graph']
+    g = apply(g, tmp_path, 'reopen_branch', branch_id='main', reason='Measured evidence motivates this path',
+              evidence_run_ids=['observed-run'])['graph']
+    first = deepcopy(g['branches'][0]['evolution_history'][0])
+    g = apply(g, tmp_path, 'undo')['graph']
+    assert g['branches'][0]['status'] == 'pruned'
+    assert g['branches'][0]['revision'] == 2
+    assert g['branches'][0]['evolution_history'][0] == first
+    g = apply(g, tmp_path, 'reopen_branch', branch_id='main', reason='Further evidence supports reopening',
+              evidence_run_ids=['second-observed-run'])['graph']
+    assert g['branches'][0]['revision'] == 3
+    assert [entry['revision'] for entry in g['branches'][0]['evolution_history']] == [1, 2, 3]
+
+
 def test_dag_cycle_rejected_but_history_cycles_allowed(tmp_path):
     g = graph()
     with pytest.raises(GraphError, match="acyclic"):

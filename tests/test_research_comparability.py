@@ -51,6 +51,24 @@ def test_complete_real_measurements_rank_only_same_declared_scope(tmp_path):
     assert 'Declaration equality only' in report['verification_scope']
 
 
+def test_equal_protocol_definitions_compare_directly_across_administrative_versions(tmp_path):
+    first,second=measured(tmp_path,'a'),measured(tmp_path,'b',True)
+    definition={'sampling':'quadrature','shuffle':False,'blind_analysis':True}
+    first['config']['comparison_signature']['evaluation_protocol']={'id':'initial','revision':1,'definition':definition}
+    second['config']['comparison_signature']['evaluation_protocol']={'id':'renamed','revision':20,'definition':definition}
+    assert assess_comparability([first,second])['directly_comparable']
+    for run in (first,second):run['config']['evaluation_context']={'classification':'independent_confirmation'}
+    claimed=assess_comparability([first,second])
+    assert claimed['held_out_confirmation_eligible'] and not claimed['independent_held_out_confirmation']
+    for run in (first,second):
+        run.update(verification_status='accepted',numerical_verification={'ready':True})
+    assert assess_comparability([first,second])['independent_held_out_confirmation']
+    second['config']['evaluation_context']['feedback_run_ids']=['a']
+    adaptive=assess_comparability([first,second])
+    assert adaptive['directly_comparable'] and adaptive['evaluation_classification']=='adaptive'
+    assert not adaptive['independent_held_out_confirmation']
+
+
 @pytest.mark.parametrize('field',REQUIRED_FIELDS)
 def test_missing_declarations_never_become_equal_champions(tmp_path,field):
     first,second=measured(tmp_path,'a'),measured(tmp_path,'b',True)
@@ -142,7 +160,7 @@ def test_exact_factory_migration_keeps_custom_roles_tools_and_instruction_edits(
         assert not upgrade_default_tools(custom) and vars(custom)==before
     assert upgrade_default_tools(factory)
     assert factory.instructions==ROLES['Engineer'] and factory.tools==TOOLS
-    assert factory.config['builtin_toolset_version']==TOOLSET_VERSION==8
+    assert factory.config['builtin_toolset_version']==TOOLSET_VERSION==9
     assert 'verification_run' in factory.tools and not upgrade_default_tools(factory)
     assert {'Evidence Verifier','Open Source Research Advisor','Research Direction Reviewer'}<=set(ROLES)
     explicit=SimpleNamespace(name='Engineer',role='Engineer',instructions=VERSION_SEVEN_ROLE_INSTRUCTIONS['Engineer'],
@@ -195,7 +213,7 @@ def test_required_replanning_uses_actual_failures_and_real_semantic_change(tmp_p
         validate_replanning(invalid,graph,altered,runs,{'replan_required':True,'route_replan_node_ids':['failed']},{'signals':[]},graph['goal'])
 
 
-def test_excess_counterexample_tasks_cannot_replan_into_more_renamed_checks(tmp_path):
+def test_unchanged_counterexample_tasks_require_actual_method_change(tmp_path):
     from research.planning.loop import validate_replanning
     graph,runs=research_route(tmp_path)
     graph['nodes'][0]['config']['research_activity']='counterexample'
@@ -205,9 +223,11 @@ def test_excess_counterexample_tasks_cannot_replan_into_more_renamed_checks(tmp_
           'stop_node_ids':['failed'],'evidence_run_ids':[runs[-1]['id']]}}
     after=deepcopy(graph);after['nodes'][0]['archived']=True
     extra=deepcopy(graph['nodes'][0]);extra.update(id='renamed-check',archived=False,title='Fresh check')
-    extra['config']['command']=calculation(True);after['nodes'].append(extra)
-    with pytest.raises(ValueError,match='counterexample'):validate_replanning(plan,graph,after,runs,{'replan_required':True},health,graph['goal'])
-    extra['config']['research_activity']='baseline'
+    after['nodes'].append(extra)
+    with pytest.raises(ValueError,match='materially changed'):validate_replanning(plan,graph,after,runs,{'replan_required':True},health,graph['goal'])
+    # A materially different discriminating check is productive scientific work,
+    # even when prior tasks also had counterexample duty.
+    extra['config']['command']=calculation(True)
     assert validate_replanning(plan,graph,after,runs,{'replan_required':True},health,graph['goal'])['changed_scientific_node_ids']==['renamed-check']
 
 

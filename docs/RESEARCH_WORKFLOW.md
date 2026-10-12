@@ -103,9 +103,9 @@ Recommendations carry subjective probability ranges, confidence, supporting and
 contrary evidence, and the required base-case research judgment.
 
 The controller reviews repeated failures and plans without intervening execution.
-Declared `research_activity: "counterexample"` tasks have an allowance of two
-consecutive checks by default. Excess triggers review and replanning before more
-work is dispatched. Repeated unchanged actions inside such an agent task also
+Declared `research_activity: "counterexample"` tasks may continue while they
+produce new evidence. Two repeated unchanged observations trigger diagnosis and
+replanning by default. Repeated unchanged actions inside such an agent task also
 yield for route repair. Periodic direction review runs after six scientific tasks.
 
 Replanning must cite the affected records, align with the current research goal,
@@ -118,7 +118,7 @@ forest research route-health --json
 forest research route-review --wait
 ```
 
-Review timing and allowances remain editable in the project configuration:
+Review timing and diagnostic thresholds remain editable in the project configuration:
 
 ```json
 {
@@ -126,7 +126,7 @@ Review timing and allowances remain editable in the project configuration:
     "enabled": true,
     "window": 12,
     "repeated_failures": 3,
-    "counterexample_limit": 2,
+    "unchanged_counterexample_repeats": 2,
     "planning_without_execution": 4,
     "review_every_runs": 6,
     "material_preview_bytes": 262144

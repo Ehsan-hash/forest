@@ -43,9 +43,15 @@ def goal_applicability(session, run):
     state = 'current' if goals == [project.goal] else 'needs_review' if goals else 'unknown'
     if state == 'current' and not scope_matches: state = 'needs_review'
     reason = 'Execution used the current goal and scoped direction' if state == 'current' else 'Execution goal or scoped direction changed, or spans different goals' if goals else 'Legacy execution has no recorded goal'
+    from services.research_evolution.service import current_goal
+    contract=current_goal(session,project)
+    execution_version=run.config.get('goal_contract_version_id')
+    if execution_version and execution_version!=contract.id:
+        state='needs_review'
+        reason='The scientific objective or success criteria evolved; historical computations retain their original contract version'
     decision = None
     cache=session.info.setdefault('goal_applicability_decisions',{})
-    cache_key=(project.id,project.revision,project.goal)
+    cache_key=(project.id,project.revision,contract.id)
     if cache_key not in cache:
         by_run={}
         for row in session.scalars(select(Intervention).where(Intervention.project_id == project.id,
@@ -54,13 +60,17 @@ def goal_applicability(session, run):
             by_run.setdefault(row.intent.get('run_id'), []).append(row)
         cache[cache_key]=by_run
     row=next((item for item in cache[cache_key].get(run.id, [])
-              if item.intent.get('goal_scope', {}) == current_scope), None)
+              if item.intent.get('goal_scope', {}) == current_scope and (
+                  item.intent.get('goal_contract_version_id')==contract.id or
+                  (not item.intent.get('goal_contract_version_id') and contract.revision==1))), None)
     if row:
         decision = row.id
         state = 'approved' if row.intent['choice'] == 'reuse' else 'excluded'
         reason = row.intent['reason']
     return {'run_id': run.id, 'status': state, 'ready': state in ('current', 'approved'),
             'current_goal': project.goal, 'execution_goals': goals, 'decision_id': decision,
+            'current_goal_contract_version_id':contract.id,'current_goal_contract_revision':contract.revision,
+            'execution_goal_contract_version_id':execution_version,
             'current_goal_scope': current_scope, 'execution_goal_scopes': recorded_scopes,
             'reason': reason, 'scope': 'Goal relevance only; computational verification remains independent'}
 
@@ -80,9 +90,12 @@ def decide_applicability(run_id, request_id, expected_revision, choice, reason):
         if project.revision != expected_revision: error('REVISION_CONFLICT', 'The reviewed project changed', 409)
         if run.status != 'completed': error('EVIDENCE_UNFINISHED', 'Decide applicability after execution completes', 409)
         project.revision += 1
+        from services.research_evolution.service import current_goal
+        contract=current_goal(session,project)
         row = Intervention(project_id=project_id, request_id=request_id, actor='owner', kind='evidence_applicability',
             observed_revision=expected_revision, applied_revision=project.revision, status='applied',
             intent={'run_id': run_id, 'goal': project.goal, 'goal_scope': goal_scope_snapshot(session, project, run.node_id),
+                    'goal_contract_version_id':contract.id,
                     'choice': choice, 'reason': reason},
             impact={'run_id': run_id, 'computational_verification': 'preserved'}, accepted_at=now(), applied_at=now())
         session.add(row); session.flush()

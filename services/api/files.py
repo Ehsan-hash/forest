@@ -531,8 +531,11 @@ def project_export(s,p,selection=None):
     for r in s.scalars(select(TaskRun).where(TaskRun.project_id==p.id)):
         value=asdict(r); value['config']={k:v for k,v in value['config'].items() if k not in ('provider_snapshot','credential_ref')}; value['pid']=None; value['worker_id']=None; runs.append(value)
     from services.interventions.history import export_history
+    from services.research_evolution.history import export_evolution
+    from services.interventions.origin_history import export_origins
     payload={'format':'forest-project-v1','project':project,'graph':graph,'resources':resources,'papers':papers,'runs':runs,
-             **export_history(s,p.id)}
+             'workspace_origins':export_origins(root),'workspace_origin_root':str(root.resolve()),
+             **export_history(s,p.id),**export_evolution(s,p.id)}
     with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('forest-project.json',json.dumps(payload,ensure_ascii=False,indent=2))
         for f in root.rglob('*'):
@@ -600,7 +603,12 @@ async def import_project(file:UploadFile=File(...)):
     for info in z.infolist():
         if info.filename.startswith('/') or '..' in Path(info.filename).parts or (info.external_attr>>16)&0o170000==0o120000: error('UNSAFE_ARCHIVE','Archive contains unsafe paths or symbolic links')
     from services.interventions.history import validate_history
-    try: validate_history(manifest)
+    from services.research_evolution.history import validate_evolution
+    from services.interventions.origin_history import validate_origins,import_origins,relocate_permission_config
+    try:
+        validate_history(manifest)
+        validate_evolution(manifest)
+        validate_origins(manifest.get('workspace_origins',[]),manifest.get('workspace_origin_root'))
     except ValueError as exc: error('INVALID_ARCHIVE',str(exc),422)
     validate_graph(manifest['graph'])
     run_timestamps={}
@@ -632,21 +640,26 @@ async def import_project(file:UploadFile=File(...)):
             for item in rows: mapping.setdefault(item['id'],uid())
         from services.interventions.history import history_ids,import_history,historical_resource
         for ident in history_ids(manifest):mapping.setdefault(ident,uid())
+        from services.research_evolution.history import evolution_ids,import_evolution
+        for ident in evolution_ids(manifest):mapping.setdefault(ident,uid())
         def remap(obj):
             return remap_identifiers(obj,mapping,project_id=old_id,new_project_id=p.id)
-        controller=p.config.get('controller')
-        if isinstance(controller,dict) and controller.get('branch_id'):
-            branch_id=controller['branch_id']; remapped_branch=mapping.get(branch_id)
-            if remapped_branch!=branch_id:
-                p.config={**p.config,'controller':{**controller,'branch_id':remapped_branch}}
+        p.config=remap(p.config)
+        p.config=relocate_permission_config(orig.get('config',{}),p.config,root,manifest.get('workspace_origin_root'),remap)
+        import_evolution(s,p.id,manifest,remap)
+        import_origins(root,manifest.get('workspace_origins',[]),remap,manifest.get('workspace_origin_root'))
         from services.interventions.history import historical_branches
         graph=historical_branches(remap(graph)); graph['project_id']=p.id; graph['revision']=0; graph.pop('_history',None)
+        node_configs={mapping[row['id']]:row.get('config',{}) for row in manifest['graph']['nodes']}
+        for node in graph['nodes']:
+            node['config']=relocate_permission_config(node_configs[node['id']],node.get('config',{}),root,
+                                                     manifest.get('workspace_origin_root'),remap)
         for node in graph['nodes']:
             if node.get('execution_status') in ('queued','running','pausing','paused','waiting_input'):
                 node['imported_execution_status']=node['execution_status']; node['execution_status']='interrupted'
         validate_graph(graph)
         for branch in graph['branches']: ArtifactResolver(root,graph).branch_path(branch['id'])
-        save_graph(s,p,graph)
+        save_graph(s,p,graph,historical=True)
         for info in z.infolist():
             if not info.filename.startswith('files/') or info.is_dir(): continue
             try:

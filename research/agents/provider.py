@@ -14,7 +14,7 @@ class ProviderError(RuntimeError):
 
     def __init__(self, message, *, code='provider_error', request_id=None, usage=None,
                  retryable=False, ambiguous=False, http_status=None, response_id=None,
-                 model=None, incomplete_reason=None, partial_output=None):
+                 model=None, incomplete_reason=None, partial_output=None, requested_output_tokens=None):
         super().__init__(message)
         self.code = code
         self.request_id = request_id
@@ -28,6 +28,7 @@ class ProviderError(RuntimeError):
         # Public generated content only; never headers, credentials or reasoning.
         # This is diagnostic data and must never be decoded as an executable call.
         self.partial_output = partial_output or []
+        self.requested_output_tokens = requested_output_tokens
 
 
 def incomplete_public_output(value, api):
@@ -241,14 +242,62 @@ class ModelClient:
         if (not local or self.api == 'codex_cli') and request_guard is None:
             from .budget import make_request_guard
             self.request_guard = make_request_guard(provider)
+        self._capability_discovery_done = False
+
+    def _discover_local_capabilities(self):
+        """Read local Ollama architecture metadata; never infer output maxima."""
+        if self._capability_discovery_done:
+            return
+        self._capability_discovery_done = True
+        if self.api != 'ollama':
+            return
+        declared=self.config.get('model_capabilities') or {}
+        if isinstance(declared,dict) and declared.get('context_window_tokens'):
+            return
+        try:
+            with httpx.Client(timeout=min(self.timeout, 3), follow_redirects=False) as http:
+                response = http.post(self.base + '/api/show', json={'model': self.provider['model']})
+            if not 200 <= response.status_code < 300:
+                return
+            value = response.json()
+            info = value.get('model_info') if isinstance(value, dict) else None
+            if not isinstance(info, dict):
+                return
+            limits = [number for key, raw in info.items() if key.endswith('.context_length')
+                      and (number := _count(raw)) and number > 0]
+            if limits:
+                existing=dict(self.config.get('model_capabilities') or {})
+                configured_context=existing.get('context_window_tokens',
+                    self.config.get('context_length',self.config.get('context_window_tokens')))
+                bounds=[min(limits)]
+                if isinstance(configured_context,int) and not isinstance(configured_context,bool) and configured_context>0:
+                    bounds.append(configured_context)
+                effective_context=min(bounds)
+                updates={'model_capabilities': {**existing, 'context_window_tokens': effective_context,
+                    'source': existing.get('source','ollama_model_show')}}
+                for key in ('context_length','context_window_tokens'):
+                    if self.config.get(key) is not None:
+                        updates[key]=effective_context
+                self.config={**self.config,**updates}
+        except (httpx.RequestError, ValueError, TypeError, AttributeError):
+            # Unknown metadata uses the explicit conservative fallback.
+            return
 
     @property
     def native_tools(self):
         return self.api == 'responses'
 
-    def build_request(self, messages, json_mode=True, tools=None):
+    def build_request(self, messages, json_mode=True, tools=None, max_output_tokens=None):
+        from .policy import ensure_research_messages
+        messages = ensure_research_messages(messages, self.config,
+            self.config.get('output_stage') or self.config.get('research_stage'))
         cfg, model = self.config, self.provider['model']
-        maximum = int(cfg.get('max_output_tokens', cfg.get('max_tokens', 2048)))
+        maximum = (max_output_tokens if max_output_tokens is not None else
+                   cfg.get('max_output_tokens', cfg.get('max_tokens')))
+        if maximum is None:
+            from .output_budget import output_allocation
+            maximum = output_allocation(cfg, messages)['tokens']
+        maximum = int(maximum)
         if maximum <= 0:
             raise ProviderError('Maximum output tokens must be positive', code='configuration')
         plain = [{'role': m['role'], 'content': m['content']} for m in messages]
@@ -258,8 +307,12 @@ class ModelClient:
             return 'codex_cli', request_payload(messages, json_mode, cfg.get('_forest_action_schema'))
         if self.api == 'ollama':
             ollama_messages = [{**m, **({'images': messages[index]['images']} if messages[index].get('images') else {})} for index, m in enumerate(plain)]
-            payload = {'model': model, 'messages': ollama_messages, 'stream': False, 'options': {
-                'temperature': cfg.get('temperature', .2), 'num_predict': maximum, 'num_ctx': cfg.get('context_length', 8192)}}
+            options = {'temperature': cfg.get('temperature', .2), 'num_predict': maximum}
+            declared_context = (cfg.get('model_capabilities') or {}).get('context_window_tokens') if isinstance(cfg.get('model_capabilities'), dict) else None
+            context = cfg.get('context_length', cfg.get('context_window_tokens', declared_context))
+            if context is not None:
+                options['num_ctx'] = context
+            payload = {'model': model, 'messages': ollama_messages, 'stream': False, 'options': options}
             if json_mode:
                 payload['format'] = 'json'
             return '/api/chat', payload
@@ -291,12 +344,26 @@ class ModelClient:
                                        'model': self.provider['model'], 'api': self.api, **fields})
         return None
 
-    def complete(self, messages, json_mode=True, tools=None):
+    def complete(self, messages, json_mode=True, tools=None, max_output_tokens=None,
+                 output_stage=None, recover_truncation=True, _output_recovery_depth=0,
+                 _output_recovery_history=None):
+        from .policy import ensure_research_messages
+        output_stage = output_stage or self.config.get('output_stage') or self.config.get('research_stage')
+        messages = ensure_research_messages(messages, self.config, output_stage)
+        self._discover_local_capabilities()
+        recovery_history = list(_output_recovery_history or [])
+        if max_output_tokens is None:
+            from .output_budget import output_allocation
+            max_output_tokens = output_allocation(self.config, messages, stage=output_stage)['tokens']
+            if max_output_tokens < 1:
+                raise ProviderError('No output capacity remains in the declared model context window',
+                                    code='context_window_exceeded')
         if self.api == 'codex_cli':
             if tools: raise ProviderError('Codex transport uses FOREST JSON actions, not native tool calls',code='configuration')
             from .codex_transport import complete
-            return complete(self, messages, json_mode)
-        endpoint, payload = self.build_request(messages, json_mode, tools)
+            return complete(self, messages, json_mode, max_output_tokens=max_output_tokens)
+        endpoint, payload = self.build_request(messages, json_mode, tools, max_output_tokens=max_output_tokens)
+        requested_limit = payload.get('max_output_tokens', payload.get('max_tokens', payload.get('options', {}).get('num_predict')))
         cfg, start = self.config, time.monotonic()
         retries = max(0, min(4, int(cfg.get('max_retries', 2))))
         headers = {'Authorization': f'Bearer {self.key}'} if self.key else {}
@@ -360,8 +427,49 @@ class ModelClient:
                     result = parse_response(value, self.api, request_id=request_id, pricing=cfg.get('pricing'))
                 except (AttributeError, TypeError, KeyError):
                     raise ProviderError('Provider returned an invalid response structure', code='invalid_response', request_id=request_id, usage=usage) from None
+                except ProviderError as error:
+                    error.requested_output_tokens = payload.get('max_output_tokens', payload.get('max_tokens', payload.get('options', {}).get('num_predict')))
+                    error.elapsed_seconds = time.monotonic() - start
+                    from .output_budget import recovery_attempt_limit
+                    if (recover_truncation and _output_recovery_depth < recovery_attempt_limit(cfg)
+                            and error.code == 'incomplete_response' and error.incomplete_reason == 'max_output_tokens'
+                            and not error.ambiguous):
+                        from .output_budget import grow_output_allocation
+                        next_limit = grow_output_allocation(cfg, messages, error.requested_output_tokens)
+                        if next_limit:
+                            attempt = {'request_id': error.request_id, 'response_id': error.response_id,
+                                'model': error.model or self.provider['model'], 'requested_output_tokens': error.requested_output_tokens,
+                                'usage': error.usage, 'elapsed_seconds': error.elapsed_seconds,
+                                'status': 'incomplete', 'incomplete_reason': error.incomplete_reason}
+                            return self.complete(messages, json_mode=json_mode, tools=tools,
+                                max_output_tokens=next_limit, output_stage=output_stage,
+                                recover_truncation=True, _output_recovery_depth=_output_recovery_depth + 1,
+                                _output_recovery_history=[*recovery_history, attempt])
+                    error.output_recovery_history = [*recovery_history, {
+                        'request_id': error.request_id, 'response_id': error.response_id,
+                        'model': error.model or self.provider['model'],
+                        'requested_output_tokens': error.requested_output_tokens,
+                        'usage': error.usage, 'elapsed_seconds': error.elapsed_seconds,
+                        'status': 'incomplete', 'incomplete_reason': error.incomplete_reason}]
+                    raise
                 result['elapsed'] = time.monotonic() - start
                 result['model'] = result['model'] or self.provider['model']
+                if recovery_history:
+                    attempts = [*recovery_history, {'request_id': result.get('request_id'),
+                        'response_id': result.get('response_id'), 'model': result.get('model'),
+                        'requested_output_tokens': requested_limit, 'usage': result.get('usage'),
+                        'elapsed_seconds': result.get('elapsed'), 'status': 'completed'}]
+                    total = {}
+                    for key in ('input_tokens', 'output_tokens', 'cached_input_tokens', 'reasoning_tokens'):
+                        values = [(item.get('usage') or {}).get(key) for item in attempts]
+                        total[key] = sum(values) if all(isinstance(value, int) and not isinstance(value, bool) for value in values) else None
+                    costs = [(item.get('usage') or {}).get('cost') for item in attempts]
+                    total['cost'] = sum(costs) if all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in costs) else None
+                    total['cost_source'] = 'configured_rates_estimate' if total['cost'] is not None else 'unknown'
+                    result['usage'] = total
+                    result['elapsed'] = sum(item.get('elapsed_seconds') or 0 for item in attempts)
+                    result['output_recovery'] = {'strategy': 'increase_within_declared_capability',
+                        'attempts': attempts, 'request_count': len(attempts)}
                 return result
 
     def models(self):

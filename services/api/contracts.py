@@ -146,7 +146,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "RunActionRequest": obj({"request_id": field("string", "Used by retry; other run actions ignore it."),
         "priority": field("integer", "Used by priority, default 0; handler converts with int()."),
         "context_char_budget": field("integer", "resume only; Agent run, integer >= 1000."),
-        "agent_budget": {**J, "description": "resume only; merges editable per-Agent token/model-call/cost/time limits after budget validation."}}),
+        "agent_budget": {**J, "description": "resume only; merges editable per-Agent token/cost/time hard limits after budget validation. Legacy steps is accepted as a bounded work-round hint, never a cumulative research limit."}}),
     "QueuedTaskRequest": obj({"project_id": S, "request_id": field("string", nullable=True),
         "node_id": field("string", nullable=True), "run_ids": STRINGS,
         "provider_id": field("string", nullable=True)}, ("project_id",),
@@ -199,8 +199,8 @@ SCHEMAS: dict[str, dict[str, Any]] = {
         ("objective", "trials", "controller", "active_runs", "decisions", "counts")),
     "RouteSignal": obj({"kind": S, "node_ids": STRINGS, "run_ids": STRINGS, "finding": S}, ("kind", "node_ids", "run_ids", "finding")),
     "RouteReviewSettings": obj({"enabled": B, "window": I, "repeated_failures": I,
-        "counterexample_limit": I, "planning_without_execution": I, "review_every_runs": I},
-        ("enabled", "window", "repeated_failures", "counterexample_limit", "planning_without_execution", "review_every_runs")),
+        "unchanged_counterexample_repeats": I, "planning_without_execution": I, "review_every_runs": I},
+        ("enabled", "window", "repeated_failures", "unchanged_counterexample_repeats", "planning_without_execution", "review_every_runs")),
     "RouteHealth": obj({"replan_required": B, "signals": array(ref("RouteSignal")),
         "settings": ref("RouteReviewSettings"), "reviewed_run_ids": STRINGS,
         "node_count": I, "total_run_count": I, "scope": S},
@@ -332,9 +332,9 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "ProposalApplied": obj({"graph": ref("GraphState"), "accepted_indices": array(I)}, ("graph", "accepted_indices")),
     "ReviewApplyRequest": obj({"expected_revision": I, "indices": array(I)}, ("expected_revision", "indices")),
     "ResearchControlRequest": obj({"branch_id": field("string", nullable=True), "required_artifacts": array(JSON),
-        "autonomous": B, "max_cycles": field("integer", nullable=True)}),
+        "autonomous": B, "max_cycles": field("integer", "Deprecated legacy input; recorded as history and does not limit research lifetime.", nullable=True, deprecated=True)}),
     "ResearchControl": obj({"status": S, "phase": S, "branch_id": field("string", nullable=True),
-        "required_artifacts": array(JSON), "autonomous": B, "max_cycles": field("integer", nullable=True),
+        "required_artifacts": array(JSON), "autonomous": B, "legacy_max_cycles": field("integer", "Historical planning cap; never enforced.", nullable=True),
         "paused_run_ids": STRINGS, "process_control_errors": array(obj({"run_id": S, "error": S}))},
         ("status", "process_control_errors")),
     "IdeaAdoptRequest": obj({"expected_revision": I, "request_id": S, "branch_id": S,
@@ -479,6 +479,40 @@ operation("delete", "/api/projects/{ident}", "Projects", "Delete a project",
     "Cancel active local/container/remote execution, interrupt cost reservations, delete project database records and remove its workspace. Return the removed identifier.", ref("Deleted"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/duplicate", "Projects", "Duplicate a project and its workspace",
     "Copy graph/resources/manuscripts/runs/files with remapped identifiers, excluding symlinks and private graph edit history. Active copied runs are marked interrupted; duplication does not replay experiments. Return the new project.", ref("Project"), errors={404: "NOT_FOUND"})
+SCHEMAS["GoalContractVersion"] = obj({**IDENTITY, "project_id": S, "revision": I,
+    "parent_version_id": field("string", nullable=True), "project_revision": I,
+    "objective": S, "success_criteria": array(JSON), "contract": J, "reason": S,
+    "changes": J, "evidence_run_ids": STRINGS, "affected_branch_ids": STRINGS},
+    ("id", "project_id", "revision", "objective", "success_criteria", "contract", "reason"))
+SCHEMAS["GoalContractHistory"] = obj({"current": ref("GoalContractVersion"),
+    "versions": array(ref("GoalContractVersion")), "history_endpoint": S, "rule": S,
+    "project_revision": I, "intervention": J}, ("current", "versions", "history_endpoint", "rule"))
+SCHEMAS["GoalContractRevisionRequest"] = obj({"request_id": S, "expected_revision": I,
+    "expected_goal_revision": I, "objective": S, "success_criteria": array(JSON),
+    "contract": J, "reason": S, "evidence_run_ids": STRINGS, "affected_branch_ids": STRINGS})
+SCHEMAS["EvaluationProtocolVersion"] = obj({**IDENTITY, "project_id": S, "protocol_id": S,
+    "revision": I, "parent_version_id": field("string", nullable=True), "name": S,
+    "definition": J, "reason": S, "feedback_run_ids": STRINGS,
+    "classification": field("string", enum=["adaptive", "exploratory", "independent_confirmation"])},
+    ("id", "project_id", "protocol_id", "revision", "definition", "classification", "feedback_run_ids"))
+SCHEMAS["EvaluationProtocolRevisionRequest"] = obj({"request_id": S, "expected_revision": I,
+    "expected_protocol_revision": I, "protocol_id": S, "name": S, "definition": J,
+    "reason": S, "feedback_run_ids": STRINGS,
+    "classification": field("string", enum=["adaptive", "exploratory", "independent_confirmation"])}, ("definition",))
+operation("get", "/api/projects/{project_id}/goal-contract", "Research evolution", "Read the scientific goal history",
+    "Return the current editable Goal Contract and every original version. Legacy projects initialize their original contract under the project writer lock. Historical results retain their saved goal conditions.",
+    ref("GoalContractHistory"), errors={404: "NOT_FOUND"})
+operation("post", "/api/projects/{project_id}/goal-contract/versions", "Research evolution", "Revise a scientific goal",
+    "Revise objective, criteria or contract with a reason and existing same-project evidence/branch references. Revision guards are optional. request_id replays the original accepted result before stale revision checks; conflicting reuse is rejected. A completed controller can reopen; prior runs and resource accounting are preserved.",
+    ref("GoalContractHistory"), body="GoalContractRevisionRequest",
+    errors={404: "NOT_FOUND", 409: "REVISION_CONFLICT or REQUEST_ID_CONFLICT", 422: "Invalid goal, evidence, branch or request identity"})
+operation("get", "/api/projects/{project_id}/evaluation-protocols", "Research evolution", "Read evaluation protocol versions",
+    "Return a bare array of original evaluation versions ordered by creation time. Definitions and feedback history remain inspectable after revision.",
+    array(ref("EvaluationProtocolVersion")), errors={404: "NOT_FOUND"})
+operation("post", "/api/projects/{project_id}/evaluation-protocols", "Research evolution", "Revise an evaluation protocol",
+    "Record a nonempty definition with optional protocol_id, expected revisions and request_id. A missing protocol_id creates a new explicit identity. Actual feedback use marks evaluation adaptive and persists across revisions of that scope. Declaring independent_confirmation is a scope label, not proof of execution or independent verification. Accepted replay returns the original version; changed intent conflicts.",
+    ref("EvaluationProtocolVersion"), body="EvaluationProtocolRevisionRequest",
+    errors={404: "NOT_FOUND", 409: "REVISION_CONFLICT or REQUEST_ID_CONFLICT", 422: "Invalid protocol, classification, evidence or request identity"})
 operation("get", "/api/projects/{ident}/graph", "Graph", "Read the full editable graph",
     "Return nodes, typed edges, branches, project revision, goal, budget and additional public graph metadata. Exclude _history.", ref("GraphState"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/graph/preview", "Graph", "Preview a graph command",
@@ -649,7 +683,7 @@ for kind in RESOURCE_KINDS:
         "Delete the metadata record and mark consuming materials stale; this handler does not delete all associated workspace files. Return deleted identifier.", ref("Deleted"), errors={404: "NOT_FOUND"})
 
 operation("post", "/api/projects/{ident}/research/{action}", "Research", "Control the research controller",
-    "Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous/max_cycles and resumes previously paused runs. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.", ref("ResearchControl"), body="ResearchControlRequest", errors={404: "NOT_FOUND, UNKNOWN_ACTION, or UNKNOWN_BRANCH", 409: "BRANCH_NOT_RUNNABLE"}, actions=("start", "pause", "stop"))
+    "Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous and resumes previously paused runs. Legacy max_cycles is history only; goals, actual resource hard limits, cancellation and actionable blockers govern lifetime. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.", ref("ResearchControl"), body="ResearchControlRequest", errors={404: "NOT_FOUND, UNKNOWN_ACTION, or UNKNOWN_BRANCH", 409: "BRANCH_NOT_RUNNABLE"}, actions=("start", "pause", "stop"))
 operation("post", "/api/research/proposals/{ident}/apply", "Research", "Apply selected proposed graph commands",
     "ident is a Hypothesis/proposal record. Optional expected_revision compares PROJECT graph revision. commands defaults saved proposal commands; indices defaults all. Apply sequential kernel commands and return graph/accepted_indices. Empty selection is rejected. Each selected command can have filesystem effects; client should preview and supply valid indices.", ref("ProposalApplied"), body="ProposalApplyRequest", errors={400: "EMPTY_SELECTION or graph command errors", 404: "NOT_FOUND", 409: "REVISION_CONFLICT or graph conflicts"})
 operation("post", "/api/reviews/{ident}/apply", "Manuscripts", "Apply selected saved manuscript proposals",
@@ -660,7 +694,7 @@ operation("patch", "/api/runs/{ident}/checkpoint", "Runs", "Edit a stopped debug
     "Require waiting_input run with resource.checkpoint. Set checkpoint.override to body.payload (omission sets null). Return checkpoint/status; this does not resume execution. Resume separately via the run action endpoint.", ref("CheckpointResult"), body="CheckpointRequest", errors={404: "NOT_FOUND", 409: "NO_CHECKPOINT"})
 
 operation("get", "/api/projects/{ident}/research/route-health", "Research", "Inspect current route repetition signals",
-    "Calculate actual repeated current-revision failures, stopped checking alerts, excessive consecutive counterexample checks and planning without execution. Return editable thresholds, signals and reviewed run IDs. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.", ref("RouteHealth"), errors={404: "NOT_FOUND"})
+    "Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.", ref("RouteHealth"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/research/route-review", "Research", "Enqueue a full recorded-route review",
     "Enqueue research_route_review with extensible body/request_id and record its trigger/covered run IDs in controller.route_review. Return Run; the review output is saved after execution and does not directly verify experimental results.", ref("Run"), body="JsonObject", errors={404: "NOT_FOUND"})
 operation("get", "/api/writing-policy", "Manuscripts", "Read scientific writing and revision policies",
@@ -678,7 +712,7 @@ operation("get", "/api/projects/{ident}/usage", "Research", "Read project spendi
 operation("get", "/api/runs/{ident}/lineage", "Runs", "Inspect run dependencies and current file freshness",
     "Traverse same-project run dependencies. Available rows include config (without provider_snapshot/env), metrics, files and comparisons between saved workspace and current branch working files. Missing/cross-project dependencies are {id,missing:true}. current describes node revision/result flags, not semantic correctness.", ref("RunLineage"), errors={404: "NOT_FOUND"})
 operation("get", "/api/runs/{ident}/session", "Runs", "Read the saved Agent session",
-    "Return {run_id,status,session}. Missing agent_session.json means session:null. For a cancelled run, the session status is reported as cancelled even if its last checkpoint predates cancellation. summary=true returns selected session status/totals/active_seconds/wait_for/updated_at/budget_reason plus transcript_count; selected fields can be null. Full session structure is extensible.", ref("RunSession"), errors={404: "NOT_FOUND"})
+    "Return {run_id,status,session}. Missing agent_session.json means session:null. Full session is extensible scientific state and excludes cumulative resource accounting. For a cancelled run, session status follows the authoritative cancelled run. summary=true includes lifecycle, round, recovery, goal_contract, status/wait_for/updated_at/budget_reason/reconciliation_reason and transcript_count; selected fields can be null for legacy checkpoints. summary usage reads totals/active_seconds/completeness explicitly from the separate matching agent_usage.json resource ledger, or is null when unavailable. Invalid or unreadable ledgers return usage:null with usage_error diagnostics, never zero consumption. waiting with wait_for.type=work_round is automatic checkpoint continuation under the same Run ID and resource ledger.", ref("RunSession"), errors={404: "NOT_FOUND"})
 operation("patch", "/api/runs/{ident}/configuration", "Runs", "Merge editable execution configuration",
     "Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result identities. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible.", ref("RunConfiguration"), body="JsonObject", errors={404: "NOT_FOUND", 422: "INVALID_CONFIGURATION or INVALID_REPOSITORY"})
 operation("get", "/api/projects/{ident}/graph/page", "Graph", "Read a node page with incident edges",

@@ -230,13 +230,18 @@ def review_statistical_explanations(client, evidence, draft):
                                  'method_sections': [section for section in draft.get('sections', [])
                                                      if section.get('role') in ('method', 'experimental_setup')]}}
     from research.planning.model import context_model_json
+    from research.agents.policy import assemble_agent_instructions
+    writing_policy = assemble_agent_instructions(
+        'Writer', {'authoring_mode': 'revision'}, include_role_instruction=True,
+    )
     # Large experiment matrices retain their full source context through the
     # existing read-only recovery protocol; transport context is temporary.
     with TemporaryDirectory(prefix='forest-statistical-review-') as workspace:
         _, response = context_model_json(client,
-            [{'role': 'system', 'content': _REVIEW_PROMPT},
+            [{'role': 'system', 'content': writing_policy + '\n' + _REVIEW_PROMPT},
              {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False, allow_nan=False)}],
-            workspace, char_hint=int(getattr(client, 'config', {}).get('manuscript_context_chars', 256000)), parse_result=False)
+            workspace, char_hint=int(getattr(client, 'config', {}).get('manuscript_context_chars', 256000)),
+            parse_result=False, output_stage='manuscript_revision')
     result = _parse_response(response)
     changes = {}
     required = {'section_index', 'block_index', 'field', 'before', 'after', 'reason', 'evidence_refs'}

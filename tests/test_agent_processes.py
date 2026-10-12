@@ -250,7 +250,10 @@ while not Path('finish_done').exists():
         provider = harness.request('POST', '/api/providers', json={
             'name': 'Local process lifecycle fixture', 'kind': 'ollama',
             'base_url': f'http://127.0.0.1:{server.server_port}',
-            'model': 'local-process-lifecycle-fixture', 'allow_paid': False})
+            'model': 'local-process-lifecycle-fixture', 'allow_paid': False,
+            'config': {'model_capabilities': {'context_window_tokens': 8192,
+                                               'max_output_tokens': 4096,
+                                               'source': 'test_transport_contract'}}})
         project = harness.request('POST', '/api/projects', json={
             'name': 'Managed child completion check',
             'goal': 'Run the managed command, keep the agent active until its child exits, then finish.',
@@ -325,7 +328,7 @@ def test_process_paths_cannot_escape_and_outputs_remain_editable(tmp_path):
 def test_no_default_agent_turn_limit_and_explicit_budget():
     state = {'transcript': [{'step': n} for n in range(120)], 'totals': {'input_tokens': 500, 'output_tokens': 400, 'cost': None}, 'active_seconds': 200}
     assert budget_reason(state, {}) is None
-    assert 'steps=120' in budget_reason(state, {'agent_budget': {'steps': 120}})
+    assert budget_reason(state, {'agent_budget': {'steps': 120}}) is None
     assert budget_reason(state, {'agent_budget': {'steps': 121}}) is None
     assert 'output_tokens' in budget_reason(state, {'agent_budget': {'output_tokens': 300}})
 
@@ -379,6 +382,10 @@ def test_metric_file_written_by_agent_requires_successful_real_process(tmp_path)
     assert completed(tool.processes, failed['process_id'])['exit_code'] == 2
     with pytest.raises(ValueError, match='actual successful managed-process receipt'):
         collect_agent_metrics(tmp_path, {}, tool.processes)
+    unrelated = tool.processes.start([sys.executable, '-c', 'print("syntax check only")'])
+    assert completed(tool.processes, unrelated['process_id'])['status'] == 'completed'
+    with pytest.raises(ValueError, match='bound to this metrics file'):
+        collect_agent_metrics(tmp_path, {}, tool.processes)
     launched = tool.processes.start([sys.executable, '-c', "import json; from pathlib import Path; Path('metrics.json').write_text(json.dumps({'squared_sum':sum(i*i for i in range(1000))}))"])
     assert completed(tool.processes, launched['process_id'])['status'] == 'completed'
     observed = collect_agent_metrics(tmp_path, {}, tool.processes)
@@ -389,6 +396,9 @@ def test_metric_file_written_by_agent_requires_successful_real_process(tmp_path)
     assert observed['metrics_evidence']['label'] == 'FILE_OBSERVATION'
     assert observed['metrics_evidence']['successful_process_ids'] == [launched['process_id']]
     assert 'does not establish scientific validity' in observed['metrics_evidence']['scientific_validity']
+    tool.dispatch('write_file', {'path': 'metrics.json', 'content': '{"squared_sum": 0}'}, None)
+    with pytest.raises(ValueError, match='bound to this metrics file'):
+        collect_agent_metrics(tmp_path, {}, tool.processes)
 
 
 def test_nonmetric_research_output_does_not_require_process_execution(tmp_path):

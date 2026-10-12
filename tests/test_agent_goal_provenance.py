@@ -2,7 +2,6 @@
 
 A local deterministic protocol fixture captures transport requests.
 """
-import hashlib
 import json
 import re
 import os
@@ -28,6 +27,11 @@ def probe(directory, mode):
 
         def do_POST(self):
             payload = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            if self.path == '/api/show':
+                response=json.dumps({'model_info':{}}).encode()
+                self.send_response(200); self.send_header('Content-Type','application/json')
+                self.send_header('Content-Length',str(len(response))); self.end_headers(); self.wfile.write(response)
+                return
             messages = payload['messages']
             captures.append(payload)
             stage = len(captures)
@@ -66,14 +70,24 @@ def probe(directory, mode):
         if edited:
             p = h.request('GET', f"/api/projects/{project['id']}")
             h.request('PATCH', f"/api/projects/{project['id']}", json={'expected_revision': p['revision'], 'goal': 'GOAL_MULTIPLY: compute 2 * 3 using an actual Python process.'})
-        h.start_worker()
         if resumed:
-            wait_until(lambda: h.run(queued)['status'] == 'budget_exhausted', timeout=30)
+            # Slow only admission polling so this test can stop the genuine
+            # worker at a persisted first-round boundary before automatic
+            # continuation. No executor, tool, context or accounting is mocked.
+            h.worker=h.spawn('worker-boundary',[sys.executable,'-c',
+                'import services.worker.main as worker; worker.WORKER_POLL_INTERVAL_SECONDS=2; worker.WorkerLoop().run()'])
+            boundary=wait_until(lambda: (run if (run:=h.run(queued))['status']=='waiting' else None), timeout=30)
+            saved=h.request('GET',f"/api/runs/{queued['id']}/session?summary=true")['session']
+            assert saved['wait_for']['type']=='work_round'
+            assert saved['lifecycle']['round_index']==1
+            h.stop(h.worker)
             if mode == 'continuation':
                 p = h.request('GET', f"/api/projects/{project['id']}")
                 h.request('PATCH', f"/api/projects/{project['id']}", json={'expected_revision': p['revision'], 'goal': 'GOAL_MULTIPLY: compute 2 * 3 using an actual Python process.'})
-            h.stop(h.worker)
-            h.request('POST', f"/api/runs/{queued['id']}/resume", json={'agent_budget': {'steps': 8}})
+            # Restart must continue this same queued/waiting run without a
+            # Continue request or budget extension.
+            h.start_worker()
+        else:
             h.start_worker()
         completed = h.terminal(queued, timeout=40)
         (directory / 'run.json').write_text(json.dumps(completed, indent=2))
@@ -107,8 +121,9 @@ def test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_
     contexts = run['metrics']['execution_context']
     assert contexts['history_scope'] == 'authoritative_project_context'
     for request, receipt in zip(captures, contexts['requests'], strict=True):
-        digest = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        assert receipt['payload_sha256'] == digest
+        assert receipt['request_id']
+        record = json.loads(Path(receipt['request_record_path']).read_text())
+        assert record['request_id'] == receipt['request_id'] and record['payload'] == request
         assert receipt['execution_attempt_id']
         assert receipt['goal_field_present']
         assert receipt['task_delivery'] == ('original_message' if receipt['original_task_message_present'] else 'managed_context')
@@ -187,6 +202,11 @@ def probe_request_delivery(folder, mode):
         def log_message(self,*args): pass
         def do_POST(self):
             body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            if self.path == '/api/show':
+                value=json.dumps({'model_info':{}}).encode()
+                self.send_response(200); self.send_header('Content-Type','application/json')
+                self.send_header('Content-Length',str(len(value))); self.end_headers(); self.wfile.write(value)
+                return
             captures.append(body)
             stage=len(captures)
             status=200
@@ -234,7 +254,8 @@ def probe_request_delivery(folder, mode):
         assert [x['original_task_message_present'] for x in receipt['requests']] == [True, True, True]
         assert receipt['requests'][0]['status'] == 'incomplete'
     else:
-        assert outcome=='budget_exhausted' and len(captures)==2
+        assert outcome=='waiting' and len(captures)==2
+        assert state['wait_for']['type']=='work_round'
         assert report['goal_marker_present_in_requests']==[True,False]
         assert receipt['history_scope'] == 'authoritative_project_context'
         assert receipt['history'][0]['first_step']==1 and receipt['history'][0]['goal']==goal
@@ -244,8 +265,8 @@ def probe_request_delivery(folder, mode):
         assert receipt['requests'][1]['required_context_page']
         assert [x['goal_field_present'] for x in receipt['requests']] == [True, False]
     for request, delivered in zip(captures, receipt['requests'], strict=True):
-        digest = hashlib.sha256(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        assert delivered['payload_sha256'] == digest
+        record = json.loads(Path(delivered['request_record_path']).read_text())
+        assert record['request_id'] == delivered['request_id'] and record['payload'] == request
     return report
 
 

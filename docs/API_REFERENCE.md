@@ -1623,7 +1623,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `GET /api/projects/{ident}/research/route-health`
 
-Calculate actual repeated current-revision failures, stopped checking alerts, excessive consecutive counterexample checks and planning without execution. Return editable thresholds, signals and reviewed run IDs. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.
+Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -1649,7 +1649,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `POST /api/projects/{ident}/research/{action}`
 
-Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous/max_cycles and resumes previously paused runs. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.
+Actions start/pause/stop. start sets PLAN/running with optional branch_id/required_artifacts/autonomous and resumes previously paused runs. Legacy max_cycles is history only; goals, actual resource hard limits, cancellation and actionable blockers govern lifetime. A selected branch must belong to the project and have active status; restore pruned, archived, or disabled branches before starting. pause/stop process-control affected active runs after updating controller configuration. Return controller fields plus process_control_errors; HTTP 200 can contain individual process-control errors and must be inspected.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -1733,6 +1733,60 @@ Body: `application/json`: `SymbolicCheckRequest`; required.
 Success `200`: `application/json`: `RecordItem`.
 
 Known domain failures: `400` INVALID_EXPRESSION; `404` NOT_FOUND; `422` EXPRESSION_FAILED.
+
+### Research evolution
+
+#### `GET /api/projects/{project_id}/evaluation-protocols`
+
+Return a bare array of original evaluation versions ordered by creation time. Definitions and feedback history remain inspectable after revision.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Success `200`: `application/json`: `EvaluationProtocolVersion[]`.
+
+Known domain failures: `404` NOT_FOUND.
+
+#### `POST /api/projects/{project_id}/evaluation-protocols`
+
+Record a nonempty definition with optional protocol_id, expected revisions and request_id. A missing protocol_id creates a new explicit identity. Actual feedback use marks evaluation adaptive and persists across revisions of that scope. Declaring independent_confirmation is a scope label, not proof of execution or independent verification. Accepted replay returns the original version; changed intent conflicts.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Body: `application/json`: `EvaluationProtocolRevisionRequest`; required.
+
+Success `200`: `application/json`: `EvaluationProtocolVersion`.
+
+Known domain failures: `404` NOT_FOUND; `409` REVISION_CONFLICT or REQUEST_ID_CONFLICT; `422` Invalid protocol, classification, evidence or request identity.
+
+#### `GET /api/projects/{project_id}/goal-contract`
+
+Return the current editable Goal Contract and every original version. Legacy projects initialize their original contract under the project writer lock. Historical results retain their saved goal conditions.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Success `200`: `application/json`: `GoalContractHistory`.
+
+Known domain failures: `404` NOT_FOUND.
+
+#### `POST /api/projects/{project_id}/goal-contract/versions`
+
+Revise objective, criteria or contract with a reason and existing same-project evidence/branch references. Revision guards are optional. request_id replays the original accepted result before stale revision checks; conflicting reuse is rejected. A completed controller can reopen; prior runs and resource accounting are preserved.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `project_id` | path | string | yes |  |
+
+Body: `application/json`: `GoalContractRevisionRequest`; required.
+
+Success `200`: `application/json`: `GoalContractHistory`.
+
+Known domain failures: `404` NOT_FOUND; `409` REVISION_CONFLICT or REQUEST_ID_CONFLICT; `422` Invalid goal, evidence, branch or request identity.
 
 ### Resources
 
@@ -2424,7 +2478,7 @@ Known domain failures: `404` NOT_FOUND.
 
 #### `GET /api/runs/{ident}/session`
 
-Return {run_id,status,session}. Missing agent_session.json means session:null. For a cancelled run, the session status is reported as cancelled even if its last checkpoint predates cancellation. summary=true returns selected session status/totals/active_seconds/wait_for/updated_at/budget_reason plus transcript_count; selected fields can be null. Full session structure is extensible.
+Return {run_id,status,session}. Missing agent_session.json means session:null. Full session is extensible scientific state and excludes cumulative resource accounting. For a cancelled run, session status follows the authoritative cancelled run. summary=true includes lifecycle, round, recovery, goal_contract, status/wait_for/updated_at/budget_reason/reconciliation_reason and transcript_count; selected fields can be null for legacy checkpoints. summary usage reads totals/active_seconds/completeness explicitly from the separate matching agent_usage.json resource ledger, or is null when unavailable. Invalid or unreadable ledgers return usage:null with usage_error diagnostics, never zero consumption. waiting with wait_for.type=work_round is automatic checkpoint continuation under the same Run ID and resource ledger.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -2867,6 +2921,41 @@ Additional properties: extensible JSON.
 
 Additional properties: extensible JSON.
 
+### `EvaluationProtocolRevisionRequest`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `request_id` | string | no |  |
+| `expected_revision` | integer | no |  |
+| `expected_protocol_revision` | integer | no |  |
+| `protocol_id` | string | no |  |
+| `name` | string | no |  |
+| `definition` | JsonObject | yes |  |
+| `reason` | string | no |  |
+| `feedback_run_ids` | string[] | no |  |
+| `classification` | string | no |  Values: `adaptive`, `exploratory`, `independent_confirmation`. |
+
+Additional properties: extensible JSON.
+
+### `EvaluationProtocolVersion`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `id` | string | yes | Record identifier. |
+| `created_at` | string | no | Creation timestamp, normally UTC ISO 8601. |
+| `updated_at` | string | no | Last database update timestamp, normally UTC ISO 8601. |
+| `project_id` | string | yes |  |
+| `protocol_id` | string | yes |  |
+| `revision` | integer | yes |  |
+| `parent_version_id` | string or null | no |  |
+| `name` | string | no |  |
+| `definition` | JsonObject | yes |  |
+| `reason` | string | no |  |
+| `feedback_run_ids` | string[] | yes |  |
+| `classification` | string | yes |  Values: `adaptive`, `exploratory`, `independent_confirmation`. |
+
+Additional properties: extensible JSON.
+
 ### `ExperimentCompareRequest`
 
 | Field | Type | Required | Details |
@@ -3126,6 +3215,56 @@ Additional properties: extensible JSON.
 | `path` | string | yes |  |
 | `revision` | integer | yes |  |
 | `origin` | string | yes |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractHistory`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `current` | GoalContractVersion | yes |  |
+| `versions` | GoalContractVersion[] | yes |  |
+| `history_endpoint` | string | yes |  |
+| `rule` | string | yes |  |
+| `project_revision` | integer | no |  |
+| `intervention` | JsonObject | no |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractRevisionRequest`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `request_id` | string | no |  |
+| `expected_revision` | integer | no |  |
+| `expected_goal_revision` | integer | no |  |
+| `objective` | string | no |  |
+| `success_criteria` | JsonValue[] | no |  |
+| `contract` | JsonObject | no |  |
+| `reason` | string | no |  |
+| `evidence_run_ids` | string[] | no |  |
+| `affected_branch_ids` | string[] | no |  |
+
+Additional properties: extensible JSON.
+
+### `GoalContractVersion`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `id` | string | yes | Record identifier. |
+| `created_at` | string | no | Creation timestamp, normally UTC ISO 8601. |
+| `updated_at` | string | no | Last database update timestamp, normally UTC ISO 8601. |
+| `project_id` | string | yes |  |
+| `revision` | integer | yes |  |
+| `parent_version_id` | string or null | no |  |
+| `project_revision` | integer | no |  |
+| `objective` | string | yes |  |
+| `success_criteria` | JsonValue[] | yes |  |
+| `contract` | JsonObject | yes |  |
+| `reason` | string | yes |  |
+| `changes` | JsonObject | no |  |
+| `evidence_run_ids` | string[] | no |  |
+| `affected_branch_ids` | string[] | no |  |
 
 Additional properties: extensible JSON.
 
@@ -4103,7 +4242,7 @@ Additional properties: rejected by the existing typed/schema-specific validator.
 | `provider_id` | string or null | no |  |
 | `cap_usd` | number | no |  Default: `0`. minimum=0.0, maximum=10000.0. |
 | `max_requests` | integer | no |  Default: `20`. minimum=1.0, maximum=1000.0. |
-| `max_output_tokens` | integer | no |  Default: `1024`. minimum=128.0, maximum=4096.0. |
+| `max_output_tokens` | integer or null | no |  |
 | `language` | string | no |  Default: `en`. Values: `en`, `zh`. |
 | `minimum_seconds` | integer | no |  Default: `60`. minimum=30.0, maximum=3600.0. |
 | `maximum_wait_seconds` | integer | no |  Default: `180`. minimum=60.0, maximum=3600.0. |
@@ -4176,7 +4315,7 @@ Additional properties: extensible JSON.
 | `branch_id` | string or null | no |  |
 | `required_artifacts` | JsonValue[] | no |  |
 | `autonomous` | boolean | no |  |
-| `max_cycles` | integer or null | no |  |
+| `legacy_max_cycles` | integer or null | no | Historical planning cap; never enforced. |
 | `paused_run_ids` | string[] | no |  |
 | `process_control_errors` | object[] | yes |  |
 
@@ -4189,7 +4328,7 @@ Additional properties: extensible JSON.
 | `branch_id` | string or null | no |  |
 | `required_artifacts` | JsonValue[] | no |  |
 | `autonomous` | boolean | no |  |
-| `max_cycles` | integer or null | no |  |
+| `max_cycles` | integer or null | no | Deprecated legacy input; recorded as history and does not limit research lifetime. |
 
 Additional properties: extensible JSON.
 
@@ -4327,7 +4466,7 @@ Additional properties: extensible JSON.
 | `enabled` | boolean | yes |  |
 | `window` | integer | yes |  |
 | `repeated_failures` | integer | yes |  |
-| `counterexample_limit` | integer | yes |  |
+| `unchanged_counterexample_repeats` | integer | yes |  |
 | `planning_without_execution` | integer | yes |  |
 | `review_every_runs` | integer | yes |  |
 
@@ -4384,7 +4523,7 @@ Additional properties: extensible JSON.
 | `request_id` | string | no | Used by retry; other run actions ignore it. |
 | `priority` | integer | no | Used by priority, default 0; handler converts with int(). |
 | `context_char_budget` | integer | no | resume only; Agent run, integer >= 1000. |
-| `agent_budget` | JsonObject | no | resume only; merges editable per-Agent token/model-call/cost/time limits after budget validation. |
+| `agent_budget` | JsonObject | no | resume only; merges editable per-Agent token/cost/time hard limits after budget validation. Legacy steps is accepted as a bounded work-round hint, never a cumulative research limit. |
 
 Additional properties: extensible JSON.
 

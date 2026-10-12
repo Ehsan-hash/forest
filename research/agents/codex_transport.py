@@ -26,7 +26,7 @@ def request_payload(messages, json_mode=True, action_schema=None):
             **({'response_schema': action_schema} if action_schema is not None else {})}
 
 
-def complete(client, messages, json_mode=True):
+def complete(client, messages, json_mode=True, max_output_tokens=None):
     executable=shutil.which(os.environ.get('FOREST_CODEX_EXECUTABLE','codex'))
     if not executable: raise ProviderError('Install and sign in to Codex CLI before using this provider',code='configuration')
     effort=client.config.get('reasoning_effort','xhigh')
@@ -69,7 +69,7 @@ def complete(client, messages, json_mode=True):
                 'fact_ids':{'type':'array','items':{'type':'string'}}},'required':['snapshot_id','focus','fact_ids'],'additionalProperties':False}))
             argv+=['--output-schema',str(schema)]
         argv+=['-']
-        reservation=client._event('before',input_bytes=len(prompt.encode()),max_output_tokens=client.config.get('max_output_tokens',1024),attempt=1)
+        reservation=client._event('before',input_bytes=len(prompt.encode()),max_output_tokens=max_output_tokens or client.config.get('adaptive_output_fallback_tokens',1024),attempt=1)
         try:
             result=subprocess.run(argv,input=prompt,capture_output=True,text=True,cwd=root,env=env,timeout=client.timeout)
         except subprocess.TimeoutExpired:
@@ -78,18 +78,26 @@ def complete(client, messages, json_mode=True):
         except OSError:
             client._event('error',reservation=reservation,ambiguous=False,retryable=False)
             raise ProviderError('Codex inference could not start',code='configuration') from None
-        output=''; usage=None
+        output=''; usage=None; normalized=None; incomplete=False
         for line in result.stdout.splitlines():
             try: event=json.loads(line)
             except ValueError: continue
             if event.get('type')=='item.completed' and event.get('item',{}).get('type')=='agent_message': output=event['item'].get('text','')
             if event.get('type')=='turn.completed': usage=event.get('usage')
+            if event.get('type') in ('turn.failed','turn.incomplete'):
+                details=event.get('error') or event.get('incomplete_details') or {}
+                incomplete=(details.get('code') in ('max_output_tokens','length') or
+                            details.get('reason')=='max_output_tokens')
         if usage is not None:
             normalized={k:usage.get(k) for k in ('input_tokens','cached_input_tokens','output_tokens')}
             normalized.update(cost=None,cost_source='codex_subscription_unpriced')
             client._event('after',reservation=reservation,usage=normalized,status='completed' if result.returncode==0 else 'failed',outcome='response_received')
         else:
             client._event('error',reservation=reservation,ambiguous=True,retryable=False)
+        if incomplete:
+            raise ProviderError('Codex inference reached its reported output-token ceiling',code='incomplete_response',
+                                incomplete_reason='max_output_tokens',usage=normalized or {},
+                                ambiguous=usage is None,requested_output_tokens=max_output_tokens)
         if result.returncode or not output:
             raise ProviderError('Codex returned no completed inference output; inspect local CLI login and model availability',code='invalid_response',ambiguous=usage is None)
         return {'text':output,'usage':normalized if usage is not None else {},'model':client.provider['model'],'status':'completed',

@@ -1,7 +1,8 @@
-"""Real detached command execution with editable state and incremental logs.
+"""Detached commands with bound launch identity and preserved original receipts.
 
-A process ID is an ordinary random identifier. No content addressing, artifact
-locking, simulated completion, or model service is involved in this module.
+Versioned request/identity/receipt records establish what actually executed.
+Editable working files remain separate from saved observations. Unknown launches
+require reconciliation, and replay of an existing job never starts another fit.
 """
 from __future__ import annotations
 
@@ -9,14 +10,190 @@ import json
 import os
 from pathlib import Path
 import signal
+import shlex
 import subprocess
 import sys
 import time
 import uuid
+import shutil
+from copy import deepcopy
 
 import psutil
 
 TERMINAL = {'completed', 'failed', 'cancelled', 'lost'}
+RECONCILIATION = 'reconciliation'
+_FILE_COMPARISON_CACHE={}
+_SOURCE_SUFFIXES={'.py','.pyi','.js','.jsx','.mjs','.cjs','.ts','.tsx','.r','.R',
+    '.jl','.c','.h','.cpp','.cc','.cu','.f','.f90','.sh'}
+_CHECKPOINT_FILES={'agent_session.json','agent_transcript.json','task_progress.json',
+    'context_packet.json','agent_result.json','agent_usage.json','research_memory.json'}
+
+
+def file_metadata(path):
+    stat=Path(path).stat()
+    return {'size':stat.st_size,'mtime_ns':stat.st_mtime_ns,'ctime_ns':stat.st_ctime_ns}
+
+
+def file_contents_equal(first, second):
+    """Compare original bytes directly, caching only while metadata is unchanged."""
+    first,second=Path(first),Path(second)
+    try:
+        metadata=(file_metadata(first),file_metadata(second))
+        key=(str(first.resolve()),str(second.resolve()))
+        previous=_FILE_COMPARISON_CACHE.get(key)
+        if previous and previous[0]==metadata: return previous[1]
+        equal=metadata[0]['size']==metadata[1]['size']
+        if equal:
+            with first.open('rb') as left,second.open('rb') as right:
+                while True:
+                    block=left.read(1024*1024)
+                    if block!=right.read(1024*1024): equal=False; break
+                    if not block: break
+        if len(_FILE_COMPARISON_CACHE)>512: _FILE_COMPARISON_CACHE.clear()
+        _FILE_COMPARISON_CACHE[key]=(metadata,equal)
+        return equal
+    except OSError:
+        return False
+
+
+def workspace_inventory(workspace):
+    """File metadata locates changed artifacts without re-reading unchanged data."""
+    workspace=Path(workspace)
+    inventory={}
+    for path in workspace.rglob('*'):
+        bookkeeping=(path.name in _CHECKPOINT_FILES or
+            any(path.name.startswith(name+'.') and path.name.endswith('.tmp')
+                for name in _CHECKPOINT_FILES))
+        if (not path.is_file() or path.is_symlink() or bookkeeping or
+                any(part.startswith('.forest-') or part in ('__pycache__','.git')
+                    for part in path.relative_to(workspace).parts)):
+            continue
+        try: stat=path.stat()
+        except FileNotFoundError:
+            continue  # An independent atomic publisher may have renamed it.
+        inventory[path.relative_to(workspace).as_posix()]={'size':stat.st_size,
+            'mtime_ns':stat.st_mtime_ns,'ctime_ns':stat.st_ctime_ns}
+    return inventory
+
+
+def artifact_is_valid(artifact):
+    """Check the saved original; edits to an editable working file remain legal."""
+    path=Path(artifact['path'])
+    if not path.is_file(): return False
+    return bool(artifact.get('artifact_id') and artifact.get('metadata')==file_metadata(path))
+
+
+def artifact_matches(path, artifact):
+    return artifact_is_valid(artifact) and file_contents_equal(path,artifact['path'])
+
+
+def configuration_record(request):
+    """The complete human-readable conditions belonging to one work revision."""
+    return deepcopy({key:request.get(key) for key in
+        ('command','cwd','env','timeout','source_references','experiment')})
+
+
+def record_binding(request):
+    return {'record_version':2,'work_id':request['work_id'],
+        'configuration_version':request['configuration_version'],
+        'configuration':configuration_record(request)}
+
+
+def binding_matches(request, record):
+    return all(record.get(key)==value for key,value in record_binding(request).items())
+
+
+def request_sources(command,workspace,cwd,code_inputs=None):
+    """Bind argv inputs and the authorized workspace method source tree.
+
+    Config/data inputs beyond argv may be named explicitly by ``code_inputs``.
+    Imports through PYTHONPATH/sys.path may reach outside the command cwd, so
+    every editable source module in the workspace participates in job identity.
+    File metadata supports caching. Original bytes are saved with the request
+    and compared directly only when deciding whether an existing work applies.
+    """
+    workspace=Path(workspace).resolve()
+    sources={}
+    candidates=set()
+    roots={workspace}
+    arguments=list(command)
+    # Shell command strings reach the manager as /bin/sh -c. The executable
+    # script still establishes its own import directory outside a nested cwd.
+    if (len(command)>=3 and Path(command[0]).name in {'sh','bash','dash','zsh'}
+            and command[1]=='-c'):
+        try: arguments.extend(shlex.split(command[2]))
+        except ValueError: pass
+    for value in [*arguments,*(code_inputs or [])]:
+        try:
+            path=(Path(cwd)/value).resolve()
+            if path.is_relative_to(workspace) and not path.is_symlink():
+                if path.is_file():
+                    candidates.add(path)
+                    if path.suffix in _SOURCE_SUFFIXES:
+                        roots.add(path.parent)
+                elif value in (code_inputs or []) and path.is_dir():
+                    roots.add(path)
+        except OSError:
+            # Inline source, flags, and other argv values are not file paths.
+            continue
+    for root in roots:
+        if not root.is_relative_to(workspace):
+            continue
+        for path in root.rglob('*'):
+            relative=path.relative_to(workspace)
+            if (path.suffix in _SOURCE_SUFFIXES and not path.is_symlink() and path.is_file()
+                    and not any(part.startswith('.') or part in ('__pycache__','node_modules','build','dist','venv') for part in relative.parts)):
+                candidates.add(path)
+    for path in sorted(candidates):
+        sources[path.relative_to(workspace).as_posix()]={'path':str(path),**file_metadata(path)}
+    return sources
+
+
+def save_request_sources(folder, request):
+    """Retain the actual method input under its stable work record."""
+    references={}
+    for relative,metadata in request['source_references'].items():
+        original=Path(metadata['path'])
+        snapshot=folder/'sources'/relative
+        snapshot.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(original,snapshot)
+        with snapshot.open('rb') as stream: os.fsync(stream.fileno())
+        if not file_contents_equal(original,snapshot):
+            raise RuntimeError('Source changed while capturing its work revision: '+relative)
+        references[relative]={**metadata,**file_metadata(original),'source_record_id':str(uuid.uuid4()),
+            'snapshot_path':str(snapshot),'snapshot_metadata':file_metadata(snapshot)}
+    request['source_references']=references
+
+
+def sources_match(request, references):
+    stored=request.get('source_references') or {}
+    return stored.keys()==references.keys() and all(
+        file_contents_equal(record['snapshot_path'],references[relative]['path'])
+        for relative,record in stored.items())
+
+
+def matching_work(manager, command, *, cwd='.', env=None, timeout=None, experiment=None):
+    argv=['/bin/sh','-c',command] if isinstance(command,str) else command
+    requested_cwd=(manager.workspace/cwd).resolve()
+    candidate={'command':argv,'cwd':str(requested_cwd),'env':env or {},
+        'timeout':timeout,'experiment':deepcopy(experiment)}
+    references=request_sources(argv,manager.workspace,requested_cwd,getattr(manager,'code_inputs',None))
+    directories=[manager.directory,*([manager.legacy_directory] if getattr(manager,'legacy_directory',None) else [])]
+    for folder in sorted({path for directory in directories if directory.exists()
+            for path in directory.iterdir() if path.is_dir() and (path/'request.json').exists()}):
+        try:
+            request=read_json(folder/'request.json')
+            if any(request.get(key)!=value for key,value in candidate.items()): continue
+            if request.get('record_version')!=2: return manager.inspect(folder.name)
+            if any(not reference.get('snapshot_path') or not Path(reference['snapshot_path']).is_file()
+                    for reference in (request.get('source_references') or {}).values()):
+                return manager.inspect(folder.name)
+            if sources_match(request,references): return manager.inspect(folder.name)
+        except (OSError,ValueError,KeyError,UnicodeError):
+            # A matching or unreadable launch record is not evidence that no
+            # work ran. Preserve its stable identity for actual reconciliation.
+            return manager.inspect(folder.name)
+    return None
 
 
 def atomic_json(path, value):
@@ -64,17 +241,24 @@ def signal_process_group(process_group_id, signum):
 
 
 class ManagedProcesses:
-    def __init__(self, workspace):
+    def __init__(self, workspace, *, directory=None, legacy_directory=None, code_inputs=None):
         self.workspace = Path(workspace).resolve()
-        self.directory = self.workspace / '.forest-processes'
+        self.directory = Path(directory) if directory else self.workspace / '.forest-processes'
+        self.legacy_directory=(Path(legacy_directory) if legacy_directory else
+            self.workspace.parent/'.forest-processes'/self.workspace.name if directory is None else None)
+        self.code_inputs=code_inputs
         self.directory.mkdir(parents=True, exist_ok=True)
 
     def folder(self, process_id):
         if not process_id or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in str(process_id)):
             raise ValueError('Invalid process ID')
-        return self.directory / str(process_id)
+        legacy=self.legacy_directory/str(process_id) if self.legacy_directory else None
+        return legacy if legacy and (legacy/'request.json').is_file() else self.directory/str(process_id)
 
-    def start(self, command, *, process_id=None, cwd='.', env=None, timeout=None):
+    def find_work(self,command,*,cwd='.',env=None,timeout=None,experiment=None):
+        return matching_work(self,command,cwd=cwd,env=env,timeout=timeout,experiment=experiment)
+
+    def start(self, command, *, process_id=None, cwd='.', env=None, timeout=None, experiment=None):
         process_id = process_id or str(uuid.uuid4())
         folder = self.folder(process_id)
         folder.mkdir(parents=True, exist_ok=True)
@@ -87,18 +271,30 @@ class ManagedProcesses:
             raise ValueError('command must be a nonempty argv list or shell command string')
         if timeout is not None and float(timeout) <= 0:
             raise ValueError('timeout must be positive or omitted')
-        request = {'process_id': process_id, 'command': command, 'cwd': str(requested_cwd), 'env': env or {}, 'timeout': timeout, 'created_at': time.time()}
+        request = {'process_id': process_id,'record_version':2,'work_id':process_id,'configuration_version':1,
+            'command': command, 'cwd': str(requested_cwd), 'env': env or {}, 'timeout': timeout, 'created_at': time.time(),
+            'workspace':str(self.workspace),'experiment':deepcopy(experiment),
+            'source_references':request_sources(command,self.workspace,requested_cwd,self.code_inputs)}
         request_path = folder / 'request.json'
-        if request_path.exists():
-            previous = read_json(request_path)
-            if any(previous.get(key) != request.get(key) for key in ('command', 'cwd', 'env', 'timeout')):
-                raise ValueError('This process ID already belongs to a different command; choose a new ID')
-            state = self.inspect(process_id)
-            if state.get('pid') or state['status'] in TERMINAL or is_alive(state.get('host_pid'), state.get('host_created')):
-                return state
-        else:
-            # Persist launch intent before creating any process.
-            atomic_json(request_path, request)
+        import fcntl
+        # All launchers serialize request ownership before a supervisor can
+        # read it. Different commands cannot overwrite the same job intent.
+        with (folder/'request.lease').open('a') as lease:
+            fcntl.flock(lease.fileno(),fcntl.LOCK_EX)
+            if request_path.exists():
+                try: previous = read_json(request_path)
+                except (OSError,ValueError,UnicodeError): return self.inspect(process_id)
+                if any(previous.get(key) != request.get(key) for key in ('command', 'cwd', 'env', 'timeout','experiment')):
+                    raise ValueError('This process ID already belongs to a different command; choose a new ID')
+                state = self.inspect(process_id)
+                if state.get('pid') or state['status'] in (*TERMINAL,RECONCILIATION) or is_alive(state.get('host_pid'), state.get('host_created')) or state.get('launch_committed'):
+                    return state
+            else:
+                # Persist launch intent before creating any process.
+                save_request_sources(folder,request)
+                request['configuration']=configuration_record(request)
+                request['workspace_inventory']=workspace_inventory(self.workspace)
+                atomic_json(request_path, request)
         # The supervisor holds a coordination lease for its entire lifetime; a
         # duplicate launcher cannot execute the command twice. This lease never
         # prevents the user editing source code, task state, or output files.
@@ -110,21 +306,57 @@ class ManagedProcesses:
         deadline = time.monotonic() + 1
         while time.monotonic() < deadline:
             state = self.inspect(process_id)
-            if state.get('pid') or state['status'] in TERMINAL:
+            if state.get('pid') or state['status'] in (*TERMINAL,RECONCILIATION):
                 return state
             time.sleep(.02)
         return state
 
     def inspect(self, process_id):
         folder = self.folder(process_id)
-        request = read_json(folder / 'request.json')
+        try:
+            request = read_json(folder / 'request.json')
+            state = read_json(folder / 'state.json', {'status': 'starting'})
+            identity = read_json(folder / 'identity.json')
+            receipt = read_json(folder / 'completion.json')
+        except (OSError,ValueError,UnicodeError) as exc:
+            return {'process_id':process_id,'status':RECONCILIATION,
+                'error':'Executor record is unreadable; reconcile original launch records: '+str(exc)}
         if not request:
             raise ValueError('Unknown process ID: ' + str(process_id))
-        state = read_json(folder / 'state.json', {'status': 'starting'})
-        identity = read_json(folder / 'identity.json')
+        if (request.get('record_version')!=2 or request.get('work_id')!=str(process_id) or
+                not request.get('configuration_version') or request.get('configuration')!=configuration_record(request)):
+            return {**request,**state,'status':RECONCILIATION,
+                'error':'Legacy or changed executor record requires reconciliation of its original configuration and observations'}
+        if any(record and not binding_matches(request,record) for record in
+                (state if (folder/'state.json').exists() else {},identity,receipt)):
+            return {**request,**state,'status':RECONCILIATION,'error':'Executor identity/state/receipt work records disagree'}
+        for reference in (request.get('source_references') or {}).values():
+            try: valid=reference.get('snapshot_metadata')==file_metadata(reference['snapshot_path'])
+            except (OSError,KeyError): valid=False
+            if not valid:
+                return {**request,**state,'status':RECONCILIATION,
+                    'error':'Original source revision is missing or was changed; reconcile its retained work record'}
+        if identity and state.get('launch_id')!=identity.get('launch_id'):
+            return {**request,**state,'status':RECONCILIATION,'error':'Executor identity does not belong to the committed launch'}
         if identity:
             state.update(identity)
-        value = {'process_id': process_id, 'command': request['command'], 'created_at': request['created_at'], **state}
+        value = {'process_id': process_id, 'command': request['command'], 'created_at': request['created_at'],
+            **record_binding(request), **state}
+        if value['status'] in ('completed','failed','cancelled'):
+            if (not receipt or receipt.get('launch_id')!=value.get('launch_id') or
+                    receipt.get('status')!=value['status'] or receipt.get('exit_code')!=value.get('exit_code')):
+                value.update(status=RECONCILIATION,error='Terminal executor state has no consistent completion receipt')
+                return value
+            if receipt.get('artifact_errors'):
+                value.update(status=RECONCILIATION,error='Original completion artifacts could not be preserved',
+                    artifact_errors=receipt['artifact_errors'])
+                return value
+            for artifact in receipt.get('artifacts',[]):
+                if not artifact_is_valid(artifact):
+                    value.update(status=RECONCILIATION,error='Original completion artifact is missing or has changed',artifact=artifact)
+                    return value
+            value.update(completion_receipt=str(folder/'completion.json'),artifacts=receipt.get('artifacts',[]))
+            return value
         if value['status'] not in TERMINAL and is_alive(value.get('pid'), value.get('process_created')):
             try:
                 proc = psutil.Process(value['pid'])
@@ -132,7 +364,7 @@ class ManagedProcesses:
             except psutil.NoSuchProcess:
                 pass
         elif value['status'] not in TERMINAL and not is_alive(value.get('host_pid'), value.get('host_created')) and time.time() - request['created_at'] > 5:
-            value.update(status='lost', error='Process exited without a completion receipt. Validate outputs or explicitly restart; success is unconfirmed.')
+            value.update(status=RECONCILIATION, error='Process exited without a bound completion receipt. Reconcile executor state and original artifacts; execution is unconfirmed.')
         return value
 
     def read_output(self, process_id, offset=0, limit=24000, stream='stdout'):
@@ -153,20 +385,23 @@ class ManagedProcesses:
     def cancel(self, process_id):
         state = self.inspect(process_id)
         atomic_json(self.folder(process_id) / 'cancel.json', {'requested_at': time.time()})
-        if state['status'] not in TERMINAL:
+        if state['status'] not in (*TERMINAL,RECONCILIATION):
             group_id = state.get('process_group_id') or state.get('pid')
             signal_process_group(group_id, signal.SIGCONT)
             signal_process_group(group_id, signal.SIGTERM)
         return self.inspect(process_id)
 
     def all(self):
-        return [self.inspect(p.name) for p in sorted(self.directory.iterdir()) if p.is_dir() and (p / 'request.json').exists()]
+        directories=[self.directory,*([self.legacy_directory] if self.legacy_directory and self.legacy_directory.exists() else [])]
+        identifiers={path.name for directory in directories for path in directory.iterdir()
+            if path.is_dir() and (path/'request.json').exists()}
+        return [self.inspect(ident) for ident in sorted(identifiers)]
 
     def cancel_all(self):
         return [self.cancel(p['process_id']) for p in self.all() if p['status'] not in TERMINAL]
 
     def signal_all(self, signum):
         for state in self.all():
-            if state['status'] not in TERMINAL:
+            if state['status'] not in (*TERMINAL,RECONCILIATION):
                 group_id = state.get('process_group_id') or state.get('pid')
                 signal_process_group(group_id, signum)

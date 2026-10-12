@@ -64,11 +64,6 @@ def scenario(case):
         assert branch.status == 'materializing' and branch.extra['workspace_intervention']['effect_id'] == effect_id
     if case == 'changed_source':
         (source/'code'/'module1.py').write_text('value = 999\n')
-        workspaces.reconcile(intervention_id=parent['id'])
-        failed = client.get('/api/interventions/'+parent['id']).json()
-        assert failed['status'] == 'needs_attention' and failed['effects'][0]['status'] == 'failed'
-        assert 'changed' in failed['effects'][0]['error'] and not destination.exists()
-        return
     if case in ('undo_before_copy','undo_after_copy'):
         if case=='undo_after_copy':
             with Session() as session: plan=dict(session.get(InterventionEffect,effect_id).target)
@@ -99,6 +94,19 @@ def scenario(case):
     assert len(list((destination/'code').glob('*.py'))) == 100
     assert not (destination/'data'/'private.csv').exists()
     with Session() as session: assert session.get(Branch, branch_id).status == 'active'
+    if case in ('changed_source','edited_destination'):
+        with Session() as session: plan=dict(session.get(InterventionEffect,effect_id).target)
+        assert plan['plan_record_id'] and plan['configuration_version']==1
+        assert plan['files']['code/module1.py']['source_record_id']
+        if case=='changed_source':
+            assert (source/'code'/'module1.py').read_text()=='value = 999\n'
+        else:
+            # A completed copy receipt remains historical. Future scientific
+            # edits must not be rejected or overwritten when it is read again.
+            (destination/'code'/'module1.py').write_text('value = 2\n')
+            observed=workspaces.materialize(effect_id,plan)
+            assert observed['state']=='materialized'
+            assert (destination/'code'/'module1.py').read_text()=='value = 2\n'
     repeated = client.post(f'/api/projects/{pid}/graph/commands', json=request)
     assert repeated.status_code == 200 and repeated.json()['intervention']['id'] == parent['id']
     if case == 'merge':
@@ -135,13 +143,25 @@ def crash_child(effect_id, case):
     os._exit(79)
 
 
-@pytest.mark.parametrize('case', ['rollback', 'fork', 'merge', 'changed_source', 'receipt_gap', 'rename_gap','undo_before_copy','undo_after_copy'])
+@pytest.mark.parametrize('case', ['rollback', 'fork', 'merge', 'changed_source','edited_destination', 'receipt_gap', 'rename_gap','undo_before_copy','undo_after_copy'])
 def test_workspace_recovery(tmp_path, case,intervention_harness):
     env = {**os.environ, 'FOREST_DATA_DIR': str(tmp_path/'data'),
            'FOREST_DATABASE_URL': intervention_harness.env['FOREST_DATABASE_URL'], 'PYTHONPATH': str(ROOT)}
     result = subprocess.run([sys.executable, str(Path(__file__).resolve()), case],
         cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout+'\n'+result.stderr
+
+
+@pytest.mark.parametrize('case',['fork','changed_source','edited_destination','receipt_gap','rename_gap'])
+def test_workspace_records_and_real_crash_recovery_on_sqlite(tmp_path,case):
+    # Exercise the same real API, copy receipts, and process exits on the
+    # supported embedded database. The separate PostgreSQL tests remain for
+    # concurrent locking behavior and are not claimed by this coverage.
+    env={**os.environ,'FOREST_DATA_DIR':str(tmp_path/'data'),
+        'FOREST_DATABASE_URL':'sqlite:///'+str(tmp_path/'forest.db'),'PYTHONPATH':str(ROOT)}
+    result=subprocess.run([sys.executable,str(Path(__file__).resolve()),case],
+        cwd=ROOT,env=env,capture_output=True,text=True,timeout=60)
+    assert result.returncode==0,result.stdout+'\n'+result.stderr
 
 
 if __name__ == '__main__':

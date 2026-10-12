@@ -77,8 +77,9 @@ Cancelling a task closes its outstanding decisions. Pending or unused accepted
 actions become stale; a saved rejection remains rejected and loses its continue
 control. The original answer stays available in history.
 
-Project budgets accept nonnegative finite `seconds` and `cost_usd`, nonnegative
-integer `max_runs`, and boolean `allow_paid`. Paused live work continues to count
+Project budgets accept nonnegative finite `seconds` and `cost_usd`, and boolean
+`allow_paid`. Legacy nonnegative integer `max_runs` is retained as metadata;
+counting prior runs does not limit research lifetime. Paused live work continues to count
 wall time. Resume and new dispatch preserve prior consumption and other runs'
 reservations. A detached container stays paused until a replacement executor is
 admitted. An unknown model charge remains unknown rather than being reported as

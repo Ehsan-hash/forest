@@ -7,6 +7,7 @@ the supplied ModelClient and its existing spending guard.
 from __future__ import annotations
 
 import json
+import inspect
 import time
 import uuid
 from pathlib import Path
@@ -41,7 +42,7 @@ PROTOCOL = '''You have read-only access to the complete task context through rea
 def _usage_total(responses):
     result = {}
     for key in ('input_tokens', 'output_tokens', 'cached_input_tokens', 'reasoning_tokens', 'cost'):
-        values = [item.get('usage', {}).get(key) for item in responses]
+        values = [(item.get('usage') or {}).get(key) for item in responses]
         result[key] = sum(values) if values and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values) else None
     result['cost_source'] = 'configured_rates_estimate' if result['cost'] is not None else 'unknown'
     return result
@@ -72,6 +73,7 @@ def _parse_model_json_object(text):
             return value
     raise ValueError('Model response did not contain a valid JSON object')
 
+
 def _increase_local_output_cap(client):
     """Double one explicitly effective local cap, bounded to 32K tokens."""
     if getattr(client, 'api', None) == 'codex_cli':
@@ -98,7 +100,7 @@ def _increase_local_output_cap(client):
     return True
 
 
-def _complete_with_output_recovery(client, messages, *, json_mode=True, tools=None, retries=0):
+def _complete_with_output_recovery(client, messages, *, json_mode=True, tools=None, retries=0, output_stage='planning'):
     """Retry only explicit output truncation; never reuse a partial response."""
     failures = []
     retry_count = 0
@@ -106,7 +108,7 @@ def _complete_with_output_recovery(client, messages, *, json_mode=True, tools=No
     while True:
         started = time.monotonic()
         try:
-            response = client.complete(retry_messages, json_mode=json_mode, tools=tools)
+            response = _complete(client, retry_messages, output_stage=output_stage, json_mode=json_mode, tools=tools)
         except ProviderError as error:
             elapsed = time.monotonic() - started
             failure = {'usage': error.usage or {}, 'model': error.model,
@@ -122,6 +124,7 @@ def _complete_with_output_recovery(client, messages, *, json_mode=True, tools=No
                 retry_messages = [*messages, {'role': 'user', 'content':
                     'The previous response was truncated at the output limit. Re-read the original request and return the complete JSON response from the beginning. Do not continue from or rely on any partial response.'}]
                 continue
+            error.output_recovery_history = [{**item, 'elapsed_seconds': item.get('elapsed', 0)} for item in [*failures, failure]]
             error.output_recovery_failures = [*failures, failure]
             error.output_recovery_request_count = len(failures) + 1
             error.output_recovery_retries_used = retry_count
@@ -140,8 +143,39 @@ def _decode(response, native):
     return action.get('tool'), action.get('arguments'), None
 
 
+def _merge_complete_json(parts):
+    """Merge complete JSON subdocuments; reject gaps and conflicting scalars."""
+    def merge(left, right):
+        if isinstance(left, dict) and isinstance(right, dict):
+            result = dict(left)
+            for key, value in right.items():
+                result[key] = merge(result[key], value) if key in result else value
+            return result
+        if isinstance(left, list) and isinstance(right, list):
+            return [*left, *right]
+        if left == right:
+            return left
+        raise ValueError('JSON output chunks conflict at a shared non-mergeable value')
+    if not parts:
+        raise ValueError('No complete JSON output chunks were supplied')
+    return __import__('functools').reduce(merge, parts)
+
+
+def _complete(client, messages, *, output_stage, **kwargs):
+    """Keep the pre-existing minimal provider protocol compatible."""
+    try:
+        parameters=inspect.signature(client.complete).parameters.values()
+        accepts_stage=any(item.name=='output_stage' or item.kind==inspect.Parameter.VAR_KEYWORD
+                          for item in parameters)
+    except (TypeError,ValueError):
+        accepts_stage=False
+    if accepts_stage:
+        kwargs['output_stage']=output_stage
+    return client.complete(messages,**kwargs)
+
+
 def context_model_json(client, messages, workspace, *, char_hint=48000, materials=None, parse_result=True,
-                       output_retry_attempts=0):
+                       output_stage='planning', output_retry_attempts=None):
     """Return (JSON object, aggregate_response), retaining every real exchange.
 
     Caller constructs the authorized ModelClient. No provider settings, model
@@ -153,6 +187,20 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
         messages.insert(0, {'role': 'system', 'content': ''})
     if len(messages) < 2 or messages[1].get('role') != 'user':
         raise ValueError('Context-managed JSON generation requires a user task after the system message')
+    from research.agents.provider import ModelClient
+    if isinstance(client, ModelClient):
+        from research.agents.policy import ensure_research_messages
+        effective = ensure_research_messages(messages, client.config, output_stage)
+        if len(effective) == len(messages) + 1:
+            # ModelClient would inject these actual controls at transport.
+            # Archive them before recovery, preserving the original system
+            # metadata/content and the first-system/second-user contract.
+            original_system = effective[1]
+            messages = [{**original_system,
+                'content': effective[0]['content'] + '\n\n' + original_system['content']},
+                *effective[2:]]
+        else:
+            messages = effective
     directory = Path(workspace) / 'context_sessions' / str(uuid.uuid4())
     directory.mkdir(parents=True)
     atomic_json(directory / 'original_messages.json', messages)
@@ -160,46 +208,73 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
     managed_initial_requests = 0
     managed_initial_responses = []
     managed_initial_failures = []
-    output_retries_remaining = min(1, max(0, int(output_retry_attempts)))
+    output_retries_remaining = None if output_retry_attempts is None else min(1, max(0, int(output_retry_attempts)))
+
+    def complete_messages(request_messages, **kwargs):
+        nonlocal output_retries_remaining
+        if output_retries_remaining is None:
+            return _complete(client, request_messages, output_stage=output_stage, **kwargs)
+        if isinstance(client, ModelClient):
+            # The current provider owns native recovery and its budget receipts.
+            # Do not layer a second retry around it. Only local idea generation
+            # opts into this narrower one-retry policy.
+            from urllib.parse import urlparse
+            local = client.api == 'ollama' or urlparse(client.base).hostname in ('localhost', '127.0.0.1', '::1')
+            if local and client.api != 'codex_cli':
+                client.config = {**client.config, 'output_recovery_attempts': output_retries_remaining}
+            response = _complete(client, request_messages, output_stage=output_stage, **kwargs)
+        else:
+            try:
+                response, failures, count = _complete_with_output_recovery(client, request_messages,
+                    retries=output_retries_remaining, output_stage=output_stage, **kwargs)
+            except ProviderError as error:
+                output_retries_remaining -= getattr(error, 'output_recovery_retries_used', 0)
+                raise
+            if failures:
+                response['usage'] = _usage_total([*failures, response])
+                response['elapsed'] = sum(item.get('elapsed', 0) for item in failures) + response.get('elapsed', 0)
+                response['output_recovery'] = {'request_count': count, 'attempts': failures}
+                atomic_json(directory / 'direct_output_recovery.json', failures)
+        count = response.get('output_recovery', {}).get('request_count', 1)
+        output_retries_remaining = max(0, output_retries_remaining - count + 1)
+        if count > 1:
+            response['output_recovery_attempts'] = count - 1
+        return response
+
     # Preserve the normal JSON-only request for already fitting documents.
     # Planning with omitted optional evidence keeps retrieval tools available.
     if not materials and can_attempt_direct(client,messages,int(char_hint or 48000)):
         try:
-            if output_retries_remaining:
-                response, output_failures, request_count = _complete_with_output_recovery(
-                    client, messages, retries=output_retries_remaining)
-                output_retries_remaining -= request_count - 1
-                if output_failures:
-                    response['usage'] = _usage_total([*output_failures, response])
-                    response['elapsed'] = sum(item.get('elapsed', 0) for item in output_failures) + response.get('elapsed', 0)
-                    atomic_json(directory / 'direct_output_recovery.json', output_failures)
-            else:
-                response = client.complete(messages)
-                output_failures, request_count = [], 1
+            response = complete_messages(messages)
         except ProviderError as error:
             atomic_json(directory / 'direct_failure.json', {'code': error.code, 'request_id': error.request_id,
                         'usage': error.usage, 'ambiguous': error.ambiguous,
-                        'output_recovery_failures': getattr(error, 'output_recovery_failures', [])})
-            if error.code != 'context_window_exceeded' or error.ambiguous:
+                        'incomplete_reason': error.incomplete_reason,
+                        'output_recovery_history': getattr(error, 'output_recovery_history', []),
+                        'partial_output': error.partial_output})
+            if (output_retry_attempts is None and error.code == 'incomplete_response' and error.incomplete_reason == 'max_output_tokens'
+                    and not error.ambiguous):
+                direct_failure = error
+                attempts = getattr(error, 'output_recovery_history', None) or [{
+                    'request_id': error.request_id, 'model': error.model, 'usage': error.usage,
+                    'elapsed_seconds': getattr(error, 'elapsed_seconds', 0),
+                    'incomplete_reason': error.incomplete_reason}]
+                managed_initial_requests = len(attempts)
+                managed_initial_responses = [{'usage': item.get('usage'), 'model': item.get('model', error.model),
+                                               'elapsed': item.get('elapsed_seconds', 0)} for item in attempts]
+                managed_initial_failures = [{'code': item.get('incomplete_reason') or error.code,
+                    'request_id': item.get('request_id'), 'usage': item.get('usage'),
+                    'ambiguous': error.ambiguous, 'elapsed': item.get('elapsed_seconds')} for item in attempts]
+            elif error.code != 'context_window_exceeded' or error.ambiguous:
                 raise
-            direct_failure = error
-            output_failures = getattr(error, 'output_recovery_failures', [])
-            request_count = getattr(error, 'output_recovery_request_count', 1)
-            output_retries_remaining -= getattr(error, 'output_recovery_retries_used', 0)
-            if output_failures:
-                atomic_json(directory / 'direct_output_recovery.json', output_failures)
-                managed_initial_requests = request_count
-                managed_initial_responses = [
-                    {'usage': item.get('usage'), 'model': item.get('model'), 'elapsed': item.get('elapsed', 0)}
-                    for item in output_failures if item.get('usage')]
-                managed_initial_failures = output_failures
+            else:
+                direct_failure = error
         else:
             atomic_json(directory / 'direct_response.json', response)
             if not parse_result:
-                response = {**response, 'model_requests': request_count,
-                            **({'output_recovery_attempts': len(output_failures)} if output_failures else {}),
-                            'context_session_path': str(directory),
-                            'context_delivery':'direct_full_originals','original_input_characters':message_chars(messages)}
+                response = {**response, 'model_requests': response.get('output_recovery', {}).get('request_count', 1),
+                            'context_session_path': str(directory), 'context_delivery':'direct_full_originals',
+                            'original_input_characters':message_chars(messages)}
                 return None, response
             repair_attempted = False
             try:
@@ -221,7 +296,7 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
                     )},
                 ]
                 try:
-                    repaired = client.complete(repair_messages)
+                    repaired = complete_messages(repair_messages)
                 except BudgetExceeded as repair_error:
                     atomic_json(directory / 'direct_repair_failure.json', {
                         'error': str(repair_error),
@@ -237,7 +312,7 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
                     })
                     if repair_error.code == 'context_window_exceeded' and not repair_error.ambiguous:
                         direct_failure = repair_error
-                        managed_initial_requests = request_count + 1
+                        managed_initial_requests = response.get('output_recovery', {}).get('request_count', 1) + 1
                         managed_initial_responses = [
                             {key: response.get(key) for key in ('usage', 'model', 'elapsed') if key in response},
                             *([{'usage': repair_error.usage, 'model': repair_error.model, 'elapsed': 0}]
@@ -281,15 +356,13 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
                     repaired = {**repaired,
                         'usage': _usage_total([response, repaired]),
                         'elapsed': sum(item.get('elapsed', 0) for item in (response, repaired)),
-                        'model_requests': request_count + 1, 'format_repair_attempts': 1,
+                        'model_requests': 2, 'format_repair_attempts': 1,
                         'context_session_path': str(directory),
                         'context_delivery':'direct_full_originals',
                         'original_input_characters':message_chars(messages)}
                     return proposal, repaired
             if direct_failure is None and not repair_attempted:
-                response = {**response, 'model_requests': request_count,
-                            **({'output_recovery_attempts': len(output_failures)} if output_failures else {}),
-                            'context_session_path': str(directory),
+                response = {**response, 'model_requests': response.get('output_recovery', {}).get('request_count', 1), 'context_session_path': str(directory),
                             'context_delivery':'direct_full_originals','original_input_characters':message_chars(messages)}
                 return proposal, response
     store = ContextStore(directory)
@@ -306,11 +379,16 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
              'responses': managed_initial_responses}
     if direct_failure is not None:
         state['context_management'] = {'input_characters': message_chars(messages)}
-        recover_context_rejection(state, direct_failure)
+        if direct_failure.code == 'context_window_exceeded':
+            recover_context_rejection(state, direct_failure)
         state['failures'] = managed_initial_failures or [{'code': direct_failure.code, 'request_id': direct_failure.request_id,
                              'usage': direct_failure.usage, 'ambiguous': False}]
         if direct_failure.usage and not managed_initial_failures:
             state['responses'].append({'usage': direct_failure.usage, 'model': direct_failure.model})
+        if direct_failure.code == 'incomplete_response':
+            state['output_split_recovery'] = {'attempts': 1, 'received': {}, 'pending': True, 'total': None}
+            state['messages'].append({'role': 'user', 'content':
+                'The direct response was explicitly truncated at max_output_tokens and was not accepted. Return the requested result in a finite set of independently valid JSON subdocuments. Submit one subdocument per submit_result call using result_json equal to {"_forest_chunk":{"index":0,"total":N},"content":{...}}. Use zero-based consecutive indexes, partition arrays by disjoint items and objects by disjoint keys, and never send partial JSON. The service merges and validates chunks before returning any result.'})
     native = bool(client.native_tools)
     latest_page = None
     failures = 0
@@ -332,10 +410,13 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
         pending = store.pending()
         tools = [READ] if pending else [READ, SUBMIT]
         state['status'] = 'reading_context' if pending else 'planning'
+        split=state.get('output_split_recovery') or {}
         footer={'role':'user','content':'CURRENT TASK STATE: '+json.dumps({'next_required':pending,
                 'mandatory_controls_read':pending is None,'redundant_reads':state.get('redundant_reads',0)},ensure_ascii=False)+
                 (' Read the exact next_required page; its original control authority is retained.' if pending else
-                 ' All mandatory controls have been read. Now produce the complete originally requested JSON via submit_result; the output contract is visible above. Do not restart a fully read segment or return a summary of the context. Re-read only a concrete missing detail needed for the actual deliverable.')}
+                 (' All controls have been read. The previous complete response exceeded available output capacity. Submit each independently valid JSON object as result_json using the envelope {"_forest_chunk":{"index":0,"total":N},"content":{...}}. Choose a finite total; each index must be submitted exactly once. Partition arrays by rows/items and objects by disjoint keys. The service will merge and validate all chunks before returning any result. Next required index: '+str(next((i for i in range(split.get('total') or 0) if str(i) not in split.get('received',{})),0))+'.'
+                  if split.get('pending') else
+                  ' All mandatory controls have been read. Now produce the complete originally requested JSON via submit_result; the output contract is visible above. Do not restart a fully read segment or return a summary of the context. Re-read only a concrete missing detail needed for the actual deliverable.'))}
         messages.append(footer)
         if not native:
             messages.append({'role': 'user', 'content': 'Return one JSON tool action: {"tool":"read_context_segment","arguments":{"segment_id":"...","offset":0,"limit":6000,"notes":null}} or {"tool":"submit_result","arguments":{"result_json":"Complete requested JSON object as a string"}}. Submission is allowed only when next_required is null. Current next_required: ' + json.dumps(pending)})
@@ -343,39 +424,36 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
         save()
         started = time.monotonic()
         try:
-            if output_retries_remaining:
-                response, output_failures, request_count = _complete_with_output_recovery(
-                    client, messages, json_mode=not native, tools=tools if native else None,
-                    retries=output_retries_remaining)
-                output_retries_remaining -= request_count - 1
-            else:
-                response = client.complete(messages, json_mode=not native, tools=tools if native else None)
-                output_failures, request_count = [], 1
+            response = complete_messages(messages,
+                                 json_mode=not native,tools=tools if native else None)
         except ProviderError as error:
-            error_failures = getattr(error, 'output_recovery_failures', None)
-            if error_failures is None:
-                error_failures = [{'code': error.code, 'request_id': error.request_id,
-                    'usage': error.usage, 'ambiguous': error.ambiguous, 'elapsed': time.monotonic() - started,
-                    'model': error.model}]
-            state['model_requests'] += max(0, getattr(error, 'output_recovery_request_count', 1) - 1)
-            output_retries_remaining -= getattr(error, 'output_recovery_retries_used', 0)
-            state.setdefault('failures', []).extend(error_failures)
-            for failure in error_failures:
-                if failure.get('usage'):
-                    state['responses'].append({'usage': failure['usage'], 'model': failure.get('model'),
-                                               'elapsed': failure.get('elapsed', 0)})
+            attempts=getattr(error,'output_recovery_history',None) or [{'code': error.code, 'request_id': error.request_id,
+                'usage': error.usage, 'ambiguous': error.ambiguous, 'elapsed_seconds': time.monotonic() - started}]
+            state['model_requests'] += max(0,len(attempts)-1)
+            state.setdefault('failures', []).extend({'code':item.get('incomplete_reason') or error.code,
+                'request_id':item.get('request_id'), 'usage':item.get('usage'),
+                'ambiguous':error.ambiguous, 'elapsed':item.get('elapsed_seconds')} for item in attempts)
+            state['responses'].extend({'usage':item.get('usage'), 'model':item.get('model',error.model),
+                'elapsed':item.get('elapsed_seconds',0)} for item in attempts if item.get('usage'))
             recovered = recover_context_rejection(state, error)
+            if (output_retry_attempts is None and not recovered and error.code == 'incomplete_response'
+                    and error.incomplete_reason == 'max_output_tokens' and not error.ambiguous):
+                from research.agents.output_budget import recovery_attempt_limit
+                limit=recovery_attempt_limit(client.config)
+                current=state.get('output_split_recovery') or {'attempts':0,'received':{},'pending':False}
+                if current.get('attempts',0)<limit and not current.get('pending'):
+                    current.update(attempts=current.get('attempts',0)+1,pending=True,received={},total=None)
+                    state['output_split_recovery']=current
+                    state['messages'].append({'role':'user','content':
+                        'The prior response was truly truncated and was not accepted. Return the requested result in a finite set of independently valid JSON subdocuments. Submit one subdocument per submit_result call using result_json equal to {"_forest_chunk":{"index":0,"total":N},"content":{...}}. Use zero-based consecutive indexes, choose a finite N, partition arrays into disjoint item ranges and objects into disjoint keys, and never send incomplete JSON. The service merges chunks only after every index arrives and rejects gaps or conflicting values.'})
+                    recovered=True
             save()
             if recovered:
                 continue
             raise
-        state['model_requests'] += request_count - 1
-        if output_failures:
-            state.setdefault('failures', []).extend(output_failures)
-            for failure in output_failures:
-                state['responses'].append({'usage': failure.get('usage'), 'model': failure.get('model'),
-                                           'elapsed': failure.get('elapsed', 0)})
         response['elapsed'] = response.get('elapsed', time.monotonic() - started)
+        internal_attempts=response.get('output_recovery',{}).get('request_count',1)
+        state['model_requests'] += max(0,internal_attempts-1)
         state['responses'].append(response)
         state['context_management']['consecutive_rejections'] = 0
         state['messages'].append({'role': 'assistant', 'content': response['text'],
@@ -394,13 +472,42 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
                     raise ValueError('Read every required original control page before submitting the result')
                 if set(arguments) != {'result_json'} or not isinstance(arguments['result_json'], str):
                     raise ValueError('submit_result requires only a result_json string')
-                proposal = json.loads(arguments['result_json']) if parse_result else None
+                proposed_value=json.loads(arguments['result_json'])
+                chunk=state.get('output_split_recovery') or {}
+                envelope=(isinstance(proposed_value,dict) and set(proposed_value)=={'_forest_chunk','content'}
+                          and isinstance(proposed_value.get('_forest_chunk'),dict))
+                if chunk.get('pending') and not envelope:
+                    raise ValueError('Output splitting is active; submit a complete chunk envelope, not an incomplete final object')
+                if envelope:
+                    metadata=proposed_value['_forest_chunk']
+                    index,total=metadata.get('index'),metadata.get('total')
+                    if (isinstance(index,bool) or not isinstance(index,int) or index<0
+                            or isinstance(total,bool) or not isinstance(total,int) or total<2 or index>=total
+                            or not isinstance(proposed_value['content'],dict)):
+                        raise ValueError('JSON chunk requires a valid zero-based index, finite total >=2, and complete object content')
+                    if chunk.get('total') not in (None,total):
+                        raise ValueError('JSON chunk total changed during one output assembly')
+                    received=chunk.setdefault('received',{})
+                    if str(index) in received:
+                        raise ValueError('Duplicate JSON chunk index; do not repeat output or spend another request')
+                    received[str(index)]=proposed_value['content']; chunk.update(total=total,pending=True)
+                    missing=[item for item in range(total) if str(item) not in received]
+                    if missing:
+                        reply({'status':'chunk_recorded','next_required_index':missing[0],
+                               'missing_indices':missing,'total':total,'graph_applied':False},call_id)
+                        state['output_split_recovery']=chunk
+                        save()
+                        continue
+                    proposal=_merge_complete_json([received[str(item)] for item in range(total)])
+                    chunk.update(pending=False,assembled=True,merged_indices=list(range(total)))
+                else:
+                    proposal=proposed_value if parse_result else None
                 if parse_result and not isinstance(proposal, dict):
                     raise ValueError('The requested result must be a JSON object')
                 reply({'status': 'proposed', 'graph_applied': False}, call_id)
                 state.update(status='proposed', proposal=proposal)
                 save()
-                aggregate = {**response, 'text': arguments['result_json'],
+                aggregate = {**response, 'text': json.dumps(proposal,ensure_ascii=False) if envelope else arguments['result_json'],
                     'usage': _usage_total(state['responses']),
                     'elapsed': sum(item.get('elapsed', 0) for item in state['responses']),
                     'model_requests': state['model_requests'], 'context_session_path': str(directory),
@@ -449,7 +556,8 @@ def context_model_json(client, messages, workspace, *, char_hint=48000, material
         save()
 
 
-def planning_model_json(client, context, workspace, *, system='', char_hint=24000, repair=None):
+def planning_model_json(client, context, workspace, *, system='', char_hint=24000, repair=None,
+                        output_stage='planning'):
     """Plan from full mandatory intent plus a retrievable complete history."""
     task = {'context': compact_planning_context(context, char_hint)}
     if repair is not None:
@@ -457,4 +565,5 @@ def planning_model_json(client, context, workspace, *, system='', char_hint=2400
     return context_model_json(client, [
         {'role': 'system', 'content': system},
         {'role': 'user', 'content': json.dumps(task, ensure_ascii=False, default=str)},
-    ], workspace, char_hint=char_hint, materials={'Complete editable project planning context': context})
+    ], workspace, char_hint=char_hint, materials={'Complete editable project planning context': context},
+       output_stage=output_stage)

@@ -149,7 +149,8 @@ def execute(job_id,owner):
             provider=asdict(get(s,Provider,settings.provider_id),secrets=True)
             provider['_usage_context']={'project_id':job.project_id,'report_job_id':job.id,'report_policy_version':version,'report_lease_owner':owner,
                                         'report_provider_version':provider['updated_at']}
-            provider['config']={**provider['config'],'max_output_tokens':settings.max_output_tokens,'max_retries':0,'_reporter_selection':True,'timeout':min(120,float(provider['config'].get('timeout',120)))}
+            provider['config']={**provider['config'],**({'max_output_tokens':settings.max_output_tokens} if settings.max_output_tokens else {}),
+                                'max_retries':0,'_reporter_selection':True,'timeout':min(120,float(provider['config'].get('timeout',120)))}
             snap=ProjectProgressSnapshot.model_validate(job.snapshot)
             job.status='requesting'; generation=job.lease_generation; project_id=job.project_id
             allowed=p.budget.get('allow_paid',False); dependencies=job.dependencies; epoch=job.epoch

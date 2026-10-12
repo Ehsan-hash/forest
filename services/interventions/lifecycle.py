@@ -1,5 +1,6 @@
 """Durable lifecycle intents; external control is reconciled outside transactions."""
 from copy import deepcopy
+import json
 import signal
 import time
 
@@ -120,7 +121,7 @@ def accept_lifecycle(session, project, request_id, run_ids, action, *, body=None
         elif action == 'resume': legacy_context_failure = prepare_resume(session, project, run, body)
         else: error('UNKNOWN_ACTION', 'Use pause or resume', 422)
         target = {key: deepcopy(value) for key, value in asdict(run).items()
-                  if key in ('id', 'project_id', 'node_id', 'output_path', 'pid', 'process_created', 'config')}
+                  if key in ('id', 'project_id', 'node_id', 'kind', 'output_path', 'pid', 'process_created', 'config')}
         target['status'] = previous
         if action == 'resume': target['legacy_context_failure'] = legacy_context_failure
         effect = InterventionEffect(intervention_id=row.id, project_id=project.id, run_id=run.id,
@@ -195,6 +196,19 @@ def lifecycle_target(target, action):
                 'managed_processes': [{'process_id': item['process_id'], 'status': item['status']} for item in processes],
                 'observed_at': now()}
     host_live = bool(target.get('pid') and process_matches(target['pid'], target.get('process_created')))
+    checkpoint_resume = False
+    if not host_live and target.get('kind',target['config'].get('kind')) == 'agent':
+        path = output/'workspace'/'agent_session.json'
+        if path.is_file():
+            try: checkpoint = json.loads(path.read_text())
+            except (OSError,ValueError): checkpoint = None
+            checkpoint_resume = (isinstance(checkpoint,dict) and
+                checkpoint.get('run_id') == target['id'] and
+                isinstance(checkpoint.get('transcript'),list) and
+                checkpoint.get('status') not in ('completed','cancelled'))
+            if checkpoint_resume:
+                observations['checkpoint']={'run_id':target['id'],'path':'agent_session.json',
+                    'transcript_count':len(checkpoint['transcript'])}
     if not host_live and target['config'].get('execution_backend') == 'container':
         # Reconnecting requires a newly admitted host executor. Its container
         # remains paused until the worker reserves capacity and dispatches it.
@@ -210,7 +224,7 @@ def lifecycle_target(target, action):
         if signal_group(target['pid'], target.get('process_created'), signal.SIGCONT):
             return {**observations, 'status': 'running', 'observed_at': now()}
         if (target['config'].get('execution_backend') != 'container' and not target['config'].get('remote')
-                and not target.get('legacy_context_failure')):
+                and not target.get('legacy_context_failure') and not checkpoint_resume):
             raise RuntimeError('Paused executor was lost; restart the run')
     mode = 'container_reconnect' if target['config'].get('execution_backend') == 'container' else 'continue'
     return {**observations, 'status': 'queued', 'next_mode': mode,

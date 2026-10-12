@@ -70,6 +70,15 @@ def reindex(ident:str):
         from services.worker.scheduler import _lock_project
         _lock_project(s,pid);r=get(s,SourcePaper,ident,for_update=True)
         if r.revision!=revision:error('REVISION_CONFLICT','Source changed during extraction; reindex the current source',409)
+        # Keep the normalized passage rows in sync with the source snapshot. The
+        # passages endpoint prefers these rows over data.passages, so updating
+        # only the JSON field leaves stale text visible after a reindex.
+        for passage in s.scalars(select(SourcePassage).where(SourcePassage.project_id==r.project_id)):
+            if passage.data.get('paper_id')==ident:
+                s.delete(passage)
+        for passage in passages:
+            s.add(SourcePassage(project_id=r.project_id,title=r.title,
+                                data={'paper_id':r.id,**passage},status='available'))
         r.data={**r.data,'passages':passages,'reading_scope':'fulltext'}; r.revision+=1; touch_dependents(s,r.project_id,ident); return asdict(r)
 @router.post('/api/research/ideas')
 def generate_ideas(body:dict=Body(...)):
@@ -587,7 +596,11 @@ def research_control(ident:str,action:str,body:dict=Body(default={})):
                 if selected_branch.status!='active':
                     error('BRANCH_NOT_RUNNABLE','Restore this branch before starting research on it',409)
             affected=control.get('paused_run_ids',[])
-            control={**control,'status':'running','phase':'PLAN','branch_id':branch_id,'required_artifacts':body.get('required_artifacts',control.get('required_artifacts',[])), 'autonomous':body.get('autonomous',control.get('autonomous',p.mode=='auto')), 'max_cycles':body.get('max_cycles',control.get('max_cycles')),'ready_parallelism':parallelism}
+            control={**control,'status':'running','phase':'PLAN','branch_id':branch_id,'required_artifacts':body.get('required_artifacts',control.get('required_artifacts',[])), 'autonomous':body.get('autonomous',control.get('autonomous',p.mode=='auto')),'ready_parallelism':parallelism}
+            # Old clients/checkpoints may carry a planning-cycle cap. Preserve
+            # it as history only; research lifetime follows goals and resources.
+            legacy_limit=control.pop('max_cycles',body.get('max_cycles'))
+            if legacy_limit is not None: control['legacy_max_cycles']=legacy_limit
             control.pop('reason',None);control.pop('paused_run_ids',None)
         elif action in ('pause','stop'):
             from services.worker.scheduler import ACTIVE

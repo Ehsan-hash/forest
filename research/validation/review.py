@@ -1,4 +1,4 @@
-"""Structured methodological review, informed by the ARS experiment workflow.
+"""Structured methodological review for evidence-aware research workflows.
 
 The catalog defines questions for an evidence-aware reviewer; missing information
 is recorded explicitly and is never converted into a passing machine check.

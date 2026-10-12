@@ -6,7 +6,11 @@ def process_manager(workspace, config=None):
     backend = (config or {}).get('execution_backend', 'local')
     if backend == 'container':
         from runners.container import ContainerProcesses
-        return ContainerProcesses(workspace, (config or {}).get('container', {}))
+        return ContainerProcesses(workspace, (config or {}).get('container', {}),
+            code_inputs=(config or {}).get('code_inputs'))
+    if backend == 'bubblewrap':
+        from runners.bubblewrap import BubblewrapProcesses
+        return BubblewrapProcesses(workspace, config)
     if backend != 'local':
-        raise ValueError('execution_backend must be local or container')
-    return ManagedProcesses(workspace)
+        raise ValueError('execution_backend must be local, container or bubblewrap')
+    return ManagedProcesses(workspace,code_inputs=(config or {}).get('code_inputs'))

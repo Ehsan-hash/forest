@@ -1,7 +1,6 @@
 """One durable task process. Parent worker owns scheduling and process control."""
 from __future__ import annotations
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -18,6 +17,8 @@ from services.api.config import ROOT
 
 def local_command(command, workspace, output, config):
     """Save the actual subprocess phase independently of the whole run receipt."""
+    if config.get('execution_backend')=='bubblewrap':
+        return isolated_command(command,workspace,output,config)
     from research.execution.repository import task_environment
     from research.execution.repository import _write_manifest
     started = datetime.now(timezone.utc).isoformat()
@@ -34,6 +35,104 @@ def local_command(command, workspace, output, config):
                    finished_at=datetime.now(timezone.utc).isoformat())
     _write_manifest(output/'execution.json',receipt)
     return proc
+
+
+def isolated_command(command,workspace,output,config):
+    """Deterministic jobs use the same durable isolated process supervisor."""
+    from runners.bubblewrap import BubblewrapProcesses
+    from research.agents.processes import atomic_json,read_json
+    manager=BubblewrapProcesses(workspace,config)
+    configuration={key:value for key,value in config.items() if key not in (
+        'execution_attempt','_next_attempt','_recovery_failures','_context_workspace','provider_snapshot')}
+    binding_path=output/'deterministic_jobs.json'
+    bindings=read_json(binding_path,{'jobs':[]})
+    previous=bindings['jobs'][-1] if bindings['jobs'] else None
+    attempt=config.get('execution_attempt',{})
+    if previous:
+        try:original=manager.inspect(previous['work_id'])
+        except ValueError:
+            # A crash after accepting the work ID but before recording launch
+            # has no process side effect. Reuse that same accepted identity.
+            folder=manager.folder(previous['work_id'])
+            if folder.exists() and any(folder.iterdir()):raise
+            original={'status':'accepted'}
+        new_work=(original['status'] in ('failed','cancelled') and attempt.get('mode') in ('restart','checkpoint')
+                  and previous.get('attempt_id')!=attempt.get('id'))
+    else:new_work=True
+    if new_work:
+        previous={'work_id':uid(),'attempt_id':attempt.get('id'),'command':command,'configuration':configuration}
+        bindings['jobs'].append(previous)
+        atomic_json(binding_path,bindings)  # Accept identity before the process side effect.
+    elif previous['command']!=command or ({key:value for key,value in previous['configuration'].items() if key!='timeout'} !=
+            {key:value for key,value in configuration.items() if key!='timeout'}):
+        raise ValueError('Accepted deterministic job configuration changed; reconcile its original execution before new work')
+    work_id=previous['work_id']
+    state=manager.start(command,process_id=work_id,env=config.get('env',{}),
+                        experiment=previous['configuration'])
+    while state['status'] not in ('completed','failed','cancelled','lost','reconciliation'):
+        time.sleep(.05);state=manager.inspect(work_id)
+    atomic_json(output/'execution.json',{'backend':'bubblewrap','work_id':work_id,
+        'command':command,'status':state['status'],'exit_code':state.get('exit_code'),
+        'original_receipt':str(manager.folder(work_id)/'completion.json')})
+    if state['status'] in ('lost','reconciliation'):
+        from research.agents.runtime import AgentYield
+        raise AgentYield('waiting_input',wait_for={'type':'execution_reconciliation','process_id':work_id,
+                         'workspace':str(workspace)},
+                         reason='Deterministic execution requires reconciliation of its original process receipt')
+    for stream in ('stdout','stderr'):
+        path=manager.folder(work_id)/(stream+'.log')
+        if path.is_file():
+            destination=sys.stdout if stream=='stdout' else sys.stderr
+            destination.write(path.read_text(errors='replace'));destination.flush()
+    result=subprocess.CompletedProcess(command,state.get('exit_code',1))
+    result.original_artifacts=state.get('artifacts',[])
+    return result
+
+
+def require_command_artifact(process,path,workspace):
+    """Promote only outputs retained by this actual isolated execution."""
+    if not hasattr(process,'original_artifacts'):return
+    from research.agents.processes import artifact_matches
+    relative=path.relative_to(workspace).as_posix()
+    original=next((item for item in process.original_artifacts if item.get('relative_path')==relative),None)
+    if not original or not artifact_matches(path,original):
+        raise ValueError('Command output is absent or differs from its original execution artifact: '+relative)
+
+
+def isolated_entrypoint(entrypoint,workspace,output,config):
+    """Only branch code/runtime mounts are exposed; supervisor state stays outside."""
+    import re
+    from research.agents.processes import atomic_json,artifact_matches,read_json
+    module,function=entrypoint.split(':',1)
+    if not re.fullmatch(r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*',module) or not re.fullmatch(r'[A-Za-z_]\w*',function):
+        raise ValueError('Entrypoint requires Python module:function identifiers')
+    control=workspace/'entrypoint-control';control.mkdir(exist_ok=True)
+    child_output=workspace/'entrypoint-output';child_output.mkdir(exist_ok=True)
+    alias=child_output/'workspace'
+    if not alias.exists():alias.symlink_to(workspace,target_is_directory=True)
+    atomic_json(control/'request.json',{'module':module,'function':function,
+        'parameters':config.get('parameters',{}),'output':str(child_output)})
+    wrapper=control/'execute.py'
+    wrapper.write_text('''import importlib,json,sys\nfrom pathlib import Path\nrequest=json.loads(Path(sys.argv[1]).read_text())\nsys.path.insert(0,str(Path.cwd()))\nresult=getattr(importlib.import_module(request['module']),request['function'])(request['parameters'],request['output'])\nPath(sys.argv[2]).write_text(json.dumps(result,allow_nan=False))\n''')
+    result_path=control/'result.json'
+    proc=isolated_command([sys.executable,str(wrapper),str(control/'request.json'),str(result_path)],workspace,output,config)
+    if proc.returncode:raise RuntimeError('Experiment entrypoint exited '+str(proc.returncode))
+    completion=read_json(Path(read_json(output/'execution.json')['original_receipt']))
+    artifacts={item.get('relative_path'):item for item in completion.get('artifacts',[])}
+    original=artifacts.get(result_path.relative_to(workspace).as_posix())
+    if not original or not artifact_matches(result_path,original):
+        raise ValueError('Entrypoint result does not match its original completion artifact')
+    result=json.loads(result_path.read_text())
+    if not isinstance(result,dict):raise ValueError('Experiment entrypoint must return an object')
+    for source in child_output.rglob('*'):
+        if source.is_symlink():continue
+        if source.is_file():
+            if not source.resolve().is_relative_to(child_output.resolve()):raise PermissionError('Entrypoint output escapes its authorized directory')
+            original=artifacts.get(source.relative_to(workspace).as_posix())
+            if not original or not artifact_matches(source,original):raise ValueError('Entrypoint output changed after completion')
+            target=output/source.relative_to(child_output);target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copy2(source,target)
+    return result
 
 def relative_paths(value,root):
     if isinstance(value,dict): return {k:relative_paths(v,root) for k,v in value.items()}
@@ -127,30 +226,101 @@ def saved_paper_response(session, project_id, config, current_run_id):
     generation_evidence=path.parent/'input_evidence.json'
     return origin,path,generation_evidence if generation_evidence.is_file() else origin_root/'paper'/'input_evidence.json'
 
-def model_json(config,prompt,system='',*,output_retry_attempts=0):
+def model_json(config,prompt,system='',*,output_retry_attempts=None):
     from research.agents.provider import ModelClient
     from research.agents.policy import RESEARCH_POLICY
+    from research.agents.output_budget import configure_request_policy
     provider=config.get('provider_snapshot')
     if not provider: raise ValueError('Connect a model provider in Settings before running this task')
     from research.planning.model import context_model_json
-    client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+    client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config)
     return context_model_json(client,[{'role':'system','content':RESEARCH_POLICY+'\n'+system},{'role':'user','content':prompt}],
                               Path(config['_context_workspace']),char_hint=config.get('context_char_budget',64000),
-                              output_retry_attempts=output_retry_attempts)
+                              output_stage=client.config.get('output_stage','research'), output_retry_attempts=output_retry_attempts)
 
-def materialize_branch_references(root, workspace, bindings):
+def copy_task_file(origin,destination):
+    """A crashed preparation may leave a temporary file, never a partial input."""
+    temporary=destination.with_name(destination.name+'.preparing.'+str(time.time_ns()))
+    try:
+        shutil.copy2(origin,temporary)
+        with temporary.open('rb') as handle: os.fsync(handle.fileno())
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def materialize_branch_references(root, workspace, bindings, config=None, catalog=None):
     """Copy branch-level reference files into an isolated task workspace."""
     # Keep the nearest/last mapping when nested forks reference the same path.
     by_destination = {binding['destination']: binding for binding in bindings}
+    from research.agents.path_access import copy_origins,denied_origin
+    copied = {}
     for binding in by_destination.values():
         origin=safe_path(root,binding['source_path'],True)
+        origins=copy_origins(root,origin,catalog)
+        if denied_origin(origin,config,origins):
+            raise PermissionError('Explicitly requested branch input has a denied origin: '+str(origin))
         destination=safe_path(workspace,binding['destination'])
         if destination.is_file():
             continue
         if destination.exists():
             raise ValueError('A branch reference destination is not a file path')
         destination.parent.mkdir(parents=True,exist_ok=True)
-        shutil.copy2(origin,destination)
+        copy_task_file(origin,destination)
+        copied[Path(binding['destination']).as_posix()]=origins
+    return copied
+
+
+def prepare_task_workspace(root, source_workspace, output, config):
+    """Resume interrupted input preparation before running any model or fit."""
+    from research.agents.processes import atomic_json
+    from research.agents.path_access import copy_origin_catalog,copy_origins,denied_origin
+    workspace=output/'workspace'
+    marker=output/'workspace_preparation.json'
+    preparation=json.loads(marker.read_text()) if marker.exists() else None
+    catalog=copy_origin_catalog(root)
+    for binding in [*config.get('resolved_inputs',[]),*config.get('resolved_branch_references',[])]:
+        origin=safe_path(root,binding['source_path'],True)
+        if denied_origin(origin,config,copy_origins(root,origin,catalog)):
+            raise PermissionError('Explicitly requested task input has a denied origin: '+str(origin))
+    if preparation and preparation.get('status')=='completed':
+        return
+    if preparation is None and config.get('execution_attempt',{}).get('number',1)>1:
+        # Legacy workspaces can already contain executed, edited outputs. Never
+        # overwrite those with their original branch when migrating an old run.
+        atomic_json(marker,{'status':'completed','legacy_existing_workspace':True})
+        return
+    atomic_json(marker,{'status':'preparing','source_workspace':str(source_workspace.relative_to(root)),
+        'inputs':config.get('resolved_inputs',[]),
+        'branch_references':config.get('resolved_branch_references',[])})
+    source_origins={}
+    if source_workspace!=root:
+        for source in source_workspace.rglob('*'):
+            if source.is_file() and not source.is_symlink():
+                origins=copy_origins(root,source,catalog)
+                destination=workspace/source.relative_to(source_workspace)
+                if denied_origin(source,config,origins):
+                    if destination.exists():
+                        source_origins[source.relative_to(source_workspace).as_posix()]=origins
+                    continue
+                destination.parent.mkdir(parents=True,exist_ok=True)
+                copy_task_file(source,destination)
+                source_origins[source.relative_to(source_workspace).as_posix()]=origins
+    source_origins.update(materialize_branch_references(root,workspace,config.get('resolved_branch_references',[]),config,catalog))
+    references={}
+    for binding in config.get('resolved_inputs',[]):
+        origin=safe_path(root,binding['source_path'],True)
+        destination=safe_path(workspace,binding['destination'])
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        copy_task_file(origin,destination)
+        source_origins[Path(binding['destination']).as_posix()]=copy_origins(root,origin,catalog)
+    for binding in [*config.get('resolved_inputs',[]),*config.get('resolved_branch_references',[])]:
+        destination=safe_path(workspace,binding['destination'])
+        from research.agents.processes import file_metadata
+        references[binding['destination']]={'input_record_id':uid(),
+            'source_path':binding['source_path'],'path':str(destination),**file_metadata(destination)}
+    atomic_json(marker,{'status':'completed','source_workspace':str(source_workspace.relative_to(root)),
+        'input_references':references,'source_origins':source_origins})
 
 def idea_source_material(source):
     metadata={key:source.data[key] for key in ('authors','year','doi','arxiv_id','url','abstract','journal','source') if key in source.data}
@@ -201,8 +371,13 @@ def path_request_graph(graph,scope,node_id,branch_id):
 
 def execute(run_id):
     with Session() as s:
-        run=get(s,TaskRun,run_id); config=run.config; pid=run.project_id; kind=run.kind; node_id=run.node_id; branch=s.get(Branch,run.branch_id) if run.branch_id else s.scalar(select(Branch).where(Branch.project_id==pid,Branch.is_main==True)); branch_workspace=branch.workspace if branch else '.'
-        output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid); source_workspace=safe_path(root,branch_workspace)
+        run=get(s,TaskRun,run_id); pid=run.project_id; project=get(s,Project,pid)
+        defaults=project.config.get('agent_execution',{}) if isinstance(project.config,dict) else {}
+        if not isinstance(defaults,dict): raise ValueError('project.config.agent_execution must be an object')
+        config={**defaults,**(run.config or {})}; kind=run.kind; node_id=run.node_id
+        branch=s.get(Branch,run.branch_id) if run.branch_id else s.scalar(select(Branch).where(Branch.project_id==pid,Branch.is_main==True)); branch_workspace=branch.workspace if branch else '.'
+        output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid)
+        source_workspace=safe_path(root,config.get('_workspace_source_snapshot',branch_workspace))
         from services.api.verification import verification_gate
         gate=verification_gate(s,run)
         if not gate['ready']:
@@ -211,15 +386,7 @@ def execute(run_id):
             s.add(run); s.commit()
             raise AgentYield('waiting_input',reason=gate['message'])
     output.mkdir(parents=True,exist_ok=True); workspace=output/'workspace'; workspace.mkdir(exist_ok=True)
-    # Capture editable working files at task start, excluding previous run output.
-    if source_workspace!=root and config.get('execution_attempt',{}).get('number',1)==1:
-        for f in source_workspace.rglob('*'):
-            if f.is_file() and not f.is_symlink():
-                target=workspace/f.relative_to(source_workspace); target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(f,target)
-    if config.get('execution_attempt',{}).get('number',1)==1:
-        materialize_branch_references(root,workspace,config.get('resolved_branch_references',[]))
-    for binding in (config.get('resolved_inputs',[]) if config.get('execution_attempt',{}).get('number',1)==1 else []):
-        origin=safe_path(root,binding['source_path'],True); destination=safe_path(workspace,binding['destination']); destination.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(origin,destination)
+    prepare_task_workspace(root,source_workspace,output,config)
     paired_input=None
     if kind!='verification':
         with Session() as s:
@@ -285,6 +452,8 @@ def execute(run_id):
                 argv=['/bin/sh','-c',command] if isinstance(command,str) else command
                 proc=local_command(argv,workspace,output,config)
                 if proc.returncode: raise RuntimeError('Verification command exited '+str(proc.returncode))
+                for scope,relative in _artifacts(contract):
+                    if scope=='verifier':require_command_artifact(proc,safe_path(workspace,relative),workspace)
         return finish_verification(run_id)
     if kind=='research_route_review':
         from research.planning.route_review import execute_route_review
@@ -302,7 +471,8 @@ def execute(run_id):
         from research.agents.policy import RESEARCH_POLICY
         provider=config.get('provider_snapshot')
         if not provider: raise ValueError('Connect a model provider in Settings before planning')
-        client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+        from research.agents.output_budget import configure_request_policy
+        client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'planning')
         repair_context=None
         for repair in range(int(config.get('structured_repair_attempts',3))):
             try:
@@ -333,6 +503,7 @@ def execute(run_id):
         started=time.monotonic(); proc=local_command(command,workspace,output,config)
         if proc.returncode: raise RuntimeError(f'Command exited with code {proc.returncode}')
         metrics_path=safe_path(workspace,config.get('metrics_file','metrics.json'))
+        if metrics_path.is_file():require_command_artifact(proc,metrics_path,workspace)
         return with_repository({'command_exit_code':proc.returncode,'elapsed':time.monotonic()-started,**(json.loads(metrics_path.read_text()) if metrics_path.is_file() else {})})
     if kind=='experiment':
         if config.get('command'):
@@ -342,8 +513,11 @@ def execute(run_id):
             if proc.returncode: raise RuntimeError(f'Experiment exited {proc.returncode}')
             metrics_path=safe_path(workspace,config.get('metrics_file','metrics.json'))
             if not metrics_path.is_file(): raise ValueError('Experiment completed without required metrics.json')
+            require_command_artifact(proc,metrics_path,workspace)
             result=json.loads(metrics_path.read_text()); shutil.copy2(metrics_path,output/'metrics.json'); return with_repository(result)
         if config.get('entrypoint'):
+            if config.get('execution_backend')=='bubblewrap':
+                return with_repository(isolated_entrypoint(config['entrypoint'],workspace,output,config))
             import importlib
             module,function=config['entrypoint'].split(':',1); sys.path.insert(0,str(workspace)); result=getattr(importlib.import_module(module),function)(config.get('parameters',{}),str(output)); return with_repository(result)
         if config.get('example')!='class_weight_calibration':
@@ -378,20 +552,18 @@ def execute(run_id):
         safe_path(root,source_path,True)
         input_artifact=safe_path(output,'paired-input.csv')
         temporary=safe_path(output,'.paired-input-'+uid()+'.tmp')
-        digest=hashlib.sha256()
         size_bytes=0
         try:
             with source.open('rb') as incoming, temporary.open('xb') as retained:
                 while chunk:=incoming.read(1024*1024):
                     retained.write(chunk)
-                    digest.update(chunk)
                     size_bytes+=len(chunk)
             temporary.replace(input_artifact)
         finally:
             temporary.unlink(missing_ok=True)
         input_artifact_path=input_artifact.relative_to(root.resolve()).as_posix()
         input_provenance={'artifact_path':input_artifact_path,'source_path':source_path,
-                          'sha256':digest.hexdigest(),'size_bytes':size_bytes}
+                          'input_record_id':run_id+':paired-input','size_bytes':size_bytes}
         with input_artifact.open(newline='') as retained:
             result=paired_csv(
                 input_artifact,
@@ -440,13 +612,11 @@ def execute(run_id):
                 _lock_project(s,pid)
                 try:
                     current_source=safe_path(root,source_path)
-                    current_digest=hashlib.sha256()
-                    with current_source.open('rb') as current:
-                        while chunk:=current.read(1024*1024): current_digest.update(chunk)
-                    source_matches_current=current_digest.hexdigest()==digest.hexdigest()
+                    from research.agents.processes import file_contents_equal
+                    source_matches_current=file_contents_equal(current_source,input_artifact)
                 except OSError:
                     source_matches_current=False
-                # The content digest is authoritative. Check under both the
+                # Compare the retained actual input directly under both the
                 # file-publication lock and project lock immediately before
                 # insertion, then keep both until dependent invalidation commits.
                 source_changed=not source_matches_current
@@ -543,7 +713,8 @@ def execute(run_id):
             from research.figures.model_workflow import design_method_graph
             from research.agents.provider import ModelClient
             from research.paper.evidence import _method_context, _numbers
-            client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+            from research.agents.output_budget import configure_request_policy
+            client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'figure_design')
             data=design_method_graph(client,{'goal':config.get('project_goal'),'caption':fig.get('caption'),
                 'method':data,'layout_width_in':style.get('layout_width_in',6.5),
                 'source_runs':[{'id':r.id,'status':r.status,'metrics':r.metrics} for r in selected],
@@ -554,7 +725,8 @@ def execute(run_id):
         if provider:
             from research.figures.model_workflow import reviewed_render,reviewed_image,reviewed_custom_plot
             from research.agents.provider import ModelClient
-            client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
+            from research.agents.output_budget import configure_request_policy
+            client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'visual_review')
             context={'goal':config.get('project_goal'),'caption':fig.get('caption'),'purpose':fig.get('purpose'),
                 'source_run_ids':[r.id for r in selected],'layout_width_in':style.get('layout_width_in',6.5),
                 'source_runs':[{'id':r.id,'kind':r.kind,'status':r.status,'metrics':r.metrics} for r in selected]}
@@ -679,11 +851,8 @@ def execute(run_id):
                 from research.agents.policy import agent_policy
                 provider=config.get('provider_snapshot')
                 if not provider: raise ValueError('Connect a real model provider before drafting a manuscript')
-                client=ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False))
-                # Manuscript responses need room for a full article. Preserve
-                # explicitly configured limits and account every request normally.
-                if not any(key in client.config for key in ('max_output_tokens','max_tokens')):
-                    client.config={**client.config,'max_output_tokens':32768}
+                from research.agents.output_budget import configure_request_policy
+                client=configure_request_policy(ModelClient(provider,read_secret(provider.get('credential_ref')),config.get('allow_paid',False)),config,'paper')
                 from research.paper.statistical_workflow import prepare_statistical_presentation
                 evidence=prepare_statistical_presentation(evidence,folder/'statistical_presentation',selected_layout,client)
                 required_figures=list(dict.fromkeys([*(config.get('figure_ids') or []),
@@ -840,8 +1009,35 @@ def execute(run_id):
         return result
     raise ValueError('Unsupported task kind '+kind)
 
+def await_committed_dispatch(run_id, attempt_id, *, timeout_seconds=10):
+    """Fence orphan executors until their attempt/PID ownership is durable.
+
+    The worker must spawn inside its admission transaction to claim the PID.
+    A crash before commit must not let that unowned child start scientific work.
+    Standalone execution without an attempt ID retains the CLI's existing use.
+    """
+    if not attempt_id:
+        return True
+    deadline=time.monotonic()+timeout_seconds
+    while time.monotonic()<deadline:
+        with Session() as session:
+            run=session.get(TaskRun,run_id)
+            if run is None or run.status in ('cancelled','completed','failed','skipped','interrupted'):
+                return False
+            attempt=(run.config or {}).get('execution_attempt') or {}
+            if attempt.get('id')==attempt_id and run.pid==os.getpid() and run.status=='running':
+                return True
+        time.sleep(0.05)
+    return False
+
+
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument('--run-id',required=True); args=parser.parse_args(); start=time.monotonic()
+    parser=argparse.ArgumentParser(); parser.add_argument('--run-id',required=True); args=parser.parse_args()
+    attempt_id=os.environ.get('FOREST_ATTEMPT_ID')
+    if not await_committed_dispatch(args.run_id,attempt_id):
+        # Do not overwrite a later attempt's receipt or touch its workspace.
+        sys.exit(75)
+    start=time.monotonic()
     with Session() as s: run=get(s,TaskRun,args.run_id); out=safe_path(project_dir(run.project_id),run.output_path)
     out.mkdir(parents=True,exist_ok=True)
     try: result=execute(args.run_id); receipt={'status':'completed','exit_code':0,'metrics':result,'elapsed_seconds':time.monotonic()-start}
@@ -852,7 +1048,8 @@ def main():
         receipt={'status':'budget_exhausted','reason':str(exc),'error':str(exc),'exit_code':0,'elapsed_seconds':time.monotonic()-start}
     except Exception as exc:
         traceback.print_exc(); receipt={'status':'failed','exit_code':1,'error':str(exc),'elapsed_seconds':time.monotonic()-start}
-    receipt['attempt_id']=os.environ.get('FOREST_ATTEMPT_ID')
-    tmp=out/('result.'+str(os.environ.get('FOREST_ATTEMPT_ID','initial'))+'.tmp'); tmp.write_text(json.dumps(receipt,ensure_ascii=False,indent=2,default=str)); tmp.replace(out/'result.json')
+    receipt['attempt_id']=attempt_id
+    from research.agents.processes import atomic_json
+    atomic_json(out/'result.json',json.loads(json.dumps(receipt,default=str)))
     sys.exit(receipt['exit_code'])
 if __name__=='__main__': main()

@@ -11,11 +11,14 @@ from research.publication import publication_profile, publication_instructions, 
 PLANNER_INSTRUCTIONS = '''An example COMMAND SHAPE (replace branch_id and task details using current context): {"operation":"add_node","targets":[],"params":{"id":"baseline-implementation","branch_id":"ACTUAL_BRANCH_ID","type":"implementation","title":"Implement and measure baseline","instructions":"Implement the specified real task, run it, read measured results and write metrics.json and report.md.","config":{"kind":"agent","role":"Engineer","required_outputs":["metrics.json","report.md"]},"position":{"x":0,"y":0}}}. The commands field contains command OBJECTS, never just node titles. No work executes when commands is empty.
 Context uses an automatically selected working set: inspect context_coverage before inferring that work or evidence is absent. Counts describe the complete project; omitted records remain in full_context_artifact and can be read now through read_context_segment. Read every required control page before submitting a plan; full project goals and constraints retain their original authority. Trial dispositions and global best summaries refer to the entire measured history, not only displayed runs.
 You plan the next real research work in an editable project. Establish a strong baseline before candidate comparisons. Follow measured results, investigate failures, propose ablations and discriminating experiments, and keep all contrary evidence. The publication profile defaults to full_submission. Its submission_quality gaps and remaining real experiment matrix drive the next cycle; a pilot or an empty queue cannot satisfy full delivery. Retrieve and read the accepted-paper corpus, infer complete comparison/data/statistical workload, execute it, independently review the actual draft and repair the resulting gaps. Never substitute a bundled example for the user's question. Every experiment has a duty: effectiveness, mechanism, scenario_value or alternative_explanation. No simulated providers, numbers, progress or completion. All files and research choices remain editable. Work in English.
-Return JSON {"action":"continue|completed|blocked", "rationale":"evidence-grounded decision", "evidence_run_ids":[], "best_estimate":"...", "against":"...", "decisive_unknown":"...", "cheapest_resolution":"...", "commands":[]}. Commands use {"operation":"add_node|edit_node|add_dependency|fork_branch|prune_branch|set_main_branch", "targets":[], "params":{}}. For add_node supply id (unique descriptive string), branch_id from the graph, type, title, instructions, config, inputs and position:{x,y}. config for research steps uses kind:'agent', role from the supplied specialist roles and expected_outputs when known. Specialist roles include Literature Scout, Benchmark Curator, Experiment Designer, Baseline Reproducer, Engineer, Experimenter, Analyst, Figure Designer, Visual Selector, Layout Reviewer, Writer and Submission Reviewer. For executable existing scripts use kind:'experiment', command:argv, metrics_file:'metrics.json', experiment_duty, and input references to producer node files. Never invent executable paths that have not been produced. Add depends_on edges via add_dependency params {source:id,target:id}. Use inputs [{node_id:id,path:'file',destination:'file',branch_id:id}] to consume actual producer files. Engineer writes code and checkpoint support, Experimenter runs it with start_process and wait_for_process and saves predictions/metrics, Analyst independently recalculates. Use a few useful nodes at a time; do not create empty tasks to inflate graph size. Completed requires achieved goal and cited completed measured runs with required deliverables present AND a ready submission audit for full_submission, not simply an empty queue. Blocked must state an exact missing external input, not merely unfinished experiments or a rejected delivery audit. A failed attempt is evidence for repair or a different path, never successful research. Do not silently replace existing working files or discard results.'''
+Return JSON {"action":"continue|completed|blocked", "rationale":"evidence-grounded decision", "evidence_run_ids":[], "best_estimate":"...", "against":"...", "decisive_unknown":"...", "cheapest_resolution":"...", "commands":[]}. Commands use {"operation":"add_node|edit_node|add_dependency|remove_dependency|fork_branch|prune_branch|restore_branch|reopen_branch|revise_goal|set_main_branch", "targets":[], "params":{}}. For add_node supply id (unique descriptive string), branch_id from the graph, type, title, instructions, config, inputs and position:{x,y}. config for research steps uses kind:'agent', role from the supplied specialist roles and expected_outputs when known. Specialist roles include Literature Scout, Benchmark Curator, Experiment Designer, Baseline Reproducer, Engineer, Experimenter, Analyst, Figure Designer, Visual Selector, Layout Reviewer, Writer and Submission Reviewer. For executable existing scripts use kind:'experiment', command:argv, metrics_file:'metrics.json', experiment_duty, and input references to producer node files. Never invent executable paths that have not been produced. Add depends_on edges via add_dependency params {source:id,target:id}. Use inputs [{node_id:id,path:'file',destination:'file',branch_id:id}] to consume actual producer files. Engineer writes code and checkpoint support, Experimenter runs it with start_process and wait_for_process and saves predictions/metrics, Analyst independently recalculates. Use a few useful nodes at a time; do not create empty tasks to inflate graph size. Completed requires achieved goal and cited completed measured runs with required deliverables present AND a ready submission audit for full_submission, not simply an empty queue. Blocked must state an exact missing external input, not merely unfinished experiments or a rejected delivery audit. A failed attempt is evidence for repair or a different path, never successful research. Do not silently replace existing working files or discard results.'''
 PLANNER_INSTRUCTIONS += '''
 Critical measured handoffs require editable independent verifier DAG nodes, not a producer's self-issued pass or LLM praise. Add config.kind='verification', config.verification={producer_node_id:actual_producer_id,checks:[{id:'recompute-score',kind:'numeric_compare',source:'metrics.json',repeat:'metrics.json',pointers:['/score'],absolute_tolerance:0,relative_tolerance:0}]} and an actual distinct recomputation command that writes repeat files. For source-data checks use explicit csv_coverage identities, numeric columns and the declared expected matrix. Connect producer->verifier->consumer; consumers declare required_verification:[verifier_id] or source input verification_node_id. Read server-bound verification_status and exact check scope. Rejected or inconclusive material requires repair/new evidence; do not announce scientific truth from a limited arithmetic or coverage check. Evidence Verifier specifies checks; Open Source Research Advisor offers implementation advice only.
 Declare a complete comparison_signature containing dataset, dataset_version, split, evaluation_protocol, metric, statistical_unit and budget, plus objective comparison_fields. Missing or contradictory declarations remain unverified/incomparable, not baseline champions. Preserve selection history, confirmation access and contrary observations; use comparable reruns after editable protocol changes.
-Read route_health and latest_route_review. Research Direction Reviewer reads the complete recorded route; its advice does not verify results. When controller.replan_required is true, return action:'continue' and replanning:{reason:'concrete signal and response',new_direction:'new scientific question/hypothesis/data/method',goal_alignment:'why this serves the unchanged original goal',stop_node_ids:[actual_ids],evidence_run_ids:[actual_ids]}. Cite the actual signal runs and materially edit the relevant work or retire the old nodes/branch, then add an executable scientific step. Title/layout edits, identical retries, duplicate nodes, only review/verification tasks and more counterexample checks cannot resolve a route failure. Declared research_activity:'counterexample' has a default allowance of two consecutive checks; after excess choose a different useful direction immediately. Keep all prior evidence editable and preserved.
+Read route_health and latest_route_review. Research Direction Reviewer reads the complete recorded route; its advice does not verify results. When controller.replan_required is true, return action:'continue' and replanning:{reason:'concrete signal and response',new_direction:'new scientific question/hypothesis/data/method',goal_alignment:'why this serves the current Goal Contract or why new evidence warrants an explicit goal revision',stop_node_ids:[actual_ids],evidence_run_ids:[actual_ids]}. Cite the actual signal runs and materially edit the relevant work or retire the old nodes/branch, then add an executable scientific step. Title/layout edits, identical retries, duplicate nodes, only advice tasks or identical checks cannot resolve a route failure. Counterexample tasks have no cumulative allowance; repair or change work when the same task repeats unchanged observations. Keep all prior evidence editable and preserved.
+'''
+PLANNER_INSTRUCTIONS += '''
+Long-horizon recovery resumes the current versioned scientific goal, graph and evidence. Use revise_goal with objective, success_criteria, contract, reason, evidence_run_ids and affected_branch_ids to evolve the objective; use reopen_branch with branch_id, reason and evidence_run_ids to revisit completed or abandoned work. Preserve earlier goal versions and actual result configurations. Read research_recovery when present: use its current versus historical evidence, failed task signatures, authorized alternatives and full-history locators before deciding the next path. A process crash, provider/tool fault, rejected file operation or ended work round does not falsify a scientific hypothesis. Diagnose the actual cause, preserve the checkpoint/negative observation, and repair the existing task or select an existing feasible alternative. Do not reread unchanged validated protocols/data without a concrete decision need. Do not reset ledgers by cloning failed work, rephrase a summary as progress, or recreate the same failing route under new identifiers. Goal completion requires actual current evidence and independent source-bound verification when required; unfinished experiments, an empty queue, a local failed path or ended context are not project completion. A blocked proposal requires external_input_request naming the exact unavailable permission, dependency or input and its scientific decision relevance, and must account for all currently feasible authorized graph alternatives.
 '''
 
 
@@ -85,9 +88,21 @@ def planning_context(project_id):
         summary={**{k:v for k,v in audit.items() if k not in ('gaps','remaining_cells','profile')},
                  'gaps':[{**g,'finding':g['finding'][:600]} for g in audit['gaps'][:24]],'total_gaps':len(audit['gaps'])}
         health=route_health(graph,[asdict(r) for r in runs],p.config)
-        return {'trials':trial_rows,'publication_audit':audit,'framework_reference_corpus':reference_context(),
-                'route_health':health,'latest_route_review':_latest_route_review(p,runs),
-                'project':{'id':p.id,'goal':p.goal,'budget':p.budget,'controller':p.config.get('controller',{}),'objective':p.config.get('objective'),
+        recovery=None
+        if p.config.get('controller',{}).get('recovery'):
+            from research.agents.research_path import research_recovery_context
+            prior=p.config['controller']['recovery'].get('context',{})
+            recovery=research_recovery_context(s,p,trigger=prior.get('trigger'))
+            recovery.pop('checkpoint_evidence',None)
+            recovery.pop('shared_resource_ledger',None)
+        control=deepcopy(p.config.get('controller',{}))
+        if isinstance(control.get('recovery'),dict):
+            saved=control['recovery'].get('context',{})
+            saved.pop('checkpoint_evidence',None);saved.pop('shared_resource_ledger',None)
+        from services.research_evolution.service import goal_context
+        return {'goal_contract':goal_context(s,p),'trials':trial_rows,'publication_audit':audit,'framework_reference_corpus':reference_context(),
+                'route_health':health,'latest_route_review':_latest_route_review(p,runs),'research_recovery':recovery,
+                'project':{'id':p.id,'goal':p.goal,'budget':p.budget,'controller':control,'objective':p.config.get('objective'),
                            'verification_policy':p.config.get('verification_policy','optional'),
                            'publication_profile':profile,'submission_quality':summary,'publication_instructions':publication_instructions(profile),'planner_context_chars':p.config.get('planner_context_chars',24000)},'graph':graph,
                 'runs':[{'id':r.id,'node_id':r.node_id,'status':r.status,'kind':r.kind,'metrics':r.metrics,'error':r.error,'output_path':r.output_path,
@@ -244,18 +259,26 @@ def compact_planning_context(context, char_budget=24000):
             'graph_summary':{'execution_status_counts':dict(Counter(n.get('execution_status','idle') for n in nodes))},
             'runs':[],'trials':[],'sources':[],'claims':[],'global_best_by_conditions':[], 'context_coverage':coverage}
     if 'route_health' in context:result['route_health']=deepcopy(context['route_health'])
+    if context.get('goal_contract'):
+        result['goal_contract']={'current':deepcopy(context['goal_contract']['current']),
+            'version_refs':[{key:row[key] for key in ('id','revision','parent_version_id')}
+                for row in context['goal_contract']['versions']],
+            'history_endpoint':context['goal_contract']['history_endpoint']}
+    if context.get('research_recovery') is not None: result['research_recovery']=deepcopy(context['research_recovery'])
     result['rejected_proposals']=deepcopy(context.get('rejected_proposals', []))
     if context.get('latest_route_review') is not None:
         review=context['latest_route_review']
         result['latest_route_review']={key:deepcopy(review[key]) for key in ('review_run_id','current','decision','summary','findings','stop_node_ids','recommendation','authority') if key in review}
         result['latest_route_review']['coverage_retrievable_from']='full_context_artifact'
     # Build champions from all measured trials, not the display window.
-    champions={}; direction=(project.get('objective') or {}).get('direction','min')
+    champions=[]; direction=(project.get('objective') or {}).get('direction','min')
     for trial in trials:
         if trial.get('value') is None or trial.get('comparison_eligible') is not True: continue
-        key=encoded(trial.get('conditions',{})); old=champions.get(key)
-        if old is None or (trial['value']<old['value'] if direction=='min' else trial['value']>old['value']): champions[key]=trial
-    best=list(champions.values()); best_ids={x['run_id'] for x in best}
+        old=next((item for item in champions if item.get('conditions',{})==trial.get('conditions',{})),None)
+        if old is None or (trial['value']<old['value'] if direction=='min' else trial['value']>old['value']):
+            if old is not None:champions.remove(old)
+            champions.append(trial)
+    best=champions; best_ids={x['run_id'] for x in best}
     recent_ids={r['id'] for r in runs[:6]}
     run_by_id={r['id']:r for r in runs}
     evidence_nodes={run_by_id[rid].get('node_id') for rid in best_ids|recent_ids if rid in run_by_id}
@@ -331,6 +354,13 @@ def validate_replanning(plan,before,after,runs,control,health,goal):
     model's new direction. Original goals and historical evidence stay intact.
     """
     if not control.get('replan_required'):return None
+    if plan.get('action')=='blocked':
+        # A concrete unavailable external input can pause a path. apply_plan
+        # independently checks existing authorized alternatives before adopting
+        # this as a project pause; it never marks the hypothesis disproved.
+        if not isinstance(plan.get('external_input_request'),str) or not plan['external_input_request'].strip():
+            raise ValueError('Blocked recovery requires an exact external_input_request')
+        return None
     if plan.get('action')!='continue':
         raise ValueError('A required route revision needs actual new graph work before completion')
     revision=plan.get('replanning')
@@ -338,34 +368,29 @@ def validate_replanning(plan,before,after,runs,control,health,goal):
     for name in ('reason','new_direction','goal_alignment'):
         if not isinstance(revision.get(name),str) or not revision[name].strip():
             raise ValueError('Replanning must state '+name)
-    if before.get('goal',goal)!=after.get('goal',goal) or after.get('goal',goal)!=goal:
-        raise ValueError('Replanning must preserve the current original research goal')
+    if before.get('goal',goal)!=after.get('goal',goal) and not any(
+            command.get('operation')=='revise_goal' for command in plan.get('commands',[])):
+        raise ValueError('A changed scientific objective requires an explicit versioned revise_goal operation')
     old={node['id']:node for node in before['nodes']};new={node['id']:node for node in after['nodes']}
     actual_runs={run['id'] for run in runs}
     stopped=revision.get('stop_node_ids');evidence=revision.get('evidence_run_ids')
     for name,refs,available in (('stop_node_ids',stopped,set(old)),('evidence_run_ids',evidence,actual_runs)):
         if not isinstance(refs,list) or any(not isinstance(ref,str) or ref not in available for ref in refs) or len(set(refs))!=len(refs):
             raise ValueError('Replanning '+name+' must reference unique actual records')
-    if not evidence:raise ValueError('Replanning requires actual evidence run references')
     signal_runs={rid for signal in health.get('signals',[]) for rid in signal.get('run_ids',[])}
     if signal_runs and not signal_runs.intersection(evidence):
         raise ValueError('Replanning must cite the actual detected route failures')
     active={branch['id'] for branch in after.get('branches',[]) if branch.get('status','active')=='active'}
-    scientific_keys={'command','entrypoint','research_question','hypothesis','dataset','dataset_version','datasets',
-                     'split','split_policy','evaluation_protocol','metric','statistical_unit','seeds','baseline',
-                     'candidate','method','algorithm','parameters','condition','comparison_budget','fair_budget'}
     review_roles={'Reviewer','Evidence Verifier','Research Direction Reviewer','Open Source Research Advisor',
                   'Submission Reviewer','Layout Reviewer','Visual Selector','Figure Designer'}
     def scientific(node):
-        cfg=node.get('config',{})
-        return {'instructions':str(node.get('instructions','')).strip(),
-                'config':{key:deepcopy(value) for key,value in cfg.items() if key in scientific_keys},
-                'inputs':deepcopy(node.get('inputs',[]))}
+        from research.agents.research_path import task_signature
+        return task_signature(node)
     def productive(node):
         cfg=node.get('config',{})
         return (not node.get('archived') and node.get('branch_id') in active and
                 cfg.get('kind') in ('agent','experiment','command','analysis') and
-                cfg.get('role') not in review_roles and cfg.get('research_activity') not in ('counterexample','counterexample_check'))
+                cfg.get('role') not in review_roles)
     changed=[]
     for ident,node in new.items():
         if not productive(node):continue
@@ -382,7 +407,7 @@ def validate_replanning(plan,before,after,runs,control,health,goal):
                             (description['config'] or node.get('config',{}).get('kind')=='agent') and
                             all(description!=scientific(existing) for existing in old.values()))
         if meaningful:changed.append(ident)
-    if not changed:raise ValueError('Replanning needs a materially changed scientific task; title/layout edits, duplicate retries and only review/verification/counterexample work do not qualify')
+    if not changed:raise ValueError('Replanning needs a materially changed scientific task; title/layout edits, duplicate retries and only advice work do not qualify')
     affected={nid for signal in health.get('signals',[]) for nid in signal.get('node_ids',[]) if nid in old and not old[nid].get('archived')}
     affected.update(nid for nid in control.get('route_replan_node_ids',[]) if nid in old and not old[nid].get('archived'))
     if affected-set(stopped):
@@ -401,7 +426,8 @@ def apply_plan(project_id, run_id, plan, expected_revision):
     if not isinstance(commands,list): raise ValueError('commands must be an array')
     if plan['action']=='continue' and not commands: raise ValueError('Continue requires actual graph work')
     if plan['action']!='continue' and commands: raise ValueError('Complete or block after proposed graph work has been adopted and evaluated in a separate cycle')
-    allowed={'add_node','edit_node','add_dependency','fork_branch','prune_branch','set_main_branch'}
+    allowed={'add_node','edit_node','add_dependency','remove_dependency','fork_branch','prune_branch',
+        'restore_branch','reopen_branch','revise_goal','set_main_branch'}
     with Session.begin() as s:
         from services.worker.scheduler import _lock_project
         p=_lock_project(s,project_id)
@@ -414,14 +440,22 @@ def apply_plan(project_id, run_id, plan, expected_revision):
         graph=graph_from_db(s,p)
         original_graph=deepcopy(graph)
         project_runs=list(s.scalars(select(TaskRun).where(TaskRun.project_id==p.id)))
+        recovery_alternatives=[]
+        if plan['action']=='blocked':
+            if not isinstance(plan.get('external_input_request'),str) or not plan['external_input_request'].strip():
+                raise ValueError('Blocked research requires an exact external_input_request; unfinished internal work must be planned')
+            from research.agents.research_path import research_recovery_context
+            context=research_recovery_context(s,p,trigger={'category':'external_input',
+                'node_ids':control.get('route_replan_node_ids',[]),'error':plan['external_input_request']})
+            recovery_alternatives=context['alternative_ready_node_ids']
         for index, c in enumerate(commands):
             if c.get('operation') not in allowed: raise ValueError('Unsupported autonomous graph operation')
             params=c.get('params',{})
             cfg=params.get('config',{})
             if c['operation']=='add_node':
                 if not params.get('instructions'): raise ValueError('New research work requires concrete instructions')
-                if params.get('type') in ('experiment','baseline') and cfg.get('experiment_duty') not in ('effectiveness','mechanism','scenario_value','alternative_explanation'):
-                    raise ValueError('Experiment requires an explicit argumentative duty')
+                if cfg.get('experiment_duty') is not None and cfg['experiment_duty'] not in ('effectiveness','mechanism','scenario_value','alternative_explanation'):
+                    raise ValueError('Declared experiment duty must name the actual scientific question')
                 if cfg.get('kind')=='experiment' and not (cfg.get('command') or cfg.get('entrypoint')):
                     raise ValueError('Implement the experiment first; no example fallback exists')
                 if cfg.get('kind')=='verification':
@@ -432,7 +466,12 @@ def apply_plan(project_id, run_id, plan, expected_revision):
             graph=GraphCommandService(graph,project_dir(p.id)).simulate({**c,'request_id':f'plan:{run_id}:{index}','expected_revision':graph['revision']})['graph']
         from research.planning.route_review import route_health
         health=route_health(original_graph,[asdict(run) for run in project_runs],p.config)
-        replanned=validate_replanning(plan,original_graph,graph,[asdict(run) for run in project_runs],control,health,p.goal)
+        from services.research_evolution.service import bind_evaluation_context
+        validation_graphs=[deepcopy(original_graph),deepcopy(graph)]
+        for candidate in validation_graphs:
+            for node in candidate['nodes']:
+                node['config']=bind_evaluation_context(s,p,node.get('config',{}))
+        replanned=validate_replanning(plan,*validation_graphs,[asdict(run) for run in project_runs],control,health,p.goal)
         evidence=[]
         for rid in plan.get('evidence_run_ids',[]):
             r=get(s,TaskRun,rid)
@@ -487,8 +526,16 @@ def apply_plan(project_id, run_id, plan, expected_revision):
         control={**control,'phase':'EXECUTE' if commands else 'CONFIRM','last_decision_id':record.id,'last_rationale':plan['rationale'], 'last_plan_run':run_id, 'cycles':int(control.get('cycles',0))+1}
         if replanned is not None:
             control.update(replan_required=False,last_replanning=replanned,replan_reason=None,route_replan_node_ids=[])
-        if plan['action']!='continue': control.update(status=plan['action'],reason=plan['rationale'])
+        action=plan['action']
+        if action=='blocked' and recovery_alternatives:
+            # The missing input affects this proposed path. Preserve the advice
+            # and use existing graph work without resetting node/run accounts.
+            control.update(status='running',phase='EXECUTE',replan_required=False,
+                blocked_path_decision=record.id,alternative_node_ids=recovery_alternatives,
+                last_rationale='Continue a feasible existing route while preserving the recorded path blocker.')
+            action='continue'
+        elif action!='continue': control.update(status=action,reason=plan['rationale'])
         p.config={**p.config,'controller':control}
         emit(s,p.id,'controller_changed',control)
         if commands: emit(s,p.id,'node_changed',{'revision':p.revision})
-        return {'decision_id':record.id,'action':plan['action'],'applied_commands':len(commands),'graph_revision':p.revision,'rationale':plan['rationale']}
+        return {'decision_id':record.id,'action':action,'applied_commands':len(commands),'graph_revision':p.revision,'rationale':plan['rationale']}

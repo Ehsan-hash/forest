@@ -1095,9 +1095,15 @@ def test_idempotent_run_budget_timeout_and_measured_resources(actual_worker):
     stopped = h.terminal(run)
     assert stopped["status"] == "failed"
     assert "budget" in stopped["error"].lower() or "timed out" in stopped["error"].lower()
-    over_budget = h.client.post(f"/api/nodes/{node['id']}/run", json={"request_id": str(uuid.uuid4())})
-    assert over_budget.status_code == 409
-    assert over_budget.json()["detail"]["code"] == "RUN_BUDGET_EXHAUSTED"
+    # A prior execution count is historical metadata, not a lifecycle limit.
+    # The remaining actual time can still admit another run after max_runs=1.
+    continued = h.launch(node)
+    assert continued['id'] != run['id']
+    continued = h.terminal(continued)
+    assert continued['status'] == 'failed'
+    exhausted = h.client.post(f"/api/nodes/{node['id']}/run", json={"request_id": str(uuid.uuid4())})
+    assert exhausted.status_code == 409
+    assert exhausted.json()["detail"]["code"] == "TIME_BUDGET_EXHAUSTED"
 
 
 def test_exhausted_time_budget_blocks_actual_job_creation(actual_worker):
@@ -1110,7 +1116,10 @@ def test_exhausted_time_budget_blocks_actual_job_creation(actual_worker):
 
 def test_dependent_run_reserves_only_remaining_project_time(actual_worker):
     h = actual_worker
-    project, producer = h.project_node(seconds=0.6, budget={"max_runs": 20, "seconds": 2, "allow_paid": False}, timeout=20)
+    # Leave room for actual interpreter/worker startup under integration-suite
+    # load. The consumer still exceeds and must obey the real project budget.
+    project_seconds=6
+    project, producer = h.project_node(seconds=0.6, budget={"max_runs": 20, "seconds": project_seconds, "allow_paid": False}, timeout=20)
     graph = h.request("GET", f"/api/projects/{project['id']}/graph")
     consumer_id = str(uuid.uuid4())
     created = h.request("POST", f"/api/projects/{project['id']}/graph/commands", json={
@@ -1123,7 +1132,7 @@ def test_dependent_run_reserves_only_remaining_project_time(actual_worker):
             "branch_id": producer["branch_id"],
             "type": "experiment",
             "title": "Consumer runs after its producer",
-            "config": {"kind": "command", "command": [sys.executable, "-c", "import time; time.sleep(5)"], "timeout": 10},
+            "config": {"kind": "command", "command": [sys.executable, "-c", "import time; time.sleep(12)"], "timeout": 10},
         },
     })
     h.request("POST", f"/api/projects/{project['id']}/graph/commands", json={
@@ -1144,14 +1153,17 @@ def test_dependent_run_reserves_only_remaining_project_time(actual_worker):
     completed_producer = h.terminal(producer_run)
     assert completed_producer["status"] == "completed"
     started_consumer = wait_until(lambda: (r if (r := h.run(consumer_run)).get("resource", {}).get("time_budget", {}).get("reservation_state") == "held" else None))
-    assert 0 < started_consumer["config"]["timeout"] < 2
+    assert 0 < started_consumer["config"]["timeout"] < project_seconds
+    assert started_consumer['config']['timeout']==pytest.approx(
+        project_seconds-completed_producer['resource']['elapsed_seconds'])
     assert started_consumer["resource"]["time_budget"]["effective_total_timeout_seconds"] == started_consumer["config"]["timeout"]
     stopped_consumer = h.terminal(consumer_run, timeout=15)
     assert stopped_consumer["status"] == "failed"
     assert "budget" in stopped_consumer["error"].lower() or "timed out" in stopped_consumer["error"].lower()
     aggregate_elapsed = (completed_producer["resource"]["elapsed_seconds"] +
                          stopped_consumer["resource"]["elapsed_seconds"])
-    assert aggregate_elapsed <= 2.75
+    # Real observed time includes the bounded worker poll/termination grace.
+    assert project_seconds<=aggregate_elapsed<=project_seconds+.75
 
 
 def test_paused_queued_job_stays_pending_and_does_not_occupy_process_slot(actual_worker):

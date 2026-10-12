@@ -11,6 +11,21 @@ from scripts.release import create_source
 from scripts.package_source import source_tree as export_source_tree
 
 
+def test_source_release_preserves_project_skill_discovery(tmp_path):
+    from scripts.package_source import package
+    source = tmp_path / 'source'
+    skill = source / '.agents' / 'skills' / 'forest-academic-writing' / 'SKILL.md'
+    skill.parent.mkdir(parents=True)
+    skill.write_text('---\nname: forest-academic-writing\ndescription: Own writing skill.\n---\n')
+    archive = tmp_path / 'release.zip'
+    package(archive, source)
+    with zipfile.ZipFile(archive) as output:
+        assert output.read('forest/.agents/skills/forest-academic-writing/SKILL.md') == skill.read_bytes()
+    directory = tmp_path / 'export'
+    export_source_tree(directory, source)
+    assert (directory / skill.relative_to(source)).read_bytes() == skill.read_bytes()
+
+
 @pytest.fixture
 def source_tree(tmp_path):
     root = tmp_path / 'source'

@@ -47,7 +47,7 @@ Provider-backed `method` and `image` rendering uses the same production pipeline
    content contract. Organize the figure around the strongest supported contribution.
 2. Design at least two distinct compositions, with a dominant mechanism view and
    useful local detail. Every panel must explain a scientific point.
-3. Compile the complete source overview from its frozen nodes and dependencies.
+3. Compile the complete source overview from its current nodes and dependencies.
    Source-bound semantic groups and a forward chain guide a layered layout.
    The host measures labels, places every operation and reserves separate
    feedback paths and label space before routing. The model designs the
@@ -104,10 +104,14 @@ and assembles the source-bound local mechanism;
 figure creation, rendering and manuscript insertion calls use these components.
 Empirical charts retain their existing measurement-backed renderers.
 
-`config.figure_design_max_output_tokens` defaults to 12288; set it on the text
-provider when a dense local mechanism needs more output space. `visual_review_attempts` controls the maximum
-production passes. All actual text and image requests use the configured model
-and existing spending controls.
+Figure design and visual review requests use the provider-aware adaptive output
+budget. Declare verified provider model capabilities where available, or set a
+conservative `adaptive_output_fallback_tokens` and stage-specific targets under
+`adaptive_output_budget.stage_targets`. Output truncation is retried only within
+declared model/context capacity and existing spending controls; incomplete JSON
+is never accepted. `visual_review_attempts` controls the maximum production
+passes. All actual text and image requests use the configured model and existing
+spending controls.
 `config.figure_raster_finish_candidates` defaults to five and accepts two to
 five. The final batch requires `image_generation.model` and
 `image_generation.max_request_usd`; native-only providers retain the native

@@ -130,6 +130,8 @@ def edit_project(ident:str,body:dict=Body(...)):
                 return {**asdict(p),'intervention':readback(s,old)}
         if body.get('expected_revision',p.revision)!=p.revision: error('REVISION_CONFLICT','Project changed',409)
         observed=p.revision
+        from services.research_evolution.service import current_goal
+        current_goal(s,p)
         for k in ('name','description','goal','current_direction','archived','mode','budget','config'):
             if k in body:
                 value=body[k]
@@ -219,16 +221,23 @@ def duplicate_project(ident:str):
         runs=[asdict(r) for r in s.scalars(select(TaskRun).where(TaskRun.project_id==p.id))]
         from services.interventions.history import export_history,history_ids,import_history,historical_resource
         history=export_history(s,p.id)
+        from services.research_evolution.history import export_evolution,evolution_ids,import_evolution
+        from services.interventions.origin_history import export_origins,import_origins,relocate_permission_config
+        evolution=export_evolution(s,p.id)
+        origins=export_origins(project_dir(p.id))
         mapping={item['id']:uid() for key in ('nodes','edges','branches') for item in graph[key]}
         for rows in list(resources.values())+[papers,runs]:
             for item in rows: mapping.setdefault(item['id'],uid())
         for item in history_ids(history):mapping.setdefault(item,uid())
+        for item in evolution_ids(evolution):mapping.setdefault(item,uid())
         mode=p.mode if p.mode in ('auto','assisted','manual') else 'assisted'
         duplicate_id=uid()
         remember_project(duplicate_id)
         new=make_project(s,p.name+' · Copy',p.goal,p.description,id=duplicate_id,mode=mode,budget=copy.deepcopy(p.budget),config=copy.deepcopy(p.config))
         def remap(value):
             return remap_identifiers(value,mapping,project_id=p.id,new_project_id=new.id)
+        new.config=remap(new.config)
+        import_evolution(s,new.id,evolution,remap)
         from services.interventions.history import historical_branches
         graph=historical_branches(remap(graph)); graph['revision']=0
         for node in graph['nodes']:
@@ -238,13 +247,18 @@ def duplicate_project(ident:str):
             controller=remap(new.config['controller'])
             new.config={**new.config,'controller':{**controller,'status':'paused','phase':'PLAN'}}
         source=project_dir(p.id); destination=project_dir(new.id)
+        new.config=relocate_permission_config(p.config,new.config,destination,str(source.resolve()),remap)
+        node_configs={mapping[row['id']]:row.get('config',{}) for row in graph_from_db(s,p)['nodes']}
+        for node in graph['nodes']:
+            node['config']=relocate_permission_config(node_configs[node['id']],node['config'],destination,str(source.resolve()),remap)
+        import_origins(destination,origins,remap,str(source.resolve()))
         for path in source.rglob('*'):
             if path.is_symlink() or '.forest-interventions' in path.relative_to(source).parts: continue
             relative=path.relative_to(source).as_posix()
             target=safe_path(destination,remap(relative))
             if path.is_dir(): target.mkdir(parents=True,exist_ok=True)
             elif path.is_file(): target.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(path,target)
-        save_graph(s,new,graph)
+        save_graph(s,new,graph,historical=True)
         for key,rows in resources.items():
             model=RESOURCE_MODELS[key]
             for row in rows: s.add(model(id=mapping[row['id']],project_id=new.id,title=row['title'],status=row['status'],data=remap(row['data'])))
@@ -737,6 +751,8 @@ from .verification import router as verification_router
 app.include_router(verification_router)
 from .interventions import router as interventions_router
 app.include_router(interventions_router)
+from .research_evolution import router as evolution_router
+app.include_router(evolution_router)
 
 def api_openapi():
     """Describe the existing API without changing handler validation or output."""

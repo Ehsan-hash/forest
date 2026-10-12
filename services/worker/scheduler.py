@@ -107,7 +107,9 @@ def finalize_cancelled_run_elapsed(run):
             elapsed = max(elapsed, before + max(0.0, (current - started).total_seconds()))
         except (TypeError, ValueError):
             pass
-    elif run.status in ('waiting', 'budget_exhausted') and resource.get('waiting_started_at') is not None:
+    elif (run.status in ('waiting', 'budget_exhausted') or
+            (run.status=='waiting_input' and (resource.get('graph_recovery_compute_hold')
+                or resource.get('execution_handoff_compute_hold') or resource.get('execution_reconciliation_compute_hold')))) and resource.get('waiting_started_at') is not None:
         try:
             before = max(0.0, float(resource.get('elapsed_before_wait', elapsed) or 0))
             waiting_since = float(resource['waiting_started_at'])
@@ -163,7 +165,9 @@ def _elapsed_seconds_at(run, current=None):
                 elapsed = max(elapsed, before + max(0.0, (current - started).total_seconds()))
             except (TypeError, ValueError):
                 pass
-    elif run.status in ('waiting', 'budget_exhausted') and resource.get('waiting_started_at') is not None:
+    elif (run.status in ('waiting', 'budget_exhausted') or
+            (run.status=='waiting_input' and (resource.get('graph_recovery_compute_hold')
+                or resource.get('execution_handoff_compute_hold') or resource.get('execution_reconciliation_compute_hold')))) and resource.get('waiting_started_at') is not None:
         try:
             before = max(0.0, float(resource.get('elapsed_before_wait', elapsed) or 0))
             waiting_since = float(resource['waiting_started_at'])
@@ -180,7 +184,10 @@ def _time_budget_reservation_remaining(run, current=None):
     persist that cap under resource.time_budget so callers that later preserve
     the original task timeout can distinguish it from the project reservation.
     """
-    if run.status not in TIME_BUDGET_RESERVED_STATUSES:
+    if (run.status not in TIME_BUDGET_RESERVED_STATUSES and
+            not (run.status=='waiting_input' and ((run.resource or {}).get('graph_recovery_compute_hold')
+                or (run.resource or {}).get('execution_handoff_compute_hold')
+                or (run.resource or {}).get('execution_reconciliation_compute_hold')))):
         return 0.0
     resource = run.resource or {}
     policy = resource.get('time_budget') or {}
@@ -277,9 +284,8 @@ def enqueue(s, project_id, kind, config, request_id=None, node=None, dependencie
     if old:
         return old
     budget = p.budget or {}
-    total = s.scalar(select(func.count()).select_from(TaskRun).where(TaskRun.project_id == project_id)) or 0
-    if budget.get('max_runs') is not None and total >= int(budget['max_runs']):
-        error('RUN_BUDGET_EXHAUSTED', 'Project run budget exhausted', 409, 'Increase budget or choose a narrower next experiment.')
+    # Legacy max_runs remains readable in project metadata. A count of prior
+    # decisions is not a compute resource and cannot end a research lifecycle.
     dependencies = dependencies or []
     config = deepcopy(config) if retry_snapshot else {**(node.config if node else {}), **config}
     from research.agents.tool_policy import validate_permissions
@@ -289,6 +295,9 @@ def enqueue(s, project_id, kind, config, request_id=None, node=None, dependencie
         error('INVALID_CONFIGURATION', 'Source provenance is managed by the runner', 422)
     from services.api.verification import prepare_verification_enqueue
     config, dependencies = prepare_verification_enqueue(s, p, kind, config, node, dependencies)
+    if not retry_snapshot:
+        from services.research_evolution.service import bind_goal_contract,bind_evaluation_context
+        config=bind_evaluation_context(s,p,bind_goal_contract(s,p,config))
     pending_dependency = any((dependency := s.get(TaskRun, ident)) is None or dependency.status != 'completed'
                              for ident in dependencies)
     deferred_reservation = bool(defer_time_budget_reservation or pending_dependency)
@@ -341,6 +350,17 @@ def enqueue(s, project_id, kind, config, request_id=None, node=None, dependencie
     if node and not retry_snapshot:
         merged.update(instructions=node.instructions, node_type=node.type, node_title=node.title,
                       context_overrides=deepcopy(node.context_overrides), input_references=deepcopy(node.inputs))
+    if node:
+        from research.agents.research_path import task_signature
+        # Preserve the submitted method identity before synthetic execution
+        # envelopes and effective project time reservations are stamped on it.
+        historical=config.get('research_task_identity') if retry_snapshot else None
+        merged.pop('research_task_signature',None)
+        merged['research_task_identity']=(historical if isinstance(historical,dict) else None) or task_signature({
+            'instructions':config.get('instructions','') if retry_snapshot else node.instructions,
+            'config':config,
+            'inputs':config.get('input_references',[]) if retry_snapshot else node.inputs,
+        })
     role = merged.get('role', 'Researcher')
     agent = (s.get(Agent, merged['agent_id']) if merged.get('agent_id') else
              s.scalar(select(Agent).where(Agent.role == role)))

@@ -140,6 +140,8 @@ def draft_with_model(client, evidence, goal, output_dir, *, title=None, attempts
     response_dir = output / 'model_responses' / generation_id
     response_dir.mkdir(parents=True)
     (response_dir / 'input_evidence.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
+    from research.agents.policy import assemble_agent_instructions
+    system = assemble_agent_instructions('Writer', {'authoring_mode': 'manuscript'}, publication) + '\n' + system
     if publication is not None:
         from research.publication.profile import publication_instructions
         system += '\n' + publication_instructions(publication)
@@ -168,7 +170,8 @@ def draft_with_model(client, evidence, goal, output_dir, *, title=None, attempts
             # This editable working preference preserves the complete request;
             # an actual provider context rejection still enters paged recovery.
             preference=int(client.config.get('manuscript_context_chars',256000))
-            _, response = context_model_json(client, messages, response_dir / 'context_sessions', char_hint=preference, parse_result=False)
+            _, response = context_model_json(client, messages, response_dir / 'context_sessions',
+                                              char_hint=preference, parse_result=False, output_stage='paper')
         except Exception as exc:
             record({'attempt': number, 'valid': False, 'provider_error': type(exc).__name__, 'error': str(exc)})
             raise

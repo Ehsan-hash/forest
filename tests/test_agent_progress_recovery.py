@@ -51,7 +51,7 @@ def test_redundant_read_detection_ignores_limits_but_respects_changed_evidence(t
     assert restored['progress_monitor']['redundant_read_streak'] == 3
     snapshot = task_progress(restored, tmp_path, ['checks.py', 'metrics.json'], 'Implement and execute checks.py.', tool.processes)
     assert prepare_progress_recovery(restored, snapshot, {}, tool.allowed)
-    assert restored['progress_recovery']['target_path'] == 'checks.py'
+    assert restored['progress_recovery']['strategy'] == 'diagnose_and_replan_from_graph'
     assert not prepare_progress_recovery(restored, snapshot, {}, tool.allowed)
     assert restored['progress_recovery']['interventions'] == 1
     (tmp_path / 'a.txt').write_text('changed external evidence')
@@ -62,7 +62,7 @@ def test_redundant_read_detection_ignores_limits_but_respects_changed_evidence(t
     assert state['progress_monitor']['read_evidence'] == []
     for missing in (['metrics.json'], ['paper.pdf'], ['image.png']):
         other = {'transcript': [], 'progress_monitor': {'read_evidence': [], 'redundant_read_streak': 5}}
-        assert not prepare_progress_recovery(other, {'missing_outputs': missing}, {}, tool.allowed)
+        assert prepare_progress_recovery(other, {'missing_outputs': missing}, {}, tool.allowed)
 
 
 def test_actual_process_summary_and_task_survive_large_read_compaction(tmp_path):
@@ -101,7 +101,7 @@ def test_actual_process_summary_and_task_survive_large_read_compaction(tmp_path)
     messages = session_messages(state, tmp_path, 18000)
     assert sum(len(json.dumps(message, ensure_ascii=False)) for message in messages) <= 18000
     assert messages[-1]['content'].startswith('CURRENT TASK AND OBSERVED PROGRESS')
-    assert 'write_file_chunk' in messages[-1]['content'] and 'audit.py' in messages[-1]['content']
+    assert 'graph dependencies' in messages[-1]['content'] and 'audit.py' in messages[-1]['content']
     assert 'status_counts' in messages[-1]['content'] and 'completed' in messages[-1]['content']
     assert state['task_progress']['observed_process_outputs'][0]['step'] == 1
     assert state['task_progress']['process_receipts'][0]['exit_code'] == 0

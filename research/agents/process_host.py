@@ -8,9 +8,11 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 
 # Executed by absolute path so it also works in isolated branch workspaces.
-from processes import atomic_json, read_json
+from processes import (atomic_json, read_json, configuration_record, binding_matches,
+    record_binding, file_contents_equal, file_metadata, workspace_inventory)
 import psutil
 
 # This supervisor is launched by absolute filename from a task workspace.
@@ -21,6 +23,21 @@ from research.execution.repository import task_environment
 
 def execute_child(folder):
     request = read_json(folder / 'request.json')
+    state=read_json(folder/'state.json')
+    if (not state.get('launch_committed') or not binding_matches(request,state)):
+        raise RuntimeError('Child launch does not match the committed request')
+    for relative,reference in (request.get('source_references') or {}).items():
+        source=Path(request['workspace'])/relative
+        if not file_contents_equal(source,reference['snapshot_path']):
+            raise RuntimeError('Command source/configuration changed before execution: '+relative)
+        if source.suffix=='.py':
+            # Timestamp/size based bytecode can otherwise execute old helper
+            # code after a same-second, same-size method correction. These are
+            # derived interpreter caches, not retained scientific artifacts.
+            cache=source.parent/'__pycache__'
+            if cache.is_dir() and not cache.is_symlink():
+                for bytecode in cache.glob(source.stem+'.*.pyc'):
+                    if not bytecode.is_symlink(): bytecode.unlink(missing_ok=True)
     os.chdir(request['cwd'])
     # Repository credentials belong to the worker's checkout step. Detached
     # tasks do not inherit its Git helpers, SSH agent or registry location.
@@ -28,7 +45,9 @@ def execute_child(folder):
         'PATH': str(Path(sys.executable).parent) + os.pathsep + os.environ.get('PATH', ''),
         'PYTHONUNBUFFERED': '1', 'MPLBACKEND': 'Agg',
         **{str(k): str(v) for k, v in request['env'].items()}})
-    atomic_json(folder / 'identity.json', {'pid': os.getpid(), 'process_created': psutil.Process().create_time(), 'resolved_executable': shutil.which(request['command'][0], path=env['PATH']), 'python_environment': sys.executable})
+    atomic_json(folder / 'identity.json', {'pid': os.getpid(), 'process_created': psutil.Process().create_time(),
+        'launch_id':state['launch_id'],**record_binding(request),
+        'resolved_executable': shutil.which(request['command'][0], path=env['PATH']), 'python_environment': sys.executable})
     os.execvpe(request['command'][0], request['command'], env)
 
 
@@ -65,10 +84,17 @@ def supervise(folder):
             fcntl.flock(lease.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        if (folder / 'identity.json').exists() or read_json(folder / 'state.json').get('status') in ('completed', 'failed', 'cancelled'):
+        prior=read_json(folder/'state.json')
+        if (folder / 'identity.json').exists() or prior.get('launch_committed') or prior.get('status') in ('completed', 'failed', 'cancelled'):
             return
         request = read_json(folder / 'request.json')
-        state = {'status': 'starting', 'host_pid': os.getpid(), 'host_created': psutil.Process().create_time(), 'started_at': time.time()}
+        if (request.get('record_version')!=2 or request.get('configuration')!=configuration_record(request)):
+            raise RuntimeError('Launch request configuration changed')
+        # Committing before Popen closes the crash window that otherwise lets
+        # another supervisor launch a second command while its identity is late.
+        state = {'status': 'starting', 'host_pid': os.getpid(), 'host_created': psutil.Process().create_time(),
+            'started_at': time.time(),'launch_committed':True,'launch_id':str(uuid.uuid4()),
+            **record_binding(request)}
         atomic_json(folder / 'state.json', state)
         with (folder / 'stdout.log').open('ab') as stdout, (folder / 'stderr.log').open('ab') as stderr:
             process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), str(folder), '--child'],
@@ -102,6 +128,38 @@ def supervise(folder):
                          exit_code=process.returncode, finished_at=time.time(), elapsed_seconds=time.time() - state['started_at'])
             if timed_out:
                 state.update(status='failed', error='Configured process timeout exceeded')
+            artifacts=[]
+            artifact_errors=[]
+            workspace=Path(request['workspace'])
+            before=request.get('workspace_inventory') or {}
+            for relative,metadata in workspace_inventory(workspace).items():
+                if before.get(relative)==metadata: continue
+                path=workspace/relative
+                # Preserve original observations outside the editable working
+                # file. A later scientific code/result edit does not erase the
+                # evidence that actually belonged to this completed launch.
+                snapshot=folder/'artifacts'/relative
+                snapshot.parent.mkdir(parents=True,exist_ok=True)
+                try:
+                    shutil.copy2(path,snapshot)
+                    with snapshot.open('rb') as handle: os.fsync(handle.fileno())
+                except OSError as exc:
+                    # A separately executing job/editor can change a working
+                    # file during capture. Preserve the command's observed
+                    # outcome and the exact capture failure without claiming
+                    # complete evidence or leaving an unknown live launch.
+                    artifact_errors.append({'relative_path':relative,'error':str(exc)})
+                    continue
+                artifacts.append({'path':str(snapshot),'original_path':str(path),
+                    'relative_path':relative,'artifact_id':str(uuid.uuid4()),
+                    'metadata':file_metadata(snapshot),**metadata})
+            for stream in ('stdout','stderr'):
+                path=folder/(stream+'.log')
+                artifacts.append({'path':str(path),'stream':stream,'artifact_id':str(uuid.uuid4()),
+                    'metadata':file_metadata(path)})
+            # Publish immutable observations before marking executor terminal.
+            atomic_json(folder/'completion.json',{**state,'artifacts':artifacts,
+                'artifact_errors':artifact_errors})
             atomic_json(folder / 'state.json', state)
 
 

@@ -90,7 +90,16 @@ def test_intervention_crosses_actual_worker_and_transport_boundaries(tmp_path, c
         def log_message(self, *args): pass
 
         def do_POST(self):
-            captures.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+            body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+            if self.path == '/api/show':
+                payload = json.dumps({'model_info': {}}).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            captures.append(body)
             stage = len(captures)
             if stage == 1:
                 first.set()
@@ -215,7 +224,7 @@ def test_intervention_crosses_actual_worker_and_transport_boundaries(tmp_path, c
             goal_receipt=h.request('GET','/api/interventions/'+goal_change['id'])
             assert goal_receipt['status']=='applied'
             proof=goal_receipt['effects'][0]['observation']
-            assert proof['delivery']['fields']['goal']=='CORRECTED_GOAL' and proof['payload_sha256']
+            assert proof['delivery']['fields']['goal']=='CORRECTED_GOAL' and proof['request_id']
             assert received['status'] == 'applied'
             assert received['effects'][0]['observation']['request_context']['instruction_intervention_ids'] == [instruction['id']]
             assert received['effects'][0]['attempt_id'] == completed['config']['execution_attempt']['id']

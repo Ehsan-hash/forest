@@ -1,22 +1,79 @@
 # Persistent research agents
 
 `run_agent(run_id, workspace, config)` uses the selected actual provider. There is
-no built-in total turn limit. Optional `agent_budget` fields are `steps`,
-`input_tokens`, `output_tokens`, `cost`, and `active_seconds`; legacy `max_steps`
-is interpreted as an explicit configured budget. Budget edits on the run take
-effect at the next turn. Provider transport failures never produce replacement
-responses.
+no node or project lifetime turn limit. `execution_round.steps` controls a
+technical checkpoint cadence (default 30), followed automatically by another
+round of the same Run. Legacy step hints migrate to this cadence; their former
+cumulative limits and expansion counts have no lifetime effect. Project-level
+values live under `Project.config.agent_execution`; run-level values override
+them. Explicit supervisory `agent_budget` limits for `input_tokens`,
+`output_tokens`, `cost`, and `active_seconds` still apply and take effect at the
+next turn. Provider transport failures never produce replacement responses.
 
-The editable `agent_session.json` retains messages, reported token usage, public
-action summaries, full tool observations, and the exact pending action ID.
+Output requests are provider-aware and task-stage aware. Declare verified
+`provider.config.model_capabilities.max_output_tokens` and
+`context_window_tokens` when the provider exposes them. Ollama context windows
+are read from local model metadata when available; no external capability
+lookup is made. Unknown limits use the configurable
+`adaptive_output_fallback_tokens` (conservative by default), which is an
+allocation preference, never a claimed model limit. Projects can configure
+`adaptive_output_budget.stage_targets`, `complexity`, `complexity_factor`, and
+`growth_factor`; tasks can set `task_complexity` or `research_stage`. Each
+request is bounded by the declared model output maximum and the remaining
+declared context window. Every retry is charged to the same provider/project
+budget. An explicit `max_output_tokens` is an initial request preference, not
+a replacement model-capability claim or global ceiling.
+
+Responses explicitly truncated at `max_output_tokens` are retained as failed
+attempts with usage and cost. A finite retry can grow within a declared output
+maximum or the remaining declared context window. If capacity is unknown or
+exhausted, planning switches to separately validated JSON chunks or smaller
+independently verifiable actions. JSON is merged only after all numbered chunks
+are present, complete, and conflict-free. Partial JSON and tool actions never
+count as success. There is no fixed project-lifetime step or output-token
+counter; provider, context, project spending, compute, GPU and external
+supervisor limits still apply.
+The editable `agent_session.json` retains the full versioned scientific state,
+messages, public action summaries, full tool observations, and the exact pending
+action ID. Cumulative accounting lives separately in the original supervisor's
+ledger; checkpoints retain its external identity and never reset its usage.
 `agent_transcript.json` is available to the model through paginated
 `read_transcript`. Context compaction only changes model input; it does not erase
 recorded turns. `research_memory.json` holds editable decision summaries and
-unresolved questions. Session files are ordinary JSON, without content addressing
-or read-only artifact restrictions.
+unresolved questions. Session files are ordinary JSON; immutable round snapshots
+reference explicit Graph revisions and original execution artifacts. References
+use record IDs and versions. Source and artifact checks compare actual original
+bytes; scientific identity, admission and progress never depend on content hashes.
+
+## Editable science and active skills
+
+Goal Contracts and evaluation protocols have explicit version histories. New
+evidence can revise objectives, criteria, parameters, plans and candidates or
+reopen an earlier branch. Existing measurements keep their original configuration
+and evaluation context. Adaptive test feedback is marked as adaptive evaluation;
+it never silently becomes an independent held-out result. See
+[continuous research](../../docs/CONTINUOUS_RESEARCH.md) for the API and recovery
+contracts.
+
+The instruction assembler loads the project's four packaged skills on actual
+model requests, including fallback and resumed requests. The matching
+`.agents/skills/` copies make them discoverable in Codex. All research roles receive
+the autonomy and judgment policies, experiment roles receive execution workflows,
+and manuscript stages receive the complete academic-writing contract.
+`delegate_research` selects a supported workflow phase and queues a real supporting
+Agent through the ordinary Graph, scheduler and worker. Its `derived_from` edge
+preserves lineage without making the child wait for its active parent.
 
 ## Real process tools
 
+- Research Agent command tools use Bubblewrap by default and expose a minimal
+  read-only runtime plus the writable task workspace. Explicit absolute
+  `readonly_paths` and `denied_readonly_paths` are shared with `read_file`.
+  Explicit denials take precedence, including inside a workspace or runtime
+  mount. Directory names such as `tests` do not determine authorization.
+  Select `execution_backend: local` only for
+  intentionally trusted owner-controlled execution; local mode runs with the
+  worker's ordinary host filesystem permissions.
 - `start_process` / `run_command`: `command` is an argv list or shell string;
   `cwd` must resolve inside the workspace. `env` and `timeout` are optional.
 - `python`: writes the supplied code to the requested workspace path and starts
@@ -29,16 +86,20 @@ or read-only artifact restrictions.
 - `cancel_process`: terminates the actual process group, with escalation after a
   grace period. Parent worker cancellation also visits all managed children.
 
-Commands run with the operating user's permissions. Workspace path checks are
-not an operating-system sandbox for arbitrary shell commands.
+Bubblewrap command children cannot see the host root, home directory, unrelated
+data, credentials or network. The worker's local backend is a trusted execution
+choice and is not an operating-system sandbox.
 
 Each launch records its request before the supervisor starts. Supervisors survive
 Agent interpreter exits. A transient supervisor coordination lease prevents
 concurrent replay of one action ID from executing twice; it does not lock code,
 results, or project editing. PIDs are checked together with process creation time.
 If a supervisor vanishes and exit status cannot be observed, the process is
-reported as `lost`, never as successful. Agent reasoning can inspect actual files
-and explicitly resume a task's own saved state or initiate a fresh attempt.
+reported as `lost`, never as successful. Recovery checks the saved configuration,
+executor state, completion receipt and original artifacts before reattaching.
+An uncertain execution enters reconciliation; it cannot be relaunched merely
+because its PID disappeared. A genuinely changed experiment can create a new
+version while the previous result retains its original conditions.
 
 ## Completion and integration
 

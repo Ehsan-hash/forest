@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 
-STYLE_VERSION = 3
+STYLE_VERSION = 4
 STYLE_PROFILE = {
     'id': 'evidence-led-press-release', 'version': STYLE_VERSION, 'language': 'English',
     'narrative': ['important problem', 'specific gap', 'approach', 'strongest supported result'],
@@ -28,6 +28,31 @@ The default deliverable is a complete submission manuscript, with the depth, dat
 Do not add AI-writing, AI-use, language-model-authorship or automated-generation declarations, acknowledgments, headings or boilerplate to the manuscript. Keep provider and tool provenance in separate execution records. Discuss AI methods when they are the actual scientific subject; that is not an authorship declaration.
 Plan single- or double-column layout before rendering. Give plots units, meaningful labels and an explicit definition of any uncertainty bars. Use actual data, vector figures, legible type at final print width, and matched comparator scales. Tables retain dataset/method identity, consistent precision and exact underlying values. Use page-spanning or split tables when a column would force unreadable text. Place introduction overviews beside the introduction's motivating argument, method diagrams beside the mechanism, and empirical tables/plots immediately after their first substantive interpretation. Use explicit paragraph anchors and cross references. Generate several actual visual candidates and obtain independent evidence, readability and placement reviews before selecting one. Respect the selected venue's actual layout. All research choices and source files remain editable.'''
 
+# A named component for runtime assembly and the project writing skill.
+PRESS_RELEASE_WRITING = MANUSCRIPT_CONTRACT + '''
+
+PRESS-RELEASE PRINCIPLE
+A paper is a press conference, not a project summary, lab log, or self-audit.
+Organize the narrative around the single strongest scientifically supported
+advantage. Each major section should advance that argument. Present the final
+scientific logic (problem, gap, approach, evidence), not development chronology.
+Do not let unrelated failed attempts dominate; retain unfavorable evidence
+that bears on the central claim and frame it with the measured condition,
+effect, or trade-off. Every claimed advantage states its conditions, supported
+mechanism, practical value, and evidence. Give each major experiment an
+argumentative duty: effectiveness, mechanism, scenario value, or alternative
+explanation. Open the abstract and introduction with the important problem,
+gap, approach, and strongest supported result. The conclusion reinforces the
+demonstrated takeaway without adding a new self-negating verdict.
+
+MINIMAL-EDIT REVISION
+For supplied prose, identify exact defensive or self-weakening spans, explain
+the concrete problem, and propose the smallest sufficient replacement. Keep
+the author's voice, paragraph structure, supported claims, citations, and
+problem-free wording. Do not rewrite whole paragraphs when a local edit works,
+or add claims merely to sound stronger. Leave appropriate text unchanged.
+Avoid a single semantic unit forming a paragraph alone.'''
+
 REVISION_CONTRACT = '''AUTHORING MODE: MINIMAL REVISION
 Read the supplied manuscript and identify each defensive, evasive, generic-hedge, development-diary or self-negating passage. For every finding return its exact original span, explicit character start when repeated, the smallest sufficient replacement, and a concrete reason tied to the surrounding claim and evidence. Separate findings requiring a scientific decision from edits supported by the existing evidence. Preserve the author's wording habits, paragraph structure and all problem-free text. Never replace an entire multi-sentence paragraph when a local edit suffices. Do not delete measured results, citations, comparison conditions or uncertainty simply to improve the tone. A request to correct an evidenced factual error can change that specific claim, with the evidence and reason stated. If a stronger assertion lacks support, narrow the claim rather than invent support. Do not turn a review finding into a verdict about the entire method. Report zero edits when no relevant defect is found.'''
 
@@ -49,4 +74,5 @@ def ai_declarations(text):
 def writing_contract(mode='manuscript'):
     if mode not in ('manuscript', 'revision'):
         raise ValueError('Writing mode must be manuscript or revision')
-    return MANUSCRIPT_CONTRACT + ('\n' + REVISION_CONTRACT if mode == 'revision' else '')
+    contract = PRESS_RELEASE_WRITING
+    return contract + ('\n' + REVISION_CONTRACT if mode == 'revision' else '')

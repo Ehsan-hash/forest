@@ -65,6 +65,10 @@ SPECS = {
     'finish': ('Finish only after required artifacts exist, launched processes are terminal and actual evidence supports the outcome.', {'summary': string('A concise public summary grounded in observed evidence'), 'artifacts': {'type': 'array', 'items': string('Relative artifact path')}}),
     'update_memory': ('Update editable public research notes; this does not execute a computation.', {'arguments_json': string('JSON object with public goal, decisions, evidence, unresolved_questions and next_experiment as needed')}),
     'graph_command': ('Apply an editable graph command.', {'arguments_json': string('JSON object containing the graph command and its arguments')}),
+    'delegate_research': ('Create and schedule a supporting Agent through a project research workflow. It inherits the current Goal, evidence, tool permissions and shared project supervisor. Submission is not completion.', {
+        'workflow_id': string('Registered project workflow ID'), 'phase': string('Registered workflow phase'),
+        'support_role': string('Registered supporting role'), 'instructions': string('Concrete scientific question and expected evidence'),
+        'expected_revision': integer(), 'title': string('Purpose of the supporting task')}),
     'experiment_run': ('Submit a real experiment task.', {'arguments_json': string('JSON object containing the experiment run configuration')}),
     'verification_run': ('Execute an existing editable verification node. The worker checks actual source artifacts and rerun outputs; an agent verdict cannot grant acceptance. Create the node through graph_command first, and inspect its completed verification state with results.', {'arguments_json': string('JSON object containing node_id and optional request_id; the node must have config.kind=verification')}),
     'context_update': ('Update editable node context metadata.', {'arguments_json': string('JSON object containing node context overrides')}),

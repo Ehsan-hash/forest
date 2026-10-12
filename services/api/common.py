@@ -2,6 +2,7 @@ import json
 import os
 import re
 import secrets
+from copy import deepcopy
 from pathlib import Path
 from sqlalchemy import select, delete, func
 from fastapi import HTTPException
@@ -88,6 +89,7 @@ def graph_from_db(s,p,*,refresh=False):
     graph={'project_id':p.id,'revision':p.revision,'nodes':[asdict(n) for n in rows(Node)], 'edges':[asdict(e) for e in rows(Edge)], 'branches':[asdict(b) for b in rows(Branch)]}
     graph.update(p.graph_meta or {})
     graph['goal']=p.goal
+    graph['goal_contract']=deepcopy(p.config.get('goal_contract',{}))
     graph['budget']=p.budget
     return graph
 
@@ -106,7 +108,13 @@ def attach_context_ideas(s,p,graph,overrides=None):
             select(Hypothesis).where(Hypothesis.project_id==p.id,Hypothesis.id.in_(ids)))}
     return graph
 
-def save_graph(s,p,graph):
+def save_graph(s,p,graph,*,historical=False):
+    from services.research_evolution.service import validate_graph_evolution
+    if not historical: validate_graph_evolution(s,p,graph)
+    goal_changed=graph.get('goal',p.goal)!=p.goal or graph.get('goal_contract',p.config.get('goal_contract',{}))!=p.config.get('goal_contract',{})
+    if goal_changed:
+        from services.research_evolution.service import current_goal
+        current_goal(s,p)
     p.revision=graph['revision']; p.updated_at=now()
     p.graph_meta={k:v for k,v in graph.items() if k not in ('project_id','revision','nodes','edges','branches')}
     for key,model in [('branches',Branch),('nodes',Node),('edges',Edge)]:
@@ -120,6 +128,13 @@ def save_graph(s,p,graph):
             if 'extra' in fields: obj.extra={k:v for k,v in values.items() if k not in fields}
         for obj in old.values(): s.delete(obj)
     s.flush()
+    if goal_changed:
+        from services.research_evolution.service import record_goal_transition
+        p.goal=graph.get('goal',p.goal)
+        p.config={**p.config,'goal_contract':deepcopy(graph.get('goal_contract',p.config.get('goal_contract',{})))}
+        change=graph.get('goal_revision_reason') or {}
+        record_goal_transition(s,p,reason=change.get('reason','Editable graph scientific objective revised'),
+            evidence_run_ids=change.get('evidence_run_ids',[]),affected_branch_ids=change.get('affected_branch_ids',[]))
 
 # Internal locations whose directory names are copied identifiers, not authored text.
 IDENTIFIER_DIRECTORIES=('runs','branches','figures','.forest-bases','.merge-staging')
@@ -210,6 +225,8 @@ def make_project(s,name,goal='',description='',**kwargs):
         if not config.get('provider_id') and provider and provider.status!='retired': config['provider_id']=default_provider
     kwargs['config']=config
     p=Project(name=name,goal=goal,description=description,**kwargs); s.add(p); s.flush()
+    from services.research_evolution.service import current_goal
+    current_goal(s,p)
     bid=uid(); workspace=f'branches/{bid}/workspace'; safe_path(project_dir(p.id),workspace).mkdir(parents=True,exist_ok=True)
     s.add(Branch(id=bid,project_id=p.id,name='Main',workspace=workspace,is_main=True))
     return p
