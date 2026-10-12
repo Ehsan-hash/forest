@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Any, Mapping
 import uuid
+import warnings
 
 
 SCHEMA = """
@@ -472,7 +473,14 @@ def load_upstream(root: Path):
             raise ValueError("One process cannot mix different upstream AIDE clones")
         if str(root) not in sys.path:
             sys.path.insert(0, str(root))
-        module = importlib.import_module("aide.agent")
+        # Native AIDE imports shutup, which replaces warnings.warn globally.
+        # Keep the caller's warning policy after importing the native modules.
+        original_warn = warnings.warn
+        try:
+            with warnings.catch_warnings():
+                module = importlib.import_module("aide.agent")
+        finally:
+            warnings.warn = original_warn
         if Path(module.__file__).resolve() != required[0]:
             raise ValueError("Imported AIDE Agent does not belong to the declared upstream clone")
         # Set one fail-closed router, not a per-worker global monkeypatch.
