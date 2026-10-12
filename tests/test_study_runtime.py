@@ -76,6 +76,49 @@ def test_manifest_and_action_reregistration_do_not_hydrate_saved_results(tmp_pat
     assert saved["retained_evidence"] == large_result["retained_evidence"]
 
 
+def test_completed_action_id_conflict_returns_replan_feedback_without_reexecution(tmp_path, monkeypatch):
+    campaign = tmp_path / "campaign"
+    campaign.mkdir()
+    manifest_path = campaign / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest([])), encoding="utf-8")
+    runtime = StudyRuntime(campaign=campaign, ledger=campaign / "study.sqlite",
+        ledger_id="ledger-test", manifest=manifest_path)
+    work_id = "fit-c4-anchor-1001"
+    old_binding = {"work_id": work_id, "kind": "fit", "action_name": "train",
+        "configuration_id": "T02_c0", "seed": 1001,
+        "configuration_path": str(tmp_path / "anchor.json"),
+        "output_directory": str(tmp_path / "fit-output"),
+        "effective_config": {"seed": 1001, "optimizer_updates": 200,
+            "dataset_version_id": "etth1-current-researcher-v1"},
+        "source_files": ["/previous/FOREST-source/research/experiments/study_runtime.py"],
+        "fit_timeout_seconds": 90}
+    runtime.ledger.register_action("campaign-test", work_id, old_binding, parent_id="episode-test")
+    saved_result = {"status": "SUCCEEDED", "work_id": work_id,
+        "effective_config": old_binding["effective_config"],
+        "validation_metrics": {"rmse": 0.4, "mae": 0.3}}
+    runtime.ledger.set_state("campaign-test", work_id, "completed", result=saved_result,
+        supervisor_work_id=work_id)
+
+    new_binding = {**old_binding,
+        "source_files": ["/current/worktree/research/experiments/study_runtime.py"]}
+    episode = {"work_id": "episode-test", "payload": {"action_bindings": [new_binding]}}
+    executed = []
+    monkeypatch.setattr(runtime, "execute_fit", lambda *args, **kwargs: executed.append(args))
+    outcome = runtime.execute_decision_actions(episode, [{"kind": "train",
+        "action_work_id": work_id, "configuration_id": "T02_c0", "seed": 1001}])
+
+    assert outcome["state"] == "retryable"
+    assert outcome["request_new_decision"] is True
+    assert outcome["response_validation_feedback"]["reason"] == "source_bound_action_id_conflict"
+    assert outcome["response_validation_feedback"]["saved_result_available"] is True
+    assert outcome["actions"][0]["result"]["execution_started"] is False
+    assert not executed
+    with runtime.ledger.connect() as db:
+        saved = db.execute("SELECT state,result_json FROM forest_study_work WHERE work_id=?", (work_id,)).fetchone()
+    assert saved["state"] == "completed"
+    assert _decode_study_result_json(saved["result_json"]) == saved_result
+
+
 def test_action_history_events_store_only_changed_turns_and_keep_full_checkpoint(tmp_path):
     ledger = StudyLedger(tmp_path / "study.sqlite", "ledger-test")
     ledger.register(manifest([item("episode-1", kind="replay")]))

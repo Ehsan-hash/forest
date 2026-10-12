@@ -2966,7 +2966,29 @@ class StudyRuntime:
                     value["inference_spec"] = spec
                 return value
             if without_timeout(saved) != without_timeout(binding):
-                raise ValueError(f"Action work ID {work_id} was reused with different source-bound conditions")
+                differing_fields = sorted(key for key in set(saved) | set(binding)
+                    if key != "fit_timeout_seconds"
+                    and (saved.get(key) != binding.get(key)))
+                feedback = {
+                    "reason": "source_bound_action_id_conflict",
+                    "action_work_id": work_id,
+                    "registered_state": prior["state"],
+                    "differing_fields": differing_fields,
+                    "saved_result_available": prior["result_json"] is not None,
+                    "instruction": (
+                        "This action work ID is already registered with different source-bound conditions. "
+                        "It was not overwritten or executed. Inspect and use its saved result if it satisfies "
+                        "the current research contract; otherwise choose a different predeclared action ID "
+                        "whose conditions match the intended work. Do not repeat this ID."
+                    ),
+                }
+                return {"action_work_id": work_id, "kind": binding["kind"],
+                    "state": "retryable", "reason": feedback["reason"],
+                    "request_new_decision": True,
+                    "response_validation_feedback": feedback,
+                    "result": {"status": "SOURCE_BOUND_ACTION_ID_CONFLICT",
+                        "work_id": work_id, "registered_state": prior["state"],
+                        "differing_fields": differing_fields, "execution_started": False}}
             binding = saved
             if prior["state"] == "completed":
                 return {"action_work_id": work_id, "kind": binding["kind"], "state": "completed",
