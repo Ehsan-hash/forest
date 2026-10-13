@@ -1,0 +1,119 @@
+{
+  "variant": "after",
+  "frontend_base_sha": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "frontend_mode": "redesigned stable production dist, uncommitted working tree",
+  "backend": "isolated real 18340 API and normal worker",
+  "project_id": "3b2ac9c2-4ca4-428a-8079-16484ce17bc7",
+  "goal_id": "d556da0e-d4bf-5f5f-a5a8-6a4aea1a08c6",
+  "node_id": "158be3ff-dd01-5769-8f78-14feab6e37ad",
+  "fixture": true,
+  "scientific_validation": false,
+  "journeys": [
+    {
+      "name": "Overview to saved node and actual run output",
+      "actions": [
+        {
+          "name": "Open Workspace",
+          "context_switch": true,
+          "selection": false
+        },
+        {
+          "name": "Select command node",
+          "context_switch": false,
+          "selection": true
+        },
+        {
+          "name": "Save changes",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Run node",
+          "context_switch": false,
+          "selection": false
+        }
+      ],
+      "form_edits": [
+        "Node title"
+      ],
+      "result": "PASS",
+      "run_id": "6333e9e0-35aa-4250-ad83-9ab8dede2e91",
+      "saved_node_revision": 0,
+      "saved_node_title": "Journey command edited",
+      "terminal_status": "completed",
+      "output": {
+        "text": "journey actual local output\n",
+        "offset": 28,
+        "status": "completed"
+      },
+      "clicks": 4,
+      "context_switches": 1,
+      "explicit_selection_actions": 1
+    },
+    {
+      "name": "Goal save, manuscript evidence check, compile, current PDF download, return to graph",
+      "actions": [
+        {
+          "name": "Select Goal node",
+          "context_switch": false,
+          "selection": true
+        },
+        {
+          "name": "Save Goal changes",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Open manuscript sidepane",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Check evidence",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Compile PDF",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Download Current PDF",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Close manuscript sidepane",
+          "context_switch": false,
+          "selection": false
+        }
+      ],
+      "form_edits": [
+        "Goal instructions"
+      ],
+      "result": "PASS",
+      "saved_goal_revision": 1,
+      "saved_goal_instructions": "Keep the research goal explicit through manuscript inspection.",
+      "graph_mounted_during_paper": true,
+      "evidence_check_status": 200,
+      "compile_run_id": "2a3033e5-1087-4b06-895e-7be622f69680",
+      "paper_revision": 1,
+      "compiled_revision": 1,
+      "pdf_path": "runs/2a3033e5-1087-4b06-895e-7be622f69680/paper/paper.pdf",
+      "export_response_status": 200,
+      "export_request_body": {
+        "format": "pdf",
+        "expected_revision": 1
+      },
+      "download_result": "Actual current PDF",
+      "downloaded_bytes": 4575,
+      "current_pdf_control_count": 1,
+      "goal_selection_returned": true,
+      "clicks": 7,
+      "context_switches": 0,
+      "explicit_selection_actions": 1
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,39 @@
+{
+  "build": "final-63005",
+  "js_asset": "index-BIrSAtO6.js",
+  "css_asset": "index-CVqPoWfS.css",
+  "main_individual_images": [
+    "screenshots/after/workspace-light-390.png",
+    "screenshots/after/overview-light-1280.png",
+    "screenshots/after/overview-dark-1280.png",
+    "screenshots/after/settings-light-1440.png",
+    "screenshots/after/settings-dark-1440.png"
+  ],
+  "readability_individual_images": [
+    "screenshots/after-readability-63005/ideas-light-390.png",
+    "screenshots/after-readability-63005/ideas-dark-390.png",
+    "screenshots/after-readability-63005/files-light-390.png",
+    "screenshots/after-readability-63005/files-dark-390.png",
+    "screenshots/after-readability-63005/library-light-390.png",
+    "screenshots/after-readability-63005/library-dark-390.png",
+    "screenshots/after-readability-63005/runs-light-390.png",
+    "screenshots/after-readability-63005/runs-dark-390.png",
+    "screenshots/after-readability-63005/compare-dark-390.png",
+    "screenshots/after-readability-63005/path-actions-light-390.png"
+  ],
+  "expanded_contact_sheets": [
+    "screenshots/after-expanded-63005/review-contact-sheets/publication-expanded.png",
+    "screenshots/after-expanded-63005/review-contact-sheets/protocol-expanded.png",
+    "screenshots/after-expanded-63005/review-contact-sheets/writing-expanded.png",
+    "screenshots/after-expanded-63005/review-contact-sheets/paper-dirty.png",
+    "screenshots/after-expanded-63005/review-contact-sheets/manuscript-panel-dirty.png"
+  ],
+  "expanded_contact_source_count": 30,
+  "expanded_individual_images": [
+    "screenshots/after-expanded-63005/publication-expanded-light-1440.png",
+    "screenshots/after-expanded-63005/writing-expanded-dark-390.png",
+    "screenshots/after-expanded-63005/manuscript-panel-dirty-dark-768.png"
+  ],
+  "analysis_contact_review": "analysis-pixel-review-final.json",
+  "finding": "No new clipping, horizontal document overflow, editor collapse, or unreadable affected text was observed in the stated reviewed scope. Overview fits at 1280px; provider retirement is explicit; empty Runs text and Library selector are semantic; real compact Compare and Path actions dialogs show full controls. Contact-sheet review evaluates layout across every scoped captured state, while individual images and computed contrast support reading details."
+}

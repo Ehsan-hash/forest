@@ -1,7 +1,15 @@
 import { RunEvidence } from "./RunEvidence";
+import { RunPanel } from "./runs/RunPanel";
+export { RunPanel } from "./runs/RunPanel";
+import { useSelectedRun } from "./runs/useSelectedRun";
+import {
+  readNodeEditorDraft,
+  persistNodeEditorDraft,
+  reconcileNodeEditorDraft,
+} from "./nodeEditorDraft";
 import { ExecutionSettings } from "./ExecutionSettings";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams, NavLink } from "react-router-dom";
+import { useParams, NavLink, useSearchParams } from "react-router-dom";
 import {
   ReactFlow,
   Background,
@@ -86,7 +94,6 @@ import {
   Tabs,
 } from "./ui";
 import { CodeEditor, LiveTerminal } from "./editors";
-import { PaperPage } from "./pages";
 import "@xyflow/react/dist/style.css";
 const nodeKinds = [
   ["goal", "研究目标", "Research goal"],
@@ -174,6 +181,8 @@ const operations = [
   "group_nodes",
   "prune_branch",
   "restore_branch",
+  "reopen_branch",
+  "revise_goal",
   "set_main_branch",
   "apply_instruction_patch",
   "undo",
@@ -209,19 +218,86 @@ const templates: Record<string, Json> = {
   group_nodes: { title: "Subflow" },
   prune_branch: { branch_id: "" },
   restore_branch: { branch_id: "" },
+  reopen_branch: {
+    branch_id: "",
+    reason: "",
+    evidence_run_ids: [],
+    reconsider_node_ids: [],
+  },
+  revise_goal: {
+    objective: "",
+    contract: {},
+    success_criteria: [],
+    reason: "",
+    evidence_run_ids: [],
+  },
   set_main_branch: { branch_id: "" },
   apply_instruction_patch: { instructions: "" },
   edit_node: { title: "" },
 };
-export function Workspace() {
+type WorkspaceProps = {
+  readingPanelOpen?: boolean;
+  onOpenAnalysis?: () => void;
+  onCloseReadingPanel?: () => void;
+  inspectorRequest?: number;
+  onSelectedNode?: (nodeId: string) => void;
+  onViewChange?: (view: string) => void;
+};
+export function Workspace(props: WorkspaceProps) {
   return (
     <ReactFlowProvider>
-      <WorkspaceInner />
+      <WorkspaceInner {...props} />
     </ReactFlowProvider>
   );
 }
-function WorkspaceInner() {
+function WorkspaceInner({
+  readingPanelOpen = false,
+  onOpenAnalysis,
+  onCloseReadingPanel,
+  inspectorRequest = 0,
+  onSelectedNode,
+  onViewChange,
+}: WorkspaceProps) {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const updateQuery = useCallback(
+    (patch: Record<string, string | null>) => {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value) next.set(key, value);
+          else next.delete(key);
+        }
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
+  const selected = searchParams.get("node") || "";
+  const setSelected = useCallback(
+    (nodeId: string) => {
+      if (onSelectedNode) onSelectedNode(nodeId);
+      else updateQuery({ node: nodeId || null });
+    },
+    [updateQuery, onSelectedNode],
+  );
+  const branch = searchParams.get("branch") || "all";
+  const setBranch = (branchId: string) =>
+    updateQuery({ branch: branchId === "all" ? null : branchId });
+  const view =
+    !readingPanelOpen && searchParams.get("view") === "focus"
+      ? "focus"
+      : "forest";
+  const setView = (next: string) => {
+    if (onViewChange) onViewChange(next);
+    else updateQuery({ view: next === "forest" ? null : next });
+  };
+  const selectedRunId = searchParams.get("run") || "";
+  const selectedRun = useSelectedRun(id, selectedRunId);
+  useEffect(() => {
+    if (searchParams.get("view") === "paper")
+      updateQuery({ view: null, paper: "1" });
+  }, [searchParams, updateQuery]);
   const activeProjectId = useRef<string | null>(id ?? null);
   activeProjectId.current = id ?? null;
   const { t, action } = useUI();
@@ -231,6 +307,7 @@ function WorkspaceInner() {
     data: graph,
     setData: setGraph,
     error,
+    loading: graphLoading,
     reload,
   } = useLoad<Graph>(`/projects/${id}/graph`, {
     project_id: id!,
@@ -243,13 +320,12 @@ function WorkspaceInner() {
     `/projects/${id}/runs?limit=500`,
     [],
   );
-  const [selected, setSelected] = useState<string>("");
   const [selection, setSelection] = useState<string[]>([]);
-  const [view, setView] = useState("forest");
-  const [inspector, setInspector] = useState(
-    () => !window.matchMedia("(max-width: 820px)").matches,
-  );
-  const [dock, setDock] = useState(true);
+  const [inspector, setInspector] = useState(Boolean(selected));
+  useEffect(() => {
+    if (inspectorRequest) setInspector(true);
+  }, [inspectorRequest]);
+  const [dock, setDock] = useState(Boolean(selectedRunId));
   const [dockTab, setDockTab] = useState("runs");
   const [create, setCreate] = useState(false);
   const [command, setCommand] = useState(false);
@@ -259,7 +335,16 @@ function WorkspaceInner() {
   const [query, setQuery] = useState("");
   const [focusTarget, setFocusTarget] = useState("");
   const [revealedNode, setRevealedNode] = useState("");
-  const [branch, setBranch] = useState("all");
+  const [nodeMenu, setNodeMenu] = useState<{
+    nodeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [inspectorTab, setInspectorTab] = useState<{
+    name: string;
+    request: number;
+  }>();
+  const nodeMenuRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () =>
       new Set(
@@ -279,6 +364,11 @@ function WorkspaceInner() {
   const [suggest, setSuggest] = useState("");
   const [scope, setScope] = useState("node");
   const [busy, setBusy] = useState(false);
+  const runSubmission = useRef<{
+    intent: string;
+    requestId: string;
+    pending: boolean;
+  } | null>(null);
   const [impact, setImpact] = useState<Json | null>(null);
   const [pending, setPending] = useState<Json | null>(null);
   const flow = useReactFlow();
@@ -379,14 +469,14 @@ function WorkspaceInner() {
             return previous?.x === current.x && previous?.y === current.y;
           }),
         );
-        const submission = samePositions && previousSubmission
-          ? previousSubmission
-          : {
-              requestId: uid(),
-              expectedRevision:
-                positionRevisions.current.get(projectId) ?? 0,
-              positions,
-            };
+        const submission =
+          samePositions && previousSubmission
+            ? previousSubmission
+            : {
+                requestId: uid(),
+                expectedRevision: positionRevisions.current.get(projectId) ?? 0,
+                positions,
+              };
         positionSubmissions.current.set(projectId, submission);
         const expectedRevision = submission.expectedRevision;
         let result: { revision: number };
@@ -415,7 +505,9 @@ function WorkspaceInner() {
           let latest: Graph | undefined;
           try {
             latest = await refreshGraph(projectId);
-            const existingNodeIds = new Set(latest.nodes.map((item) => item.id));
+            const existingNodeIds = new Set(
+              latest.nodes.map((item) => item.id),
+            );
             for (const nodeId of stillPending.keys())
               if (!existingNodeIds.has(nodeId)) stillPending.delete(nodeId);
             if (stillPending.size)
@@ -640,13 +732,46 @@ function WorkspaceInner() {
     const refresh = () => {
       void reload();
       void reloadRuns();
+      void selectedRun.reload();
     };
     window.addEventListener("forest-refresh", refresh);
     return () => window.removeEventListener("forest-refresh", refresh);
-  }, [reload, reloadRuns]);
+  }, [reload, reloadRuns, selectedRun.reload]);
   useEffect(() => {
-    if (!selected && graph.nodes.length) setSelected(graph.nodes[0].id);
-  }, [graph.nodes, selected]);
+    if (selected) setInspector(true);
+  }, [selected, id]);
+  useEffect(() => {
+    if (selectedRunId) {
+      setDock(true);
+      setDockTab("runs");
+    }
+  }, [selectedRunId, id]);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 820px)");
+    const resize = () => {
+      if (media.matches) setInspector(false);
+    };
+    media.addEventListener("change", resize);
+    return () => media.removeEventListener("change", resize);
+  }, []);
+  useEffect(() => {
+    setSelection([]);
+    setNodeMenu(null);
+    setQuery("");
+    setRevealedNode("");
+    setInspector(Boolean(selected));
+    setDock(Boolean(selectedRunId));
+  }, [id]);
+  useEffect(() => {
+    if (!nodeMenu) return;
+    nodeMenuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const dismiss = (event: PointerEvent) => {
+      if (!nodeMenuRef.current?.contains(event.target as Node))
+        setNodeMenu(null);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [nodeMenu]);
   const linkedEdges = useMemo(
     () => executionLinks(graph),
     [graph.nodes, graph.edges],
@@ -705,8 +830,9 @@ function WorkspaceInner() {
     });
   }, [visibleEdgeIds]);
   useEffect(() => {
-    setFlowNodes(
-      graph.nodes
+    setFlowNodes((current) => {
+      const previous = new Map(current.map((item) => [item.id, item]));
+      return graph.nodes
         .filter(
           (n) =>
             (!n.archived || n.id === revealedNode) &&
@@ -714,9 +840,16 @@ function WorkspaceInner() {
             (branch === "all" || n.branch_id === branch),
         )
         .map((n, index) => ({
+          // Replacing measured cards with unmeasured copies briefly hides them
+          // and can lose focused keyboard input while selection is reconciled.
+          ...previous.get(n.id),
           id: n.id,
           type: "research",
-          position: pendingPositionChanges.current.get(id!)?.get(n.id) ||
+          position: (previous.get(n.id)?.dragging
+            ? previous.get(n.id)?.position
+            : undefined) ||
+            pendingPositionChanges.current.get(id!)?.get(n.id) ||
+            positionSubmissions.current.get(id!)?.positions[n.id] ||
             n.position || {
               x: 300 + (index % 3) * 290,
               y: 100 + Math.floor(index / 3) * 220,
@@ -724,8 +857,8 @@ function WorkspaceInner() {
           deletable: false,
           data: { node: n },
           selected: n.id === selected,
-        })),
-    );
+        }));
+    });
   }, [graph.nodes, selected, hidden, branch, revealedNode, id]);
   useEffect(() => {
     if (!focusTarget || !flow.viewportInitialized) return;
@@ -746,11 +879,15 @@ function WorkspaceInner() {
     return () => cancelAnimationFrame(frame);
   }, [focusTarget, flowNodes, flow]);
   const revealSearchResult = (target: ResearchNode) => {
-    setSelected(target.id);
+    updateQuery({
+      node: target.id,
+      ...(branch !== "all" && branch !== target.branch_id
+        ? { branch: null }
+        : {}),
+    });
     setRevealedNode(target.id);
     setInspector(true);
     setQuery("");
-    if (branch !== "all" && branch !== target.branch_id) setBranch("all");
     setCollapsed((current) => {
       if (!current.size) return current;
       const parents = new Map<string, string[]>();
@@ -899,22 +1036,67 @@ function WorkspaceInner() {
       visibleEdges,
     ],
   );
-  const run = async (runScope = "single") => {
-    if (!node) return;
+  const submitExecution = async (path: string, body: Json, intent: string) => {
+    if (runSubmission.current?.pending) return;
+    if (runSubmission.current?.intent !== intent)
+      runSubmission.current = { intent, requestId: uid(), pending: false };
+    const submission = runSubmission.current;
+    submission.pending = true;
     setBusy(true);
     await action(
       async () => {
-        await api(`/nodes/${node.id}/run`, "POST", {
-          request_id: uid(),
-          scope: runScope,
-        });
+        const receipt = await api<Run | { runs?: Run[]; run_ids?: string[] }>(
+          path,
+          "POST",
+          {
+            request_id: submission.requestId,
+            ...body,
+          },
+        );
+        const runId =
+          "id" in receipt
+            ? receipt.id
+            : receipt.run_ids?.[0] || receipt.runs?.[0]?.id;
+        if (runId) updateQuery({ run: runId });
+        if (runSubmission.current === submission) runSubmission.current = null;
         await reloadRuns();
         setDock(true);
         setDockTab("runs");
       },
       t("任务已加入队列", "Task queued"),
     );
+    submission.pending = false;
     setBusy(false);
+  };
+  const run = async (runScope = "single") => {
+    if (!node) return;
+    await submitExecution(
+      `/nodes/${node.id}/run`,
+      { scope: runScope },
+      JSON.stringify({
+        projectId: id,
+        nodeId: node.id,
+        nodeRevision: node.revision,
+        scope: runScope,
+      }),
+    );
+  };
+  const selectedBranch = graph.branches.find((item) => item.id === branch);
+  const branchRunnable =
+    selectedBranch &&
+    ["active", "materializing"].includes(selectedBranch.status || "active") &&
+    graph.nodes.some((item) => item.branch_id === branch && !item.archived);
+  const runBranch = async () => {
+    if (!branchRunnable) return;
+    await submitExecution(
+      `/branches/${branch}/run`,
+      {},
+      JSON.stringify({
+        projectId: id,
+        branchId: branch,
+        revision: graph.revision,
+      }),
+    );
   };
   const layout = () =>
     action(async () => {
@@ -956,12 +1138,22 @@ function WorkspaceInner() {
         e.preventDefault();
         void action(() => request(e.shiftKey ? "redo" : "undo"));
       }
-      if (e.key === "Escape") setSelected("");
+      if (e.key === "Escape") {
+        if (document.querySelector('[role="dialog"]')) return;
+        if (nodeMenu) setNodeMenu(null);
+        else if (inspector && view === "forest") setInspector(false);
+        else if (dock) setDock(false);
+        else {
+          setSelected("");
+          setSelection([]);
+          setSelectedEdgeIds([]);
+        }
+      }
       if (e.key === "f") void flow.fitView({ padding: 0.2 });
     };
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
-  }, [request, flow, action]);
+  }, [request, flow, action, nodeMenu, inspector, dock, view, setSelected]);
   return (
     <div className="workspace">
       <div className="workspace-toolbar">
@@ -981,11 +1173,34 @@ function WorkspaceInner() {
             Focus
           </button>
           <button
-            className={view === "paper" ? "active" : ""}
-            onClick={() => setView("paper")}
+            className={
+              searchParams.get("paper") === "1" &&
+              searchParams.get("analysis") !== "1"
+                ? "active"
+                : ""
+            }
+            aria-pressed={
+              searchParams.get("paper") === "1" &&
+              searchParams.get("analysis") !== "1"
+            }
+            onClick={() => {
+              setInspector(false);
+              updateQuery({ paper: "1", analysis: null, view: null });
+            }}
           >
             <FileText size={15} />
             Paper
+          </button>
+          <button
+            className={searchParams.get("analysis") === "1" ? "active" : ""}
+            aria-pressed={searchParams.get("analysis") === "1"}
+            onClick={() => {
+              if (onOpenAnalysis) onOpenAnalysis();
+              else updateQuery({ analysis: "1", paper: null, view: null });
+            }}
+          >
+            <MessageSquare size={15} />
+            {t("分析", "Analysis")}
           </button>
         </div>
         <span className="toolbar-divider" />
@@ -1004,6 +1219,18 @@ function WorkspaceInner() {
             </option>
           ))}
         </select>
+        <Button
+          busy={busy}
+          disabled={!branchRunnable}
+          title={t(
+            "运行当前路线的根节点及其下游节点。",
+            "Run the current path root and its descendants.",
+          )}
+          onClick={runBranch}
+        >
+          <Play size={13} />
+          {t("运行路线", "Run branch")}
+        </Button>
         <IconButton
           label={t("比较研究路线", "Compare research paths")}
           disabled={graph.branches.length < 2}
@@ -1056,22 +1283,58 @@ function WorkspaceInner() {
         </Button>
         <IconButton
           label={t("切换检查器", "Toggle inspector")}
-          aria-expanded={inspector && view === "forest"}
+          aria-expanded={inspector && view === "forest" && !readingPanelOpen}
           aria-controls="node-inspector"
-          onClick={() => setInspector(!inspector)}
+          onClick={() => {
+            if (readingPanelOpen) {
+              onCloseReadingPanel?.();
+              setInspector(true);
+            } else setInspector(!inspector);
+          }}
         >
           <PanelRightClose size={17} />
         </IconButton>
       </div>
       <ErrorBox error={error} retry={reload} />
-      {view === "paper" ? (
-        <div className="workspace-paper">
-          <PaperPage embedded />
+      {!graphLoading &&
+        branch !== "all" &&
+        !graph.branches.some((item) => item.id === branch) && (
+          <div className="workspace-selection-error" role="status">
+            <span>
+              {t(
+                "找不到所选研究路线。",
+                "Selected research path is unavailable.",
+              )}
+            </span>
+            <Button onClick={() => setBranch("all")}>
+              {t("显示全部路线", "Show all paths")}
+            </Button>
+          </div>
+        )}
+      {!graphLoading && selected && !node && (
+        <div className="workspace-selection-error" role="status">
+          <span>{t("找不到所选节点。", "Selected node is unavailable.")}</span>
+          <Button onClick={() => setSelected("")}>
+            {t("清除选择", "Clear selection")}
+          </Button>
         </div>
-      ) : (
+      )}
+      {
         <div className="workspace-main">
           <div className="canvas-and-dock">
-            <div className="canvas-region">
+            <div
+              className="canvas-region"
+              onKeyDownCapture={(event) => {
+                if (![" ", "Enter"].includes(event.key)) return;
+                const card = (event.target as HTMLElement).closest<HTMLElement>(
+                  ".react-flow__node",
+                );
+                if (card?.dataset.id) {
+                  setSelected(card.dataset.id);
+                  setInspector(true);
+                }
+              }}
+            >
               {view === "forest" ? (
                 <>
                   <ReactFlow
@@ -1086,7 +1349,18 @@ function WorkspaceInner() {
                     maxZoom={2}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
-                    onNodeClick={(_, n) => setSelected(n.id)}
+                    onNodeClick={(_, n) => {
+                      setSelected(n.id);
+                      setInspector(true);
+                      setNodeMenu(null);
+                    }}
+                    onPaneClick={() => {
+                      setSelected("");
+                      setSelection([]);
+                      setSelectedEdgeIds([]);
+                      setInspector(false);
+                      setNodeMenu(null);
+                    }}
                     onNodeDoubleClick={(_, n) => {
                       setSelected(n.id);
                       setView("focus");
@@ -1094,8 +1368,11 @@ function WorkspaceInner() {
                     onNodeContextMenu={(event, n) => {
                       event.preventDefault();
                       setSelected(n.id);
-                      setOperation("fork_branch");
-                      setCommand(true);
+                      setNodeMenu({
+                        nodeId: n.id,
+                        x: Math.min(event.clientX, window.innerWidth - 220),
+                        y: Math.min(event.clientY, window.innerHeight - 250),
+                      });
                     }}
                     onSelectionChange={onSelectionChange}
                     onConnect={(c) => {
@@ -1159,6 +1436,112 @@ function WorkspaceInner() {
                       </div>
                     )}
                   </div>
+                  {nodeMenu && (
+                    <div
+                      ref={nodeMenuRef}
+                      className="workspace-node-menu"
+                      role="menu"
+                      aria-label={t("节点操作", "Node actions")}
+                      style={{
+                        position: "fixed",
+                        left: Math.max(8, nodeMenu.x),
+                        top: Math.max(8, nodeMenu.y),
+                        zIndex: 90,
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          !["ArrowDown", "ArrowUp", "Home", "End"].includes(
+                            event.key,
+                          )
+                        )
+                          return;
+                        event.preventDefault();
+                        const buttons = [
+                          ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                            "button",
+                          ),
+                        ];
+                        const index = buttons.indexOf(
+                          document.activeElement as HTMLButtonElement,
+                        );
+                        const next =
+                          event.key === "Home"
+                            ? 0
+                            : event.key === "End"
+                              ? buttons.length - 1
+                              : (index +
+                                  (event.key === "ArrowDown" ? 1 : -1) +
+                                  buttons.length) %
+                                buttons.length;
+                        buttons[next]?.focus();
+                      }}
+                    >
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          setView("focus");
+                        }}
+                      >
+                        {t("编辑节点", "Edit node")}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          void run();
+                        }}
+                      >
+                        {t("运行节点", "Run node")}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          setInspectorTab({
+                            name: "results",
+                            request: Date.now(),
+                          });
+                          setInspector(true);
+                        }}
+                      >
+                        {t("查看结果与证据", "Results and evidence")}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          setInspectorTab({
+                            name: "runs",
+                            request: Date.now(),
+                          });
+                          setInspector(true);
+                        }}
+                      >
+                        {t("查看节点运行", "Node runs")}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          setOperation("fork_branch");
+                          setCommand(true);
+                        }}
+                      >
+                        {t("分叉路线", "Fork branch")}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setNodeMenu(null);
+                          setOperation("edit_node");
+                          setCommand(true);
+                        }}
+                      >
+                        {t("更多路线操作", "Path operations")}
+                      </button>
+                    </div>
+                  )}
                   {!graph.nodes.length && (
                     <div className="canvas-empty">
                       <Empty
@@ -1241,6 +1624,7 @@ function WorkspaceInner() {
                     onRun={run}
                     runs={runs}
                     request={request}
+                    requestedTab={inspectorTab}
                   />
                 </div>
               ) : (
@@ -1286,16 +1670,25 @@ function WorkspaceInner() {
                 ) : (
                   <RunPanel
                     runs={runs}
-                    reload={reloadRuns}
+                    reload={async () => {
+                      await Promise.all([reloadRuns(), selectedRun.reload()]);
+                    }}
                     nodes={graph.nodes}
+                    branches={graph.branches}
+                    selectedRunId={selectedRunId}
+                    onSelectRun={(runId) => updateQuery({ run: runId })}
+                    selectedRun={selectedRun.run}
+                    selectionError={selectedRun.error}
+                    selectionLoading={selectedRun.loading}
                   />
                 ))}
             </div>
           </div>
-          {inspector && view === "forest" && (
+          {view === "forest" && (
             <aside
               id="node-inspector"
               className="inspector"
+              hidden={!inspector || readingPanelOpen}
               aria-label={t("节点检查器", "Node inspector")}
             >
               <div className="inspector-heading">
@@ -1322,6 +1715,7 @@ function WorkspaceInner() {
                   onRun={run}
                   runs={runs}
                   request={request}
+                  requestedTab={inspectorTab}
                 />
               ) : (
                 <Empty title={t("选择一个节点", "Select a node")} />
@@ -1370,7 +1764,7 @@ function WorkspaceInner() {
             </aside>
           )}
         </div>
-      )}
+      }
       {create && (
         <AddNode
           onClose={() => setCreate(false)}
@@ -1387,7 +1781,10 @@ function WorkspaceInner() {
             const added = result.graph?.nodes?.find(
               (n: ResearchNode) => !graph.nodes.some((old) => old.id === n.id),
             );
-            if (added) setSelected(added.id);
+            if (added) {
+              setSelected(added.id);
+              setInspector(true);
+            }
           }}
         />
       )}
@@ -1670,6 +2067,7 @@ function NodeInspector({
   onRun,
   runs,
   request,
+  requestedTab,
 }: {
   node: ResearchNode;
   graph: Graph;
@@ -1678,16 +2076,22 @@ function NodeInspector({
   onRun: (scope?: string) => Promise<void>;
   runs: Run[];
   request: (op: string, targets?: string[], params?: Json) => Promise<any>;
+  requestedTab?: { name: string; request: number };
 }) {
   const { t, action } = useUI();
   const instructionDraftKey = `forest-node-instructions:${projectId}:${node.id}`;
-  const [tab, setTab] = useState("instructions");
-  const [title, setTitle] = useState(node.title);
+  const [savedDraft] = useState(() => readNodeEditorDraft(projectId, node));
+  const [tab, setTab] = useState(savedDraft?.tab || "instructions");
+  const [title, setTitle] = useState(savedDraft?.title ?? node.title);
   const [instructions, setInstructions] = useState(
-    () => sessionStorage.getItem(instructionDraftKey) ?? node.instructions ?? "",
+    () =>
+      savedDraft?.instructions ??
+      sessionStorage.getItem(instructionDraftKey) ??
+      node.instructions ??
+      "",
   );
   const [config, setConfig] = useState(
-    JSON.stringify(node.config || {}, null, 2),
+    savedDraft?.config ?? JSON.stringify(node.config || {}, null, 2),
   );
   const executionConfig = useMemo<Json | null>(() => {
     try {
@@ -1700,21 +2104,90 @@ function NodeInspector({
     }
   }, [config]);
   const [inputs, setInputs] = useState(
-    JSON.stringify(node.inputs || [], null, 2),
+    savedDraft?.inputs ?? JSON.stringify(node.inputs || [], null, 2),
   );
   const [overrides, setOverrides] = useState(
-    JSON.stringify(node.context_overrides || {}, null, 2),
+    savedDraft?.overrides ??
+      JSON.stringify(node.context_overrides || {}, null, 2),
   );
-  const [comment, setComment] = useState("");
-  const [stopCurrent, setStopCurrent] = useState(false);
-  const [base, setBase] = useState({
-    revision: graph.revision,
-    nodeRevision: node.revision,
-    content: editableNode(node),
-  });
+  const [comment, setComment] = useState(savedDraft?.comment || "");
+  const [stopCurrent, setStopCurrent] = useState(
+    savedDraft?.stopCurrent || false,
+  );
+  const [base, setBase] = useState(
+    savedDraft?.base || {
+      revision: graph.revision,
+      nodeRevision: node.revision,
+      content: editableNode(node),
+    },
+  );
   const [conflict, setConflict] = useState(false);
   const [context, setContext] = useState<Json | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (requestedTab) setTab(requestedTab.name);
+  }, [requestedTab]);
+  useEffect(() => {
+    const draft = {
+      title,
+      instructions,
+      config,
+      inputs,
+      overrides,
+      comment,
+      stopCurrent,
+      tab,
+      base,
+    };
+    const reconciled = reconcileNodeEditorDraft(draft, {
+      revision: graph.revision,
+      nodeRevision: node.revision,
+      content: editableNode(node),
+    });
+    if (reconciled === draft) return;
+    setTitle(reconciled.title);
+    setInstructions(reconciled.instructions);
+    setConfig(reconciled.config);
+    setInputs(reconciled.inputs);
+    setOverrides(reconciled.overrides);
+    setBase(reconciled.base);
+  }, [node, graph.revision]);
+  useEffect(() => {
+    const draft = {
+      title,
+      instructions,
+      config,
+      inputs,
+      overrides,
+      comment,
+      stopCurrent,
+      tab,
+      base,
+    };
+    const clean =
+      title === node.title &&
+      instructions === (node.instructions || "") &&
+      config === JSON.stringify(node.config || {}, null, 2) &&
+      inputs === JSON.stringify(node.inputs || [], null, 2) &&
+      overrides === JSON.stringify(node.context_overrides || {}, null, 2) &&
+      !comment &&
+      !stopCurrent;
+    if (clean)
+      sessionStorage.removeItem(`forest-node-editor:${projectId}:${node.id}`);
+    else persistNodeEditorDraft(projectId, node.id, draft);
+  }, [
+    projectId,
+    node,
+    title,
+    instructions,
+    config,
+    inputs,
+    overrides,
+    comment,
+    stopCurrent,
+    tab,
+    base,
+  ]);
   useEffect(() => {
     if (sessionStorage.getItem(instructionDraftKey) === node.instructions)
       sessionStorage.removeItem(instructionDraftKey);
@@ -1786,9 +2259,9 @@ function NodeInspector({
           <div className="modal-actions">
             <Button
               onClick={() => {
-              setTitle(node.title);
-              setInstructions(node.instructions);
-              sessionStorage.removeItem(instructionDraftKey);
+                setTitle(node.title);
+                setInstructions(node.instructions);
+                sessionStorage.removeItem(instructionDraftKey);
                 setConfig(JSON.stringify(node.config, null, 2));
                 setInputs(JSON.stringify(node.inputs, null, 2));
                 setOverrides(JSON.stringify(node.context_overrides, null, 2));
@@ -2056,6 +2529,11 @@ function NodeInspector({
                 <Badge status={r.status} />
                 <small>{formatDate(r.created_at)}</small>
                 <code>{r.id.slice(0, 8)}</code>
+                <NavLink
+                  to={`/projects/${projectId}/runs?run=${encodeURIComponent(r.id)}`}
+                >
+                  {t("检查运行", "Inspect run")}
+                </NavLink>
               </div>
             ))}
           </>
@@ -2119,154 +2597,6 @@ function NodeInspector({
           <Check size={14} />
           {t("保存修改", "Save changes")}
         </Button>
-      </div>
-    </div>
-  );
-}
-export function RunPanel({
-  runs,
-  reload,
-  nodes = [],
-}: {
-  runs: Run[];
-  reload: () => Promise<void>;
-  nodes?: ResearchNode[];
-}) {
-  const { t, action } = useUI();
-  const [selected, setSelected] = useState("");
-  const [output, setOutput] = useState("");
-  const run = runs.find((r) => r.id === selected) || runs[0];
-  const status = run?.status || "";
-  const terminal = [
-    "completed",
-    "failed",
-    "cancelled",
-    "interrupted",
-    "skipped",
-  ].includes(status);
-  const allowedActions: Record<string, boolean> = {
-    pause: ["queued", "waiting", "budget_exhausted", "running"].includes(
-      status,
-    ),
-    resume: ["paused", "waiting_input", "waiting", "budget_exhausted"].includes(
-      status,
-    ),
-    cancel: [
-      "queued",
-      "running",
-      "pausing",
-      "paused",
-      "waiting_input",
-      "waiting",
-      "budget_exhausted",
-    ].includes(status),
-    retry: terminal,
-  };
-  useEffect(() => {
-    setOutput("");
-    if (!run) return;
-    let active = true;
-    let offset = 0;
-    let pending = false;
-    const load = async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        const result = await api(`/runs/${run.id}/output?offset=${offset}`);
-        if (active) {
-          setOutput((o) => (o + result.text).slice(-2_000_000));
-          offset = result.offset;
-        }
-      } catch (e) {
-        if (active) setOutput((e as Error).message);
-      } finally {
-        pending = false;
-      }
-    };
-    void load();
-    const timer = setInterval(load, 2000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, [run?.id]);
-  if (!runs.length)
-    return (
-      <div className="dock-empty">
-        <span className="subtle-icon">
-          <SquareTerminal size={22} />
-        </span>
-        <div>
-          <strong>{t("暂无运行记录", "No runs")}</strong>
-        </div>
-      </div>
-    );
-  return (
-    <div className="run-panel">
-      <div className="run-list">
-        {runs.map((r) => (
-          <button
-            className={run?.id === r.id ? "active" : ""}
-            key={r.id}
-            onClick={() => setSelected(r.id)}
-          >
-            <span className={`run-indicator status-${r.status}`} />
-            <span>
-              {nodes.find((n) => n.id === r.node_id)?.title || r.kind}
-              <small>
-                {r.id.slice(0, 8)} · {formatDate(r.created_at)}
-              </small>
-            </span>
-            <Badge status={r.status} />
-          </button>
-        ))}
-      </div>
-      <div className="run-output">
-        <div className="run-output-toolbar">
-          <code>{run?.id.slice(0, 8)}</code>
-          <span>
-            PID {run?.pid || "—"} · exit {run?.exit_code ?? "—"}
-          </span>
-          <span className="toolbar-spacer" />
-          {run &&
-            [
-              ["pause", Pause],
-              ["resume", Play],
-              ["cancel", Square],
-              ["retry", RefreshCw],
-            ].map(([op, Icon]) => (
-              <IconButton
-                key={String(op)}
-                label={String(op)}
-                disabled={!allowedActions[String(op)]}
-                onClick={() =>
-                  action(async () => {
-                    await api(`/runs/${run.id}/${op}`, "POST", {});
-                    await reload();
-                  })
-                }
-              >
-                {typeof Icon !== "string" && <Icon size={13} />}
-              </IconButton>
-            ))}
-        </div>
-        {run && <RunEvidence runId={run.id} />}
-        {run?.kind === "agent" &&
-          terminal &&
-          typeof run.metrics?.summary === "string" &&
-          run.metrics.summary.trim() && (
-            <section className="run-final-summary" aria-label={t("最终摘要", "Final summary")}>
-              <strong>{t("最终摘要", "Final summary")}</strong>
-              <p>{run.metrics.summary}</p>
-            </section>
-          )}
-        <pre>
-          {output ||
-            run?.error ||
-            (terminal
-              ? t("没有输出", "No output")
-              : t("等待执行器输出…", "Waiting for executor output…"))}
-        </pre>
       </div>
     </div>
   );

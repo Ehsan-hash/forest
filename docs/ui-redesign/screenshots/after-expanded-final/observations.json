@@ -1,0 +1,1148 @@
+{
+  "fixture_project_id": "425e560c-71a4-4dbc-b020-3c53b93b49b9",
+  "fixture": true,
+  "scientific_execution": false,
+  "source_state": "final stable production build after scoped sidepane height and semantic contrast fixes",
+  "observations": [
+    {
+      "surface": "publication-expanded",
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 356,
+        "height": 380
+      },
+      "monaco": {
+        "width": 356,
+        "height": 338
+      },
+      "preview": {
+        "width": 356,
+        "height": 419
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 356,
+        "height": 380
+      },
+      "monaco": {
+        "width": 356,
+        "height": 338
+      },
+      "preview": {
+        "width": 356,
+        "height": 419
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "light",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 363,
+        "height": 300
+      },
+      "monaco": {
+        "width": 363,
+        "height": 258
+      },
+      "preview": {
+        "width": 363,
+        "height": 300
+      },
+      "panel": {
+        "width": 390,
+        "height": 900
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "publication-expanded",
+      "theme": "light",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "light",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "light",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 367,
+        "height": 672
+      },
+      "monaco": {
+        "width": 366,
+        "height": 631
+      },
+      "preview": {
+        "width": 367,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 367,
+        "height": 672
+      },
+      "monaco": {
+        "width": 366,
+        "height": 631
+      },
+      "preview": {
+        "width": 367,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "light",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 413,
+        "height": 300
+      },
+      "monaco": {
+        "width": 412,
+        "height": 259
+      },
+      "preview": {
+        "width": 413,
+        "height": 300
+      },
+      "panel": {
+        "width": 440,
+        "height": 900
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "publication-expanded",
+      "theme": "light",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "light",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "light",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 579,
+        "height": 672
+      },
+      "monaco": {
+        "width": 578,
+        "height": 631
+      },
+      "preview": {
+        "width": 579,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 579,
+        "height": 672
+      },
+      "monaco": {
+        "width": 578,
+        "height": 631
+      },
+      "preview": {
+        "width": 579,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "light",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 413,
+        "height": 300
+      },
+      "monaco": {
+        "width": 412,
+        "height": 259
+      },
+      "preview": {
+        "width": 413,
+        "height": 300
+      },
+      "panel": {
+        "width": 440,
+        "height": 900
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(89, 103, 94)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "publication-expanded",
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 356,
+        "height": 380
+      },
+      "monaco": {
+        "width": 356,
+        "height": 338
+      },
+      "preview": {
+        "width": 356,
+        "height": 419
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 356,
+        "height": 380
+      },
+      "monaco": {
+        "width": 356,
+        "height": 338
+      },
+      "preview": {
+        "width": 356,
+        "height": 419
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "dark",
+      "width": 390,
+      "viewport": 390,
+      "scrollWidth": 390,
+      "source": {
+        "width": 363,
+        "height": 300
+      },
+      "monaco": {
+        "width": 363,
+        "height": 258
+      },
+      "preview": {
+        "width": 363,
+        "height": 300
+      },
+      "panel": {
+        "width": 390,
+        "height": 852
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 122.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "publication-expanded",
+      "theme": "dark",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "dark",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "dark",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 367,
+        "height": 672
+      },
+      "monaco": {
+        "width": 366,
+        "height": 631
+      },
+      "preview": {
+        "width": 367,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 367,
+        "height": 672
+      },
+      "monaco": {
+        "width": 366,
+        "height": 631
+      },
+      "preview": {
+        "width": 367,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "dark",
+      "width": 768,
+      "viewport": 768,
+      "scrollWidth": 768,
+      "source": {
+        "width": 413,
+        "height": 300
+      },
+      "monaco": {
+        "width": 412,
+        "height": 259
+      },
+      "preview": {
+        "width": 413,
+        "height": 300
+      },
+      "panel": {
+        "width": 440,
+        "height": 852
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 130.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "publication-expanded",
+      "theme": "dark",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "protocol-expanded",
+      "theme": "dark",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": null,
+      "monaco": null,
+      "preview": null,
+      "panel": null,
+      "draft_state": null,
+      "check_evidence": [],
+      "field_labels": [
+        {
+          "text": "Publication requirements JSON",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Evaluation protocol",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "writing-expanded",
+      "theme": "dark",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 579,
+        "height": 672
+      },
+      "monaco": {
+        "width": 578,
+        "height": 631
+      },
+      "preview": {
+        "width": 579,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 579,
+        "height": 672
+      },
+      "monaco": {
+        "width": 578,
+        "height": 631
+      },
+      "preview": {
+        "width": 579,
+        "height": 672
+      },
+      "panel": null,
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "surface": "manuscript-panel-dirty",
+      "theme": "dark",
+      "width": 1440,
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "source": {
+        "width": 413,
+        "height": 300
+      },
+      "monaco": {
+        "width": 412,
+        "height": 259
+      },
+      "preview": {
+        "width": 413,
+        "height": 300
+      },
+      "panel": {
+        "width": 440,
+        "height": 900
+      },
+      "draft_state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "check_evidence": [
+        {
+          "visible": true,
+          "width": 134.859375
+        }
+      ],
+      "field_labels": [
+        {
+          "text": "Template",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        },
+        {
+          "text": "Columns",
+          "color": "rgb(176, 188, 180)",
+          "fontSize": "12px"
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

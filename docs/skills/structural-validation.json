@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-13",
+  "source_commit": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "skill_checks": [
+    {
+      "name": "forest-browser-testing",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-evidence-integrity",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-frontend-architecture",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-product-ux",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-research-graph",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-run-lifecycle",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    },
+    {
+      "name": "forest-visual-design",
+      "frontmatter": true,
+      "ui_metadata": true,
+      "matching_folder_name": true,
+      "result": "PASS"
+    }
+  ],
+  "errors": [],
+  "local_references_checked": 17,
+  "bash_blocks_syntax_checked": 3,
+  "explicit_source_files_checked": 123,
+  "python_owner_symbols_checked": 26,
+  "python_test_pointers_checked": 57,
+  "mission_copy_identical": true,
+  "application_tests_run": false,
+  "browser_workflows_run": false,
+  "provider_calls_run": false,
+  "result": "PASS"
+}

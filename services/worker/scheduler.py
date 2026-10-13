@@ -10,7 +10,7 @@ TERMINAL = ('completed', 'failed', 'cancelled', 'interrupted', 'skipped')
 TIME_BUDGET_RESERVED_STATUSES = ('queued', 'running', 'pausing', 'paused', 'waiting', 'budget_exhausted')
 _TIMEOUT_UNSET = object()
 MODEL_BACKED_RUN_KINDS = frozenset({
-    'agent', 'research_plan', 'research_route_review', 'paper_generate',
+    'agent', 'research_plan', 'research_route_review', 'research_analysis', 'paper_generate',
     'ideas', 'suggest_paths', 'figure_revise', 'paper_revise', 'review',
 })
 

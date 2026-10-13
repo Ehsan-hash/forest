@@ -1,0 +1,120 @@
+{
+  "producerRunId": "d9c840b7-c4cd-4e4d-ad8c-5ce9678ccf55",
+  "verificationRunId": "9d624a7a-2abc-4822-802b-832eb3943dff",
+  "verdict": {
+    "run_id": "d9c840b7-c4cd-4e4d-ad8c-5ce9678ccf55",
+    "verification_status": "accepted",
+    "checks": [
+      {
+        "id": "actual-rows",
+        "kind": "csv_integrity",
+        "scope": null,
+        "status": "accepted",
+        "source": "observations.csv",
+        "workspace": "producer",
+        "columns": [
+          "unit",
+          "value"
+        ],
+        "required_columns": [
+          "unit",
+          "value"
+        ],
+        "unique_by": [
+          "unit"
+        ],
+        "numeric_columns": [
+          "value"
+        ],
+        "row_count": 2,
+        "unique_units": 2,
+        "expected_cells": 0,
+        "missing": [],
+        "unexpected": [],
+        "incompatible": [],
+        "issues": [],
+        "verification_scope": "All actual CSV rows checked for declared columns, finite values, unit identity and configured matrix; row count is not a training-replication count"
+      }
+    ],
+    "check_scope_paths": [
+      "observations.csv"
+    ],
+    "numerical_scope": [],
+    "verification_scope": "Declared checks of named source artifacts; execution completion does not verify other outputs or scientific claims",
+    "verifications": [
+      {
+        "run_id": "9d624a7a-2abc-4822-802b-832eb3943dff",
+        "verification_run_id": "9d624a7a-2abc-4822-802b-832eb3943dff",
+        "verifier_node_id": null,
+        "verification_status": "accepted",
+        "reason": "Declared checks passed against the current bound artifacts",
+        "checks": [
+          {
+            "id": "actual-rows",
+            "kind": "csv_integrity",
+            "scope": null,
+            "status": "accepted",
+            "source": "observations.csv",
+            "workspace": "producer",
+            "columns": [
+              "unit",
+              "value"
+            ],
+            "required_columns": [
+              "unit",
+              "value"
+            ],
+            "unique_by": [
+              "unit"
+            ],
+            "numeric_columns": [
+              "value"
+            ],
+            "row_count": 2,
+            "unique_units": 2,
+            "expected_cells": 0,
+            "missing": [],
+            "unexpected": [],
+            "incompatible": [],
+            "issues": [],
+            "verification_scope": "All actual CSV rows checked for declared columns, finite values, unit identity and configured matrix; row count is not a training-replication count"
+          }
+        ],
+        "check_scope_paths": [
+          "observations.csv"
+        ],
+        "verification_scope": "Only configured checks on current actual files and explicitly selected arithmetic; execution, independence and scientific interpretation require separate evidence",
+        "producer_node_id": "24c0ef6e-4283-5aac-b702-60b0bfcd4611",
+        "producer_run_id": "d9c840b7-c4cd-4e4d-ad8c-5ce9678ccf55",
+        "producer_revision": 0,
+        "producer_artifact_scope": "workspace",
+        "contract": {
+          "producer_node_id": "24c0ef6e-4283-5aac-b702-60b0bfcd4611",
+          "checks": [
+            {
+              "id": "actual-rows",
+              "kind": "csv_integrity",
+              "source": "observations.csv",
+              "required_columns": [
+                "unit",
+                "value"
+              ],
+              "unique_by": [
+                "unit"
+              ],
+              "numeric_columns": [
+                "value"
+              ],
+              "workspace": "producer"
+            }
+          ]
+        },
+        "numerical_scope": [],
+        "assumptions": [
+          "Worker binds the actual producer and verifier runs to the current editable contract and node revisions",
+          "Numerical or byte agreement does not establish an independent implementation or scientific truth"
+        ]
+      }
+    ]
+  }
+}

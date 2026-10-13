@@ -1,0 +1,3446 @@
+[
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 390,
+    "filename": "projects-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 68,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 113,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 390,
+    "filename": "workspace-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 390,
+    "filename": "overview-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 390,
+    "filename": "library-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 12,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 390,
+    "filename": "ideas-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 390,
+    "filename": "theory-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 390,
+    "filename": "experiments-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 390,
+    "filename": "runs-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 11,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 390,
+    "filename": "data-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 18,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 390,
+    "filename": "figures-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 4,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 390,
+    "filename": "paper-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 33,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 390,
+    "filename": "files-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 19,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 390,
+    "filename": "settings-light-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 22,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 768,
+    "filename": "projects-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 113,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 768,
+    "filename": "workspace-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 768,
+    "filename": "overview-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 768,
+    "filename": "library-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 12,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 768,
+    "filename": "ideas-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 768,
+    "filename": "theory-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 768,
+    "filename": "experiments-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 768,
+    "filename": "runs-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 11,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 768,
+    "filename": "data-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 18,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 768,
+    "filename": "figures-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 4,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 768,
+    "filename": "paper-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 33,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 768,
+    "filename": "files-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 19,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 768,
+    "filename": "settings-light-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 22,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 1024,
+    "filename": "projects-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 24,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 110,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 1024,
+    "filename": "workspace-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 1024,
+    "filename": "overview-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 1024,
+    "filename": "library-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 1024,
+    "filename": "ideas-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 1024,
+    "filename": "theory-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 1024,
+    "filename": "experiments-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 1024,
+    "filename": "runs-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 1024,
+    "filename": "data-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 1024,
+    "filename": "figures-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 1024,
+    "filename": "paper-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 1024,
+    "filename": "files-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 1024,
+    "filename": "settings-light-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 1280,
+    "filename": "projects-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 24,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 110,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 1280,
+    "filename": "workspace-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 52,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 1280,
+    "filename": "overview-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 1280,
+    "filename": "library-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 1280,
+    "filename": "ideas-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 1280,
+    "filename": "theory-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 1280,
+    "filename": "experiments-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 1280,
+    "filename": "runs-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 1280,
+    "filename": "data-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 1280,
+    "filename": "figures-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 1280,
+    "filename": "paper-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 1280,
+    "filename": "files-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 1280,
+    "filename": "settings-light-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 1440,
+    "filename": "projects-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 110,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 1440,
+    "filename": "workspace-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 1440,
+    "filename": "overview-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 1440,
+    "filename": "library-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 1440,
+    "filename": "ideas-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 1440,
+    "filename": "theory-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 1440,
+    "filename": "experiments-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 1440,
+    "filename": "runs-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 1440,
+    "filename": "data-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 1440,
+    "filename": "figures-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 48,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 1440,
+    "filename": "paper-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 1440,
+    "filename": "files-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 1440,
+    "filename": "settings-light-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "light",
+    "width": 1920,
+    "filename": "projects-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 115,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "light",
+    "width": 1920,
+    "filename": "workspace-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "light",
+    "width": 1920,
+    "filename": "overview-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "light",
+    "width": 1920,
+    "filename": "library-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 24,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "light",
+    "width": 1920,
+    "filename": "ideas-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "light",
+    "width": 1920,
+    "filename": "theory-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "light",
+    "width": 1920,
+    "filename": "experiments-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "light",
+    "width": 1920,
+    "filename": "runs-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 52,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "light",
+    "width": 1920,
+    "filename": "data-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 64,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "light",
+    "width": 1920,
+    "filename": "figures-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "light",
+    "width": 1920,
+    "filename": "paper-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "light",
+    "width": 1920,
+    "filename": "files-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "light",
+    "width": 1920,
+    "filename": "settings-light-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 20,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 390,
+    "filename": "projects-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 64,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 113,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 390,
+    "filename": "workspace-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 390,
+    "filename": "overview-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 390,
+    "filename": "library-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 12,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 390,
+    "filename": "ideas-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 390,
+    "filename": "theory-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 390,
+    "filename": "experiments-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 390,
+    "filename": "runs-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 11,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 390,
+    "filename": "data-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 18,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 390,
+    "filename": "figures-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 4,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 390,
+    "filename": "paper-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 33,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 390,
+    "filename": "files-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 19,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 390,
+    "filename": "settings-dark-390.png",
+    "overflow": false,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 22,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 768,
+    "filename": "projects-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 113,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 768,
+    "filename": "workspace-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 768,
+    "filename": "overview-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 768,
+    "filename": "library-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 12,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 768,
+    "filename": "ideas-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 768,
+    "filename": "theory-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 768,
+    "filename": "experiments-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 5,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 768,
+    "filename": "runs-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 11,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 768,
+    "filename": "data-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 18,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 768,
+    "filename": "figures-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 4,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 768,
+    "filename": "paper-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 33,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 768,
+    "filename": "files-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 19,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 768,
+    "filename": "settings-dark-768.png",
+    "overflow": false,
+    "scrollWidth": 768,
+    "viewportWidth": 768,
+    "fcp": 32,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 22,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "projects-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 115,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "workspace-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "overview-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "library-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "ideas-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "theory-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "experiments-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "runs-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "data-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "figures-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "paper-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "files-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 1024,
+    "filename": "settings-dark-1024.png",
+    "overflow": false,
+    "scrollWidth": 1024,
+    "viewportWidth": 1024,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 24,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "projects-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 110,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "workspace-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 48,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "overview-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "library-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "ideas-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "theory-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "experiments-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "runs-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "data-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "figures-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "paper-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "files-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 1280,
+    "filename": "settings-dark-1280.png",
+    "overflow": false,
+    "scrollWidth": 1280,
+    "viewportWidth": 1280,
+    "fcp": 20,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 25,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "projects-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 24,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 115,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "workspace-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 24,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "overview-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "library-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 20,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "ideas-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "theory-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "experiments-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "runs-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "data-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "figures-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "paper-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 36,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "files-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 1440,
+    "filename": "settings-dark-1440.png",
+    "overflow": false,
+    "scrollWidth": 1440,
+    "viewportWidth": 1440,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 25,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "projects",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "projects-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 48,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 115,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "workspace",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "workspace-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 28,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 26,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "overview",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "overview-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 48,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 28,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "library",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "library-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 14,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "ideas",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "ideas-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "theory",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "theory-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 9,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "experiments",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "experiments-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 7,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "runs",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "runs-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 13,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "data",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "data-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 20,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "figures",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "figures-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 40,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 6,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "paper",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "paper-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css",
+      "/assets/CodeEditor-DyX1CsEw.css"
+    ],
+    "controls": 35,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "files",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "files-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 44,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 21,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  },
+  {
+    "build": "final-25536",
+    "route": "settings",
+    "theme": "dark",
+    "width": 1920,
+    "filename": "settings-dark-1920.png",
+    "overflow": false,
+    "scrollWidth": 1920,
+    "viewportWidth": 1920,
+    "fcp": 20,
+    "assetScripts": [
+      "/assets/index-DfNhOBKs.js"
+    ],
+    "assetStyles": [
+      "/assets/index-CVqPoWfS.css"
+    ],
+    "controls": 25,
+    "pageErrors": [],
+    "consoleMessages": [],
+    "httpFailures": [],
+    "requestFailures": []
+  }
+]

@@ -1,0 +1,2280 @@
+{
+  "build": "final-63005",
+  "expected_asset": "index-BIrSAtO6.js",
+  "expected_css": "index-CVqPoWfS.css",
+  "project_id": "44a680f8-0bd4-4dba-a99c-34b26f8363d6",
+  "fixture": true,
+  "model_requests": 0,
+  "observations": [
+    {
+      "route": "projects",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution.",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            250,
+            251,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 5.733486150570338
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "light",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "projects",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution.",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        },
+        {
+          "selector": ".local-label",
+          "text": "Local",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246.92,
+            241.07999999999998
+          ],
+          "fontSize": "12px",
+          "contrast": 5.504686774646039
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "16px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            250,
+            251,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 5.733486150570338
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "light",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".local-label",
+          "text": "FOREST / LOCAL",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246.92,
+            241.07999999999998
+          ],
+          "fontSize": "12px",
+          "contrast": 5.504686774646039
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "projects",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:14 AM",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        },
+        {
+          "selector": ".local-label",
+          "text": "Local",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246.92,
+            241.07999999999998
+          ],
+          "fontSize": "12px",
+          "contrast": 5.504686774646039
+        },
+        {
+          "selector": ".sidebar-collapse",
+          "text": "",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            237,
+            241,
+            235
+          ],
+          "fontSize": "14px",
+          "contrast": 5.212721065954602
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "16px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 16.481934307159577
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246,
+            242
+          ],
+          "fontSize": "12px",
+          "contrast": 5.475993997388766
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            250,
+            251,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 5.733486150570338
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(24, 33, 29)",
+          "background": [
+            251,
+            252,
+            248
+          ],
+          "fontSize": "12px",
+          "contrast": 15.996478201720475
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "light",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "14px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            255,
+            255,
+            255
+          ],
+          "fontSize": "12px",
+          "contrast": 5.954914549615777
+        },
+        {
+          "selector": ".local-label",
+          "text": "FOREST / LOCAL",
+          "color": "rgb(89, 103, 94)",
+          "background": [
+            244,
+            246.92,
+            241.07999999999998
+          ],
+          "fontSize": "12px",
+          "contrast": 5.504686774646039
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "projects",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:14 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            34,
+            45,
+            40
+          ],
+          "fontSize": "12px",
+          "contrast": 7.257996849528163
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "dark",
+      "width": 390,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "projects",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:14 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".local-label",
+          "text": "Local",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "16px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            34,
+            45,
+            40
+          ],
+          "fontSize": "12px",
+          "contrast": 7.257996849528163
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "dark",
+      "width": 768,
+      "scrollWidth": 768,
+      "innerWidth": 768,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".local-label",
+          "text": "FOREST / LOCAL",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "projects",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".project-description",
+          "text": "Visual fixture only; no scientific execution or model request.",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-description",
+          "text": "No goal set",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:30 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:24 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".project-card-bottom > span",
+          "text": "Oct 13, 08:14 AM",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".new-project-card strong",
+          "text": "New project",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".local-label",
+          "text": "Local",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".sidebar-collapse",
+          "text": "",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            22,
+            32,
+            28
+          ],
+          "fontSize": "14px",
+          "contrast": 8.507732447971119
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "library",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".literature-search select",
+          "text": "CrossrefarXiv",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "ideas",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".idea-prompt h3",
+          "text": "Research question",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "16px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Falsifiable hypothesis",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field > span",
+          "text": "Mechanism",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Visual fixture wording only; no research finding.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        },
+        {
+          "selector": ".idea-field p",
+          "text": "Inspect the actual label and body colors.",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 14.370040548970023
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "runs",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".dock-empty strong",
+          "text": "No runs",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        },
+        {
+          "selector": ".dock-empty > .subtle-icon",
+          "text": "",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            34,
+            45,
+            40
+          ],
+          "fontSize": "12px",
+          "contrast": 7.257996849528163
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "files",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": ".forest-bases/d764823c-486a-5c15-b535-d1da57de3420",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        },
+        {
+          "selector": ".file-tree button > span",
+          "text": "branches",
+          "color": "rgb(237, 242, 238)",
+          "background": [
+            29,
+            43,
+            32
+          ],
+          "fontSize": "12px",
+          "contrast": 13.066202914229157
+        }
+      ],
+      "errors": []
+    },
+    {
+      "route": "settings",
+      "theme": "dark",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "items": [
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card p",
+          "text": "draft-test-model",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "14px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".connection-card code",
+          "text": "http://127.0.0.1:1",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            25,
+            34,
+            31
+          ],
+          "fontSize": "12px",
+          "contrast": 8.29374851934197
+        },
+        {
+          "selector": ".local-label",
+          "text": "FOREST / LOCAL",
+          "color": "rgb(176, 188, 180)",
+          "background": [
+            16,
+            23,
+            21
+          ],
+          "fontSize": "12px",
+          "contrast": 9.259297089714481
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "actions": [
+    {
+      "theme": "light",
+      "width": 390,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "compare_visible": true,
+      "compare_opened": true,
+      "path_actions_visible": true,
+      "path_actions_opened": true,
+      "graph_revision": 2,
+      "errors": []
+    }
+  ]
+}

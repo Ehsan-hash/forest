@@ -1,0 +1,16 @@
+{
+  "build": "index-x1iTLUfo.js",
+  "stats": {
+    "startTime": "2026-10-13T15:04:52.837Z",
+    "duration": 206445.74,
+    "expected": 106,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  },
+  "diagnoses": {
+    "palette": "Initial graph snapshot has no palette dialog; unchanged isolated case passes with trace. Test now waits for its actual node heading before pressing the keyboard shortcut.",
+    "figure": "Actual figure run selected retained inactive-endpoint local HTTP protocol fixture provider first_available and failed before a model response. Active fixture providers require retirement before provider-free validation."
+  },
+  "final_acceptance": "PENDING next stable build and complete rerun"
+}

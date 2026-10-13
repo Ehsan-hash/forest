@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import {
   Routes,
   Route,
@@ -65,37 +72,100 @@ import {
 } from "./ui";
 import { Workspace } from "./Workspace";
 import { DemoGuide, demoLink } from "./DemoGuide";
+const ResearchPage = lazy(() =>
+  import("./pages/ResearchPage").then((module) => ({
+    default: module.ResearchPage,
+  })),
+);
+const LibraryPage = lazy(() =>
+  import("./pages/LibraryPage").then((module) => ({
+    default: module.LibraryPage,
+  })),
+);
+const TheoryPage = lazy(() =>
+  import("./pages/TheoryPage").then((module) => ({
+    default: module.TheoryPage,
+  })),
+);
+const ExperimentsPage = lazy(() =>
+  import("./pages/ExperimentsPage").then((module) => ({
+    default: module.ExperimentsPage,
+  })),
+);
+const DataPage = lazy(() =>
+  import("./pages/DataPage").then((module) => ({ default: module.DataPage })),
+);
+const FiguresPage = lazy(() =>
+  import("./pages/FiguresPage").then((module) => ({
+    default: module.FiguresPage,
+  })),
+);
+const FilesPage = lazy(() =>
+  import("./pages/FilesPage").then((module) => ({ default: module.FilesPage })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+const PaperPage = lazy(() =>
+  import("./pages/PaperPage").then((module) => ({ default: module.PaperPage })),
+);
+import { navigation, navigationGroups, groupForPath } from "./shell/navigation";
+import { ProjectSwitcher } from "./shell/ProjectSwitcher";
+import { CommandPalette } from "./shell/CommandPalette";
+const WorkspacePage = lazy(() =>
+  import("./WorkspacePage").then((module) => ({
+    default: module.WorkspacePage,
+  })),
+);
+import { RunsPage } from "./runs/RunsPage";
 import {
-  ResearchPage,
-  LibraryPage,
-  TheoryPage,
-  ExperimentsPage,
-  DataPage,
-  FiguresPage,
-  PaperPage,
-  FilesPage,
-  SettingsPage,
-} from "./pages";
-const navigation = [
-  ["overview", "研究概览", "Overview", LayoutDashboard],
-  ["workspace", "工作台", "Workspace", Network],
-  ["library", "论文库", "Library", BookOpen],
-  ["ideas", "研究想法", "Ideas", Lightbulb],
-  ["theory", "理论工作台", "Theory", SquareFunction],
-  ["experiments", "实验", "Experiments", FlaskConical],
-  ["data", "数据分析", "Data & analysis", Table2],
-  ["figures", "图表工作室", "Figure studio", ChartNoAxesCombined],
-  ["paper", "论文", "Paper", FileText],
-  ["files", "项目文件", "Files", Folder],
-] as const;
+  acknowledgeControlsSave,
+  controlsFromProject,
+  useControlsDraft,
+} from "./projectControlsDraft";
+import { AppearanceSettings } from "./shell/AppearanceSettings";
+import {
+  RepositoryInput,
+  StatisticsTools,
+  VerificationSetup,
+} from "./ResearchTools";
+import { ProjectRequirements } from "./ProjectRequirements";
 export default function App() {
-  const preferences = useLoad<Json>("/settings", {});
-  const [lang, setLang] = useState<"en" | "zh">(
-    () => localStorage.getItem("forest-language") === "zh" ? "zh" : "en",
+  const location = useLocation();
+  const publicShare = location.pathname.startsWith("/share/");
+  const preferences = useLoad<Json>(publicShare ? null : "/settings", {});
+  const [lang, setLang] = useState<"en" | "zh">(() =>
+    localStorage.getItem("forest-language") === "zh" ? "zh" : "en",
   );
   const [theme, setTheme] = useState(
     localStorage.getItem("forest-theme") || "light",
   );
+  const [systemTheme, setSystemTheme] = useState(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light",
+  );
+  const [reducedTransparency, setReducedTransparency] = useState(
+    () => localStorage.getItem("forest-reduced-transparency") === "true",
+  );
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const changed = () => setSystemTheme(media.matches ? "dark" : "light");
+    media.addEventListener("change", changed);
+    return () => media.removeEventListener("change", changed);
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.transparency = reducedTransparency
+      ? "reduced"
+      : "standard";
+    localStorage.setItem(
+      "forest-reduced-transparency",
+      String(reducedTransparency),
+    );
+  }, [reducedTransparency]);
   const [toast, setToast] = useState("");
   const [palette, setPalette] = useState(false);
   const [authentication, setAuthentication] = useState(false);
@@ -104,12 +174,21 @@ export default function App() {
     window.addEventListener("forest-auth-required", request);
     return () => window.removeEventListener("forest-auth-required", request);
   }, []);
-  const [paletteQuery, setPaletteQuery] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("forest-sidebar-collapsed") === "true",
+  );
+  const toggleTheme = useCallback(
+    () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
+    [resolvedTheme],
+  );
   const navigate = useNavigate();
-  const location = useLocation();
   const match = location.pathname.match(/\/projects\/([^/]+)/);
   const projectId = match?.[1];
-  const t = useCallback((zh: string, en: string) => lang === "zh" ? zh : en, [lang]);
+  const t = useCallback(
+    (zh: string, en: string) => (lang === "zh" ? zh : en),
+    [lang],
+  );
   useEffect(() => {
     const savedLanguage = preferences.data.language;
     if (savedLanguage === "zh" || savedLanguage === "en")
@@ -121,11 +200,11 @@ export default function App() {
     return () => window.removeEventListener("forest-settings-changed", refresh);
   }, [preferences.reload]);
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.lang = lang;
     localStorage.setItem("forest-theme", theme);
     localStorage.setItem("forest-language", lang);
-  }, [theme, lang]);
+  }, [theme, resolvedTheme, lang]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 7000);
@@ -133,17 +212,15 @@ export default function App() {
   }, [toast]);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
+      if (publicShare) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setPalette((open) => {
-          if (open) setPaletteQuery("");
-          return !open;
-        });
+        setPalette((open) => !open);
       }
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
-  }, []);
+  }, [publicShare]);
   const action = async <T,>(f: () => Promise<T>, message?: string) => {
     try {
       const value = await f();
@@ -154,10 +231,66 @@ export default function App() {
       return undefined;
     }
   };
+  if (publicShare)
+    return (
+      <UIContext.Provider
+        value={{ lang, theme: resolvedTheme, t, notify: setToast, action }}
+      >
+        <main className="public-share-main">
+          <Routes>
+            <Route path="/share/:token" element={<SharedProject />} />
+          </Routes>
+        </main>
+      </UIContext.Provider>
+    );
   return (
-    <UIContext.Provider value={{ lang, theme, t, notify: setToast, action }}>
-      <div className="app">
-        <aside className="sidebar">
+    <UIContext.Provider
+      value={{ lang, theme: resolvedTheme, t, notify: setToast, action }}
+    >
+      <div
+        className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${sidebarOpen ? "sidebar-open" : ""}`}
+      >
+        <div className="mobile-chrome">
+          <IconButton
+            label={t("打开导航", "Open navigation")}
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <PanelLeft size={20} />
+          </IconButton>
+          <NavLink to="/projects">FOREST</NavLink>
+          <IconButton
+            label={t("搜索与命令", "Search & commands")}
+            onClick={() => setPalette(true)}
+          >
+            <Search size={18} />
+          </IconButton>
+        </div>
+        {sidebarOpen && (
+          <button
+            className="navigation-scrim"
+            aria-label={t("关闭导航", "Close navigation")}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        <aside className="sidebar" aria-label={t("主导航", "Main navigation")}>
+          <IconButton
+            label={
+              sidebarCollapsed
+                ? t("展开侧栏", "Expand sidebar")
+                : t("收起侧栏", "Collapse sidebar")
+            }
+            className="sidebar-collapse"
+            onClick={() => {
+              setSidebarCollapsed(!sidebarCollapsed);
+              localStorage.setItem(
+                "forest-sidebar-collapsed",
+                String(!sidebarCollapsed),
+              );
+            }}
+          >
+            <PanelLeft size={17} />
+          </IconButton>
           <NavLink to="/projects" className="brand">
             <span className="brand-icon">
               <TreePine size={23} />
@@ -169,38 +302,38 @@ export default function App() {
           <button
             className="quick-search"
             aria-label={t("搜索或跳转", "Search workspace")}
-            onClick={() => {
-              setPaletteQuery("");
-              setPalette(true);
-            }}
+            onClick={() => setPalette(true)}
           >
             <Search size={15} />
             <span>{t("搜索或跳转", "Search workspace")}</span>
             <kbd>⌘ K</kbd>
           </button>
-          <NavLink className="project-switch" to="/projects">
-            <span className="workspace-avatar">F</span>
-            <span>
-              {t("我的研究空间", "My workspace")}
-              <small>Personal workspace</small>
-            </span>
-            <ChevronDown size={14} />
-          </NavLink>
+          <ProjectSwitcher
+            projectId={projectId}
+            onNavigate={() => setSidebarOpen(false)}
+          />
           <div className="nav-caption">{t("工作空间", "WORKSPACE")}</div>
           <nav>
             {projectId ? (
-              navigation.map(([path, zh, en, Icon]) => (
+              navigationGroups.map(({ path, zh, en, icon: Icon, children }) => (
                 <NavLink
                   key={path}
                   aria-label={t(zh, en)}
+                  className={() =>
+                    children.some((child) =>
+                      location.pathname.endsWith(`/${child}`),
+                    )
+                      ? "active"
+                      : ""
+                  }
                   to={demoLink(
                     `/projects/${projectId}/${path}`,
                     location.search,
                   )}
+                  onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon size={17} />
+                  <Icon size={19} />
                   <span>{t(zh, en)}</span>
-                  {path === "workspace" && <span className="nav-key">F</span>}
                 </NavLink>
               ))
             ) : (
@@ -211,9 +344,14 @@ export default function App() {
             )}
           </nav>
           <div className="sidebar-bottom">
-            <NavLink className="settings-link" to="/settings">
+            <NavLink
+              className="settings-link"
+              to="/settings"
+              aria-label={t("设置与连接", "Settings & connections")}
+              onClick={() => setSidebarOpen(false)}
+            >
               <Settings size={17} />
-              {t("设置与连接", "Settings & connections")}
+              <span>{t("设置与连接", "Settings & connections")}</span>
             </NavLink>
             <div className="sidebar-footer">
               <span className="owner-avatar">R</span>
@@ -223,9 +361,13 @@ export default function App() {
               </div>
               <IconButton
                 label={t("切换主题", "Toggle theme")}
-                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                onClick={toggleTheme}
               >
-                {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+                {resolvedTheme === "light" ? (
+                  <Moon size={16} />
+                ) : (
+                  <Sun size={16} />
+                )}
               </IconButton>
             </div>
           </div>
@@ -233,25 +375,78 @@ export default function App() {
         <main
           className={`main ${new URLSearchParams(location.search).get("demo") === "1" ? "demo-mode" : ""}`}
         >
-          <Routes>
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/share/:token" element={<SharedProject />} />
-            <Route path="/projects/:id" element={<ProjectShell />}>
-              <Route index element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<Overview />} />
-              <Route path="workspace" element={<Workspace />} />
-              <Route path="library" element={<LibraryPage />} />
-              <Route path="ideas" element={<ResearchPage resource="ideas" />} />
-              <Route path="theory" element={<TheoryPage />} />
-              <Route path="experiments" element={<ExperimentsPage />} />
-              <Route path="data" element={<DataPage />} />
-              <Route path="figures" element={<FiguresPage />} />
-              <Route path="paper" element={<PaperPage />} />
-              <Route path="files" element={<FilesPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/projects" replace />} />
-          </Routes>
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/projects" element={<Projects />} />
+              <Route
+                path="/settings"
+                element={
+                  <>
+                    <SettingsPage />
+                    <AppearanceSettings
+                      theme={theme}
+                      setTheme={setTheme}
+                      reducedTransparency={reducedTransparency}
+                      setReducedTransparency={setReducedTransparency}
+                    />
+                  </>
+                }
+              />
+              <Route path="/share/:token" element={<SharedProject />} />
+              <Route
+                path="/projects/:id"
+                element={<ProjectShell key={projectId} />}
+              >
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview" element={<Overview key={projectId} />} />
+                <Route
+                  path="workspace"
+                  element={<WorkspacePage key={projectId} />}
+                />
+                <Route path="library" element={<LibraryPage />} />
+                <Route
+                  path="ideas"
+                  element={<ResearchPage resource="ideas" />}
+                />
+                <Route path="theory" element={<TheoryPage />} />
+                <Route path="experiments" element={<ExperimentsPage />} />
+                <Route
+                  path="runs"
+                  element={
+                    <>
+                      <RunsPage />
+                      <VerificationSetup
+                        key={projectId}
+                        projectId={projectId!}
+                      />
+                    </>
+                  }
+                />
+                <Route
+                  path="data"
+                  element={
+                    <>
+                      <DataPage />
+                      <StatisticsTools key={projectId} projectId={projectId!} />
+                    </>
+                  }
+                />
+                <Route path="figures" element={<FiguresPage />} />
+                <Route path="paper" element={<PaperPage />} />
+                <Route
+                  path="files"
+                  element={
+                    <>
+                      <FilesPage />
+                      <RepositoryInput key={projectId} projectId={projectId!} />
+                    </>
+                  }
+                />
+              </Route>
+              <Route path="/" element={<Navigate to="/projects" replace />} />
+              <Route path="*" element={<MissingPage />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
       {toast && (
@@ -264,54 +459,38 @@ export default function App() {
         </div>
       )}
       {palette && (
-        <Modal
-          title={t("前往…", "Go to…")}
+        <CommandPalette
+          projectId={projectId}
+          toggleTheme={toggleTheme}
           onClose={() => {
             setPalette(false);
-            setPaletteQuery("");
+            setSidebarOpen(false);
           }}
-        >
-          <input
-            autoFocus
-            placeholder={t("搜索页面或命令", "Search pages or commands")}
-            value={paletteQuery}
-            onChange={(e) => setPaletteQuery(e.target.value)}
-          />
-          <div className="command-list">
-            {[
-              ["/projects", t("全部项目", "All projects")],
-              ["/settings", t("设置与连接", "Settings & connections")],
-              ...(projectId
-                ? navigation.map(([p, zh, en]) => [
-                    `/projects/${projectId}/${p}`,
-                    t(zh, en),
-                  ])
-                : []),
-            ]
-              .filter(([, name]) =>
-                name.toLowerCase().includes(paletteQuery.toLowerCase()),
-              )
-              .map(([path, name]) => (
-                <button
-                  key={path}
-                  onClick={() => {
-                    navigate(demoLink(path, location.search));
-                    setPalette(false);
-                    setPaletteQuery("");
-                  }}
-                >
-                  <Command size={16} />
-                  {name}
-                  <ArrowRight size={14} />
-                </button>
-              ))}
-          </div>
-        </Modal>
+        />
       )}
       {authentication && (
         <OwnerLogin onClose={() => setAuthentication(false)} />
       )}
     </UIContext.Provider>
+  );
+}
+function MissingPage() {
+  const { t } = useUI();
+  return (
+    <div className="page">
+      <Empty
+        title={t("页面不存在", "Page not found")}
+        description={t(
+          "检查地址，或返回项目列表。",
+          "Check the address, or return to your projects.",
+        )}
+        action={
+          <NavLink className="button" to="/projects">
+            {t("全部项目", "All projects")}
+          </NavLink>
+        }
+      />
+    </div>
   );
 }
 export function useProject() {
@@ -341,7 +520,38 @@ function ProjectShell() {
     ].includes(r.status),
   );
   const location = useLocation();
-  const branch = active[0]?.branch_id;
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const bulkControl = async (operation: "pause" | "cancel") => {
+    if (bulkBusy) return;
+    const targets =
+      operation === "pause"
+        ? active.filter((run) =>
+            [
+              "running",
+              "queued",
+              "waiting",
+              "waiting_input",
+              "budget_exhausted",
+            ].includes(run.status),
+          )
+        : active;
+    setBulkBusy(true);
+    setBulkErrors([]);
+    const results = await Promise.allSettled(
+      targets.map((run) => api(`/runs/${run.id}/${operation}`, "POST", {})),
+    );
+    const errors = results.flatMap((result, index) =>
+      result.status === "rejected"
+        ? [
+            `${targets[index].id}: ${String(result.reason?.message || result.reason)}`,
+          ]
+        : [],
+    );
+    setBulkErrors(errors);
+    await reloadRuns();
+    setBulkBusy(false);
+  };
   useEffect(() => {
     if (!id) return;
     return subscribeProject(id, () => {
@@ -377,8 +587,11 @@ function ProjectShell() {
               : system.model_connected
                 ? t("模型已连接", "Model connected")
                 : system.model_check_pending
-                  ? t("Codex CLI 已登录，模型未验证", "Codex CLI signed in; model unchecked")
-                : t("模型未连接", "Model offline")}
+                  ? t(
+                      "Codex CLI 已登录，模型未验证",
+                      "Codex CLI signed in; model unchecked",
+                    )
+                  : t("模型未连接", "Model offline")}
           </span>
           <span className="budget-label">
             {project?.budget?.seconds
@@ -391,40 +604,22 @@ function ProjectShell() {
                 {active.length} {t("个任务", "tasks")}
               </Badge>
               <IconButton
-                label={`${t("暂停项目中的全部活动运行", "Pause all active project runs")} ${branch || ""}`}
-                onClick={() =>
-                  action(async () => {
-                    await Promise.all(
-                      active
-                        .filter((r) =>
-                          [
-                            "running",
-                            "queued",
-                            "waiting",
-                            "waiting_input",
-                            "budget_exhausted",
-                          ].includes(r.status),
-                        )
-                        .map((r) => api(`/runs/${r.id}/pause`, "POST", {})),
-                    );
-                    await reloadRuns();
-                  })
-                }
+                label={t(
+                  "暂停项目中的全部活动运行",
+                  "Pause all active project runs",
+                )}
+                disabled={bulkBusy}
+                onClick={() => void bulkControl("pause")}
               >
                 <Pause size={15} />
               </IconButton>
               <IconButton
-                label={`${t("停止项目中的全部活动运行", "Stop all active project runs")} ${branch || ""}`}
-                onClick={() =>
-                  action(async () => {
-                    await Promise.all(
-                      active.map((r) =>
-                        api(`/runs/${r.id}/cancel`, "POST", {}),
-                      ),
-                    );
-                    await reloadRuns();
-                  })
-                }
+                label={t(
+                  "停止项目中的全部活动运行",
+                  "Stop all active project runs",
+                )}
+                disabled={bulkBusy}
+                onClick={() => void bulkControl("cancel")}
               >
                 <Square size={14} />
               </IconButton>
@@ -439,6 +634,17 @@ function ProjectShell() {
           </NavLink>
         </div>
       </header>
+      {bulkErrors.length > 0 && (
+        <div className="bulk-action-errors" role="alert">
+          <strong>{t("部分运行控制失败", "Some run controls failed")}</strong>
+          {bulkErrors.map((error) => (
+            <p key={error}>{error}</p>
+          ))}
+          <Button onClick={() => setBulkErrors([])}>
+            {t("关闭", "Dismiss")}
+          </Button>
+        </div>
+      )}
       {new URLSearchParams(location.search).get("demo") === "1" && (
         <DemoGuide
           projectId={id!}
@@ -446,7 +652,29 @@ function ProjectShell() {
           available={!runsLoading && !runsError}
         />
       )}
-      <Outlet />
+      {groupForPath(location.pathname)?.children.length! > 1 && (
+        <nav
+          className="section-navigation"
+          aria-label={t("工作区视图", "Workspace views")}
+        >
+          {navigation
+            .filter(([path]) =>
+              groupForPath(location.pathname)?.children.includes(path),
+            )
+            .map(([path, zh, en, Icon]) => (
+              <NavLink
+                key={path}
+                to={demoLink(`/projects/${id}/${path}`, location.search)}
+              >
+                <Icon size={16} />
+                {t(zh, en)}
+              </NavLink>
+            ))}
+        </nav>
+      )}
+      <Suspense fallback={<Loading />}>
+        <Outlet />
+      </Suspense>
     </>
   );
 }
@@ -476,20 +704,19 @@ function ProjectForm({
   const submit = async (base = baseProject, rebase = false) => {
     const previousBase = baseProject || initial;
     const values = {
-      name: rebase && name === previousBase?.name ? base?.name ?? name : name,
-      goal: rebase && goal === previousBase?.goal ? base?.goal ?? goal : goal,
+      name: rebase && name === previousBase?.name ? (base?.name ?? name) : name,
+      goal: rebase && goal === previousBase?.goal ? (base?.goal ?? goal) : goal,
       description:
         rebase && description === previousBase?.description
-          ? base?.description ?? description
+          ? (base?.description ?? description)
           : description,
       providerId:
-        rebase &&
-        providerId === (previousBase?.config?.provider_id || "")
-          ? base?.config?.provider_id ?? ""
+        rebase && providerId === (previousBase?.config?.provider_id || "")
+          ? (base?.config?.provider_id ?? "")
           : providerId,
       allowPaid:
         rebase && allowPaid === (previousBase?.budget?.allow_paid || false)
-          ? base?.budget?.allow_paid ?? false
+          ? (base?.budget?.allow_paid ?? false)
           : allowPaid,
     };
     setBusy(true);
@@ -563,7 +790,7 @@ function ProjectForm({
                 <p>{conflictProject.goal}</p>
                 <p>{conflictProject.description}</p>
                 <p>
-                  {t("允许付费调用", "Paid API calls")}: {" "}
+                  {t("允许付费调用", "Paid API calls")}:{" "}
                   {conflictProject.budget?.allow_paid
                     ? t("是", "Allowed")
                     : t("否", "Not allowed")}
@@ -632,11 +859,13 @@ function ProjectForm({
             onChange={(e) => setProviderId(e.target.value)}
           >
             <option value="">Workspace default</option>
-            {providers.filter((p) => p.status !== "retired").map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} · {p.model}
-              </option>
-            ))}
+            {providers
+              .filter((p) => p.status !== "retired")
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {p.model}
+                </option>
+              ))}
           </select>
         </Field>
         <label className="checkbox-label">
@@ -914,14 +1143,12 @@ function Overview() {
     return () => window.removeEventListener("forest-refresh", refresh);
   }, [reload, reloadRecent]);
   const [edit, setEdit] = useState(false);
-  const [budget, setBudget] = useState("");
-  const [mode, setMode] = useState("assisted");
-  useEffect(() => {
-    if (p) {
-      setBudget(JSON.stringify(p.budget, null, 2));
-      setMode(p.mode || "assisted");
-    }
-  }, [p]);
+  const [saving, setSaving] = useState(false);
+  const { draft, setDraft, dirty } = useControlsDraft(id!, p, saving);
+  const [saveError, setSaveError] = useState("");
+  const [discardControls, setDiscardControls] = useState(false);
+  const budget = draft?.budget || "";
+  const mode = draft?.mode || "assisted";
   if (!p) return <ErrorBox error={error} retry={reload} />;
   return (
     <div className="page">
@@ -951,13 +1178,6 @@ function Overview() {
           </>
         }
       />
-      <ProgressPanel key={id} projectId={id!} />
-      <InterventionPanel key={`interventions:${id}`} projectId={id!} />
-      <ResearchControls
-        projectId={id!}
-        runMode={p.mode || "assisted"}
-        onChange={reload}
-      />
       <div className="overview-grid">
         <section className="surface goal-surface">
           <div className="eyebrow">
@@ -971,10 +1191,30 @@ function Overview() {
             <span>Revision {p.revision}</span>
           </div>
         </section>
-        <section className="surface">
+        <ProjectRequirements
+          key={id}
+          projectId={id!}
+          projectRevision={p.revision}
+          onChanged={reload}
+        />
+        <ProgressPanel key={id} projectId={id!} />
+        <InterventionPanel key={`interventions:${id}`} projectId={id!} />
+        <ResearchControls
+          projectId={id!}
+          runMode={p.mode || "assisted"}
+          onChange={reload}
+        />
+        <section className="surface project-run-settings">
           <h3>{t("自主运行设置", "Research controls")}</h3>
           <Field label={t("运行模式", "Run mode")}>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <select
+              value={mode}
+              onChange={(e) =>
+                setDraft((value) =>
+                  value ? { ...value, mode: e.target.value } : value,
+                )
+              }
+            >
               <option value="auto">Auto</option>
               <option value="assisted">Assisted</option>
               <option value="manual">Manual</option>
@@ -985,7 +1225,11 @@ function Overview() {
               className="code-input"
               rows={5}
               value={budget}
-              onChange={(e) => setBudget(e.target.value)}
+              onChange={(e) =>
+                setDraft((value) =>
+                  value ? { ...value, budget: e.target.value } : value,
+                )
+              }
             />
           </Field>
           <p className="muted">
@@ -994,22 +1238,62 @@ function Overview() {
               "The seconds allowance is shared across queued and running tasks. The local worker checks deadlines every 0.4s and allows 0.1s for graceful shutdown; actual elapsed time is charged, and host scheduling or remote cancellation can add delay.",
             )}
           </p>
-          <Button
-            onClick={() =>
-              action(
-                async () => {
-                  await api(`/projects/${id}`, "PATCH", {
-                    mode,
-                    budget: JSON.parse(budget),
-                  });
+          <ErrorBox error={saveError} />
+          <p className="budget-draft-status" role="status">
+            {dirty
+              ? t("未保存的运行设置", "Unsaved run settings")
+              : t("运行设置已保存", "Run settings saved")}
+            {draft &&
+              p.revision !== draft.revision &&
+              dirty &&
+              ` · ${t("项目已更新；保存时会检查冲突", "Project updated; save checks for conflicts")}`}
+          </p>
+          <div className="section-toolbar">
+            <Button
+              busy={saving}
+              disabled={!draft || !dirty}
+              onClick={async () => {
+                if (!draft) return;
+                setSaving(true);
+                setSaveError("");
+                const saved = await action(
+                  async () => {
+                    try {
+                      const result = await api<Project>(
+                        `/projects/${id}`,
+                        "PATCH",
+                        {
+                          mode: draft.mode,
+                          budget: JSON.parse(draft.budget),
+                          expected_revision: draft.revision,
+                        },
+                      );
+                      return result;
+                    } catch (error) {
+                      setSaveError((error as Error).message);
+                      await reload();
+                      throw error;
+                    }
+                  },
+                  t("运行设置已保存", "Run settings saved"),
+                );
+                if (saved) {
+                  setDraft((current) =>
+                    acknowledgeControlsSave(current, draft, saved),
+                  );
                   await reload();
-                },
-                t("运行设置已保存", "Run settings saved"),
-              )
-            }
-          >
-            {t("保存运行设置", "Save controls")}
-          </Button>
+                }
+                setSaving(false);
+              }}
+            >
+              {t("保存运行设置", "Save controls")}
+            </Button>
+            {dirty && (
+              <Button onClick={() => setDiscardControls(true)}>
+                {t("载入当前值", "Load current values")}
+              </Button>
+            )}
+          </div>
         </section>
       </div>
       <section className="surface">
@@ -1044,6 +1328,29 @@ function Overview() {
           <Empty title={t("尚无运行记录", "No executions yet")} />
         )}
       </section>
+      {discardControls && (
+        <Modal
+          title={t("放弃运行设置草稿？", "Discard run settings draft?")}
+          onClose={() => setDiscardControls(false)}
+        >
+          <p>
+            {t(
+              "这将用当前已保存的运行模式与预算替换草稿。",
+              "Replace this draft with the current saved mode and budget.",
+            )}
+          </p>
+          <Button
+            className="primary"
+            onClick={() => {
+              setDraft(controlsFromProject(p));
+              setSaveError("");
+              setDiscardControls(false);
+            }}
+          >
+            {t("载入当前值", "Load current values")}
+          </Button>
+        </Modal>
+      )}
       {edit && (
         <ProjectForm
           initial={p}
@@ -1076,7 +1383,8 @@ function ResearchControls({
   const [metric, setMetric] = useState("");
   const [direction, setDirection] = useState("min");
   const runnableBranches = (graph.branches || []).filter(
-    (item: Json) => !["pruned", "archived", "disabled"].includes(item.status || "active"),
+    (item: Json) =>
+      !["pruned", "archived", "disabled"].includes(item.status || "active"),
   );
   useEffect(() => {
     if (branch && !runnableBranches.some((item: Json) => item.id === branch)) {

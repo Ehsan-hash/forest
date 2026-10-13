@@ -1,0 +1,10 @@
+{
+  "sha": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "origin": "http://127.0.0.1:18340",
+  "projectId": "9f64a533-f194-439a-891d-332dc2e78775",
+  "nodeId": "d1dc2cad-8cf2-5bdd-b54e-5253d9cdb8bb",
+  "escapeSelection": 1,
+  "budgetAfterRefresh": "{\n  \"allow_paid\": false,\n  \"seconds\": 120\n}",
+  "runLinkURL": "http://127.0.0.1:18340/projects",
+  "pageErrors": []
+}

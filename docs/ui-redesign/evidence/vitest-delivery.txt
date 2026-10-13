@@ -1,0 +1,34 @@
+
+> forest-web@0.1.0 test
+> vitest run --reporter=default --reporter=json --outputFile=/tmp/forest-redesign-units-final-complete.json
+
+
+ RUN  v4.1.11 /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web
+
+ ✓ src/files/fileTree.test.ts (2 tests) 34ms
+ ✓ src/Modal.test.tsx (2 tests) 9ms
+ ✓ src/paperDraft.test.ts (5 tests) 16ms
+ ✓ src/PaperLayout.test.tsx (5 tests) 16ms
+ ✓ src/PaperWritingReview.test.ts (4 tests) 18ms
+ ✓ src/DemoGuide.test.tsx (3 tests) 21ms
+ ✓ src/RunEvidence.test.tsx (6 tests) 22ms
+ ✓ src/api.test.tsx (22 tests) 65ms
+ ✓ src/VerificationGraph.test.ts (2 tests) 6ms
+ ✓ src/settingsDraft.test.ts (4 tests) 5ms
+ ✓ src/Tabs.test.tsx (2 tests) 11ms
+ ✓ src/nodeEditorDraft.test.ts (3 tests) 3ms
+ ✓ src/interventions/instructionDraft.test.ts (5 tests) 5ms
+ ✓ src/projectControlsDraft.test.ts (6 tests) 5ms
+ ✓ src/runs/checkpointDraft.test.ts (3 tests) 4ms
+ ✓ src/researchAnalysisDraft.test.ts (5 tests) 25ms
+ ✓ src/fileSelection.test.ts (2 tests) 3ms
+ ✓ src/runs/runControls.test.ts (2 tests) 2ms
+ ✓ src/RunPanel.test.tsx (16 tests) 80ms
+ ✓ src/progress/ProgressPanel.test.ts (3 tests) 2ms
+
+ Test Files  20 passed (20)
+      Tests  102 passed (102)
+   Start at  08:22:27
+   Duration  977ms (transform 1.60s, setup 0ms, import 3.59s, tests 354ms, environment 2ms)
+
+JSON report written to /tmp/forest-redesign-units-final-complete.json

@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "./api";
+import { createPortal } from "react-dom";
 export type UIContextType = {
   lang: string;
   theme: string;
@@ -132,10 +133,16 @@ export function Button({
 export function IconButton({
   label,
   children,
+  className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   return (
-    <button className="icon-button" title={label} aria-label={label} {...props}>
+    <button
+      className={`icon-button ${className}`}
+      title={label}
+      aria-label={label}
+      {...props}
+    >
       {children}
     </button>
   );
@@ -185,7 +192,7 @@ export function ErrorBox({
 }) {
   if (!error) return null;
   return (
-    <div className="error-box">
+    <div className="error-box" role="alert">
       <AlertCircle size={17} />
       <span>{error}</span>
       {retry && <Button onClick={retry}>Retry</Button>}
@@ -308,7 +315,11 @@ export function Modal({
         dialog.focus();
         return;
       }
-      const target = focusTrapTarget(focusable, document.activeElement, e.shiftKey);
+      const target = focusTrapTarget(
+        focusable,
+        document.activeElement,
+        e.shiftKey,
+      );
       if (target) {
         e.preventDefault();
         target.focus();
@@ -320,7 +331,7 @@ export function Modal({
       if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, []);
-  return (
+  const content = (
     <div
       className="modal-shade"
       onMouseDown={(e) => {
@@ -345,6 +356,9 @@ export function Modal({
       </section>
     </div>
   );
+  return typeof document === "undefined"
+    ? content
+    : createPortal(content, document.body);
 }
 export function JsonView({ value }: { value: any }) {
   return <pre className="json-view">{JSON.stringify(value, null, 2)}</pre>;

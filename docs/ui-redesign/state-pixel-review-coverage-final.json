@@ -1,0 +1,184 @@
+{
+  "created_at": "2026-10-13T15:42:15.861058+00:00",
+  "build": "index-BIrSAtO6.js",
+  "method": "All remaining 24 local final-state PNGs opened via view_image in four ordered six-image batches; the settled dark390 Focus replacement was opened again individually.",
+  "opened_files": [
+    "command-failed-dark-1440.png",
+    "command-failed-light-1440.png",
+    "command-failed-light-390.png",
+    "command-running-dark-1440.png",
+    "command-running-light-1440.png",
+    "command-running-light-390.png",
+    "debug-checkpoint-resumed-completed-dark-390.png",
+    "debug-checkpoint-resumed-completed-light-1440.png",
+    "debug-checkpoint-resumed-completed-light-390.png",
+    "debug-checkpoint-waiting-input-dark-1440.png",
+    "debug-checkpoint-waiting-input-dark-390.png",
+    "debug-checkpoint-waiting-input-light-1440.png",
+    "many-node-layout-fixture-dark-1440.png",
+    "many-node-layout-fixture-dark-390.png",
+    "many-node-layout-fixture-light-390.png",
+    "numerical-completed-dark-1440.png",
+    "numerical-completed-dark-390.png",
+    "numerical-completed-light-1440.png",
+    "numerical-data-dark-1440.png",
+    "numerical-data-dark-390.png",
+    "numerical-data-light-390.png",
+    "selected-node-focus-dark-390.png",
+    "selected-node-focus-light-1440.png",
+    "selected-node-focus-light-390.png"
+  ],
+  "combined_parent_review": "state-pixel-review-final.json",
+  "union_final_images": 32,
+  "rows": [
+    {
+      "filename": "command-failed-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected failure title/status and traceback text readable; narrow output wraps and remaining log continues by vertical scrolling."
+    },
+    {
+      "filename": "command-failed-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected failure title/status and traceback text readable; narrow output wraps and remaining log continues by vertical scrolling."
+    },
+    {
+      "filename": "command-failed-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected failure title/status and traceback text readable; narrow output wraps and remaining log continues by vertical scrolling."
+    },
+    {
+      "filename": "command-running-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Running title/status and actual stdout-tick text visible; narrow horizontal history carousel preserves selected title and textual badge."
+    },
+    {
+      "filename": "command-running-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Running title/status and actual stdout-tick text visible; narrow horizontal history carousel preserves selected title and textual badge."
+    },
+    {
+      "filename": "command-running-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Running title/status and actual stdout-tick text visible; narrow horizontal history carousel preserves selected title and textual badge."
+    },
+    {
+      "filename": "debug-checkpoint-resumed-completed-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Completed title/status, full run identity/revision and recorded checkpoint metrics readable; longer JSON continues vertically."
+    },
+    {
+      "filename": "debug-checkpoint-resumed-completed-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Completed title/status, full run identity/revision and recorded checkpoint metrics readable; longer JSON continues vertically."
+    },
+    {
+      "filename": "debug-checkpoint-resumed-completed-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Completed title/status, full run identity/revision and recorded checkpoint metrics readable; longer JSON continues vertically."
+    },
+    {
+      "filename": "debug-checkpoint-waiting-input-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Waiting-input modal content and original payload/override JSON readable. Narrow scrolled modal exposes Save checkpoint without resuming; desktop lower controls use modal scrolling."
+    },
+    {
+      "filename": "debug-checkpoint-waiting-input-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Waiting-input modal content and original payload/override JSON readable. Narrow scrolled modal exposes Save checkpoint without resuming; desktop lower controls use modal scrolling."
+    },
+    {
+      "filename": "debug-checkpoint-waiting-input-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Waiting-input modal content and original payload/override JSON readable. Narrow scrolled modal exposes Save checkpoint without resuming; desktop lower controls use modal scrolling."
+    },
+    {
+      "filename": "many-node-layout-fixture-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Saved layout fixture cards and textual states visible; canvas pan/zoom clipping is intentional, and Auto layout/Path actions remain visible."
+    },
+    {
+      "filename": "many-node-layout-fixture-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Saved layout fixture cards and textual states visible; canvas pan/zoom clipping is intentional, and Auto layout/Path actions remain visible."
+    },
+    {
+      "filename": "many-node-layout-fixture-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Saved layout fixture cards and textual states visible; canvas pan/zoom clipping is intentional, and Auto layout/Path actions remain visible."
+    },
+    {
+      "filename": "numerical-completed-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected completed title/status, full run identity/revision and raw numerical metric JSON readable in both desktop and narrow layout."
+    },
+    {
+      "filename": "numerical-completed-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected completed title/status, full run identity/revision and raw numerical metric JSON readable in both desktop and narrow layout."
+    },
+    {
+      "filename": "numerical-completed-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Selected completed title/status, full run identity/revision and raw numerical metric JSON readable in both desktop and narrow layout."
+    },
+    {
+      "filename": "numerical-data-dark-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Raw table column names/values and source/download/sort controls readable; narrow stacked controls and vertical page scrolling fit the viewport."
+    },
+    {
+      "filename": "numerical-data-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Raw table column names/values and source/download/sort controls readable; narrow stacked controls and vertical page scrolling fit the viewport."
+    },
+    {
+      "filename": "numerical-data-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Raw table column names/values and source/download/sort controls readable; narrow stacked controls and vertical page scrolling fit the viewport."
+    },
+    {
+      "filename": "selected-node-focus-dark-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE after settled final recapture",
+      "observation": "Exact replacement PNG opened individually: Layout fixture 050 heading is clearly readable. Actual settled computed color is rgb(237,242,238), with index-BIrSAtO6.js, no overflow and no page errors.",
+      "prior_result": "CAPTURE ANOMALY / settled verification pending",
+      "prior_observation": "Focus status, tabs, instructions and metadata readable; selected heading appears nearly black. Earlier settled computed-style checks passed, so verify final settled heading/recapture before closing this pixel.",
+      "settled_receipt": "evidence/focus-title-settled.json"
+    },
+    {
+      "filename": "selected-node-focus-light-1440.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Focus heading/status/tabs/instructions and metadata readable; narrow longer editor continues vertically."
+    },
+    {
+      "filename": "selected-node-focus-light-390.png",
+      "method": "Actual local PNG opened with view_image",
+      "result": "READABLE in captured scope",
+      "observation": "Focus heading/status/tabs/instructions and metadata readable; narrow longer editor continues vertically."
+    }
+  ],
+  "limitations": "Pixel inspection is distinct from measured contrast and interactive reachability. The dark390 heading capture anomaly is closed by the settled final recapture and actual computed-style receipt. Longer logs, modal contents, editors and canvas have intentional scrolling/pan/zoom. Native editor/terminal shortcuts and complete overlay keyboard traversal remain separate acceptance conditions.",
+  "diagnostic_copy": "evidence/selected-node-focus-dark-390-before-settle.png"
+}

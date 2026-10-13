@@ -1,0 +1,18 @@
+
+Running 10 tests using 1 worker
+
+(node:55151) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+  ✓   1 tests/paper-session.spec.ts:17:1 › manuscript draft keeps source, references, layout, instruction and revision through panel/full-page/reload (2.9s)
+  ✓   2 tests/paper-session.spec.ts:158:1 › an accepted save from the hidden panel keeps newer typing in the full editor (1.3s)
+  ✓   3 tests/research-analysis.spec.ts:149:1 › actual analysis preview follows full node/path URLs and retains independent drafts without model calls (896ms)
+  ✓   4 tests/research-analysis.spec.ts:228:1 › uncertain analysis transport replays original UUID/fingerprint and preserves edits made before acknowledgment (1.1s)
+  ✓   5 tests/research-analysis.spec.ts:343:1 › rapid node selection waits for matching actual focus before initializing the new draft (375ms)
+  ✓   6 tests/research-analysis.spec.ts:385:1 › completed report refreshes staleness, exports full IDs, explicitly imports citations and hides changed artifacts (737ms)
+  ✓   7 tests/research-analysis.spec.ts:486:1 › compact shared pane traps focus and preserves analysis drafts across Paper and node editing (651ms)
+  ✓   8 tests/research-analysis.spec.ts:538:1 › actual same-revision source changes reject the retained analysis fingerprint until explicit context review (692ms)
+  ✓   9 tests/workspace-navigation.spec.ts:65:1 › workspace branch and node URL state survives reload and history without editing the graph (956ms)
+  ✓  10 tests/workspace-navigation.spec.ts:141:1 › temporary inspector keeps complete dirty drafts through dismissal, focus, reload and resize (658ms)
+
+  10 passed (11.4s)

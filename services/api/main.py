@@ -491,14 +491,16 @@ def system():
     verified_model=any(p['available'] and provider.kind!='codex_cli' for p,provider in zip(provider_status,providers))
     codex_cli_signed_in=any(p['available'] and provider.kind=='codex_cli' for p,provider in zip(provider_status,providers))
     return {'cpu_percent':psutil.cpu_percent(),'memory':{'total':vm.total,'used':vm.used,'percent':vm.percent},'disk':{'total':disk.total,'used':disk.used,'free':disk.free},'gpu':gpu,'workers':workers,'latex':shutil.which('tectonic') or shutil.which('pdflatex'),'model_connected':verified_model,'model_check_pending':codex_cli_signed_in and not verified_model,'provider_status':provider_status,'platform':os.uname().sysname,'isolation':'trusted_local_process'}
+DEFAULT_SETTINGS = {'language':'en','theme':'light','retention_days':30,'default_mode':'assisted'}
+
 @app.get('/api/settings')
 def read_settings():
-    with Session() as s: p=s.get(Preference,'settings'); return p.value if p else {'language':'en','theme':'light','retention_days':30,'default_mode':'assisted'}
+    with Session() as s: p=s.get(Preference,'settings'); return p.value if p else dict(DEFAULT_SETTINGS)
 @app.patch('/api/settings')
 def update_settings(body:dict=Body(...)):
     with Session.begin() as s:
         p=s.get(Preference,'settings')
-        if not p: p=Preference(key='settings',value={}); s.add(p)
+        if not p: p=Preference(key='settings',value=dict(DEFAULT_SETTINGS)); s.add(p)
         p.value={**p.value,**body}; return p.value
 @app.post('/api/settings/cleanup')
 def cleanup(body:dict=Body(...)):
@@ -741,6 +743,8 @@ app.include_router(files_router)
 from .research_runtime import router as runtime_router
 # Specific research endpoints must precede resources' /research/{action}.
 app.include_router(runtime_router)
+from .research_analysis import router as analysis_router
+app.include_router(analysis_router)
 from .resources import router as research_router
 app.include_router(research_router)
 from .repositories import router as repositories_router

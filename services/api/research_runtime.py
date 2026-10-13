@@ -196,8 +196,11 @@ def configure_run(ident:str,body:dict=Body(...)):
         # Execution identities belong to the runner; research parameters remain editable.
         blocked={'provider_snapshot','execution_attempt','resolved_inputs','project_goal','_repository_source',
                  '_verification_binding','_verification_contract','_verification_sources',
-                 'verification_result','verification_status'}
+                 'verification_result','verification_status','analysis_snapshot','analysis_intent',
+                 'analysis_scope','analysis_node_id','analysis_branch_id','analysis_project_revision'}
         if blocked & body.keys(): error('INVALID_CONFIGURATION','Execution identity fields are managed by the runner',422)
+        if run.kind=='research_analysis' and set(body)-{'budget','agent_budget','timeout','priority'}:
+            error('ANALYSIS_INTENT_BOUND','Submit a new analysis to change its question, scope, literature or model selection',409)
         if 'repository' in body:
             from research.execution.repository import normalize_repository, RepositoryError
             if run.kind not in ('agent','command','experiment','repository_clone'):

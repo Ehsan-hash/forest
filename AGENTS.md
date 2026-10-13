@@ -812,3 +812,33 @@ SHORT REASON:
 The persistent timeout state appears correct, but the live container resume path has
 not yet been demonstrated to consume the recalculated timeout, so the core behavior
 cannot yet be accepted confidently.
+
+
+# Frontend redesign guidance
+
+## Skill routing
+
+Read only the skills relevant to the current task, then their references as needed.
+
+| Task | Skill |
+| --- | --- |
+| Navigation, user journeys, action placement | `.agents/skills/forest-product-ux/SKILL.md` |
+| Theme, typography, components, rendered visual review | `.agents/skills/forest-visual-design/SKILL.md` |
+| React boundaries, routes, API state, drafts | `.agents/skills/forest-frontend-architecture/SKILL.md` |
+| Nodes, edges, branches, graph commands, revisions | `.agents/skills/forest-research-graph/SKILL.md` |
+| Run controls, controller, instructions, human decisions | `.agents/skills/forest-run-lifecycle/SKILL.md` |
+| Results, figures, evidence, manuscript, export | `.agents/skills/forest-evidence-integrity/SKILL.md` |
+| Regression tests, isolated backend, browser acceptance | `.agents/skills/forest-browser-testing/SKILL.md` |
+
+## Shared redesign constraints
+
+- Preserve persistent Research Graph, goal contracts, entity identities, revisions, evidence lineage, run history, decisions, checkpoints, artifacts, and instructions. Derive capabilities and states from the current source and contracts.
+- Preserve all existing capabilities with explicit, reachable entries. Use contextual actions and progressive disclosure; do not put all actions into one More menu or turn the product into chat history.
+- A successful request, accepted instruction, completed execution, present artifact, and verified evidence are different facts. Never substitute one for another or invent scientific data, progress, success, or provenance.
+- Protect dirty drafts and unknown configuration fields. Use the existing revision, conflict, idempotency, impact preview, undo, and recovery mechanisms where the operation supports them.
+- Use independent databases, data directories, and ports for tests. Do not cancel the user's tasks or delete existing data, results, or uncommitted work. Do not use `git reset --hard`, `git clean -fd`, or `rm -rf` to clear the user's work.
+- Local reversible implementation and validation may proceed within the requested scope. Obtain specific authorization for data loss, irreversible production actions, additional charges, production deployment or credentials, or a migration whose safety cannot be established. Do not push, create a PR, or merge automatically.
+- Keep product and public copy factual and relevant; no AI promotional slogans or internal collaboration narration.
+- Reports distinguish source inspection, mocked tests, real backend execution, browser observation, and scientific validation. Missing conditions are `NOT RUN`, never `PASS`.
+
+The requested future implementation host setting is `gpt-6.1-sol`, effort `ultra`. Model selection belongs to the host configuration, not skill metadata. Do not change the user's global Codex configuration or silently choose another model.

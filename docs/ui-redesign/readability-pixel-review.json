@@ -1,0 +1,33 @@
+{
+  "build": "37500",
+  "directory": "screenshots/after-readability-final",
+  "inspection": "Actual images opened with view_image; route/theme/width scope only. All 156 matched route images were not pixel-reviewed.",
+  "route_images": [
+    "projects-light-390.png",
+    "projects-dark-390.png",
+    "library-light-390.png",
+    "library-dark-390.png",
+    "ideas-light-390.png",
+    "ideas-dark-390.png",
+    "runs-light-390.png",
+    "runs-dark-390.png",
+    "files-light-390.png",
+    "files-dark-390.png",
+    "settings-light-390.png",
+    "settings-dark-390.png",
+    "projects-light-1440.png",
+    "projects-dark-1440.png",
+    "settings-dark-1440.png"
+  ],
+  "modal_images": [
+    "compare-light-390.png",
+    "compare-dark-390.png",
+    "path-actions-light-390.png",
+    "path-actions-dark-390.png",
+    "compare-dark-768.png",
+    "path-actions-dark-1440.png"
+  ],
+  "route_count": 15,
+  "modal_count": 6,
+  "finding": "Affected visible labels, file paths, URLs and empty-state text are readable. Compare and Path actions fields/actions fit compact dialogs. Full-page Projects 390 capture uses a reduced image scale; Projects 1440 was also inspected for text readability."
+}

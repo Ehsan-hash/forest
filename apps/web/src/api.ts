@@ -136,6 +136,16 @@ export async function api<T = any>(
   return r.json();
 }
 export const uid = () => crypto.randomUUID();
+export function downloadBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 export async function download(path: string, body?: any, name?: string) {
   const r = await fetch(`/api${path}`, {
     method: body === undefined ? "GET" : "POST",
@@ -143,19 +153,15 @@ export async function download(path: string, body?: any, name?: string) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!r.ok) {
+    if (r.status === 401 && typeof window !== "undefined")
+      window.dispatchEvent(new Event("forest-auth-required"));
     const e = await r.json().catch(() => ({ detail: r.statusText }));
-    throw new ApiError(r.status, e.detail);
+    throw new ApiError(r.status, e.detail ?? e);
   }
-  const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download =
+  downloadBlob(await r.blob(),
     name ||
     r.headers.get("content-disposition")?.match(/filename="?([^";]+)/)?.[1] ||
-    "forest-export.zip";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+    "forest-export.zip");
 }
 export function formatDate(value?: string | null) {
   return value

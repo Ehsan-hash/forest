@@ -1621,6 +1621,47 @@ Success `200`: `application/json`: `ResearchState`.
 
 Known domain failures: `404` NOT_FOUND.
 
+#### `GET /api/projects/{ident}/research/analysis`
+
+Return every analysis receipt in newest-first order, retaining full IDs, requested focus/question, saved project revision, actual status/error and report-file availability. Report availability alone does not establish completed execution or report integrity; read the result endpoint.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `ident` | path | string | yes |  |
+
+Success `200`: `application/json`: `ResearchAnalysisHistory`.
+
+Known domain failures: `404` NOT_FOUND.
+
+#### `POST /api/projects/{ident}/research/analysis`
+
+Require a saved request_id and reviewed expected_revision; optional expected_fingerprint also rejects changed results/materials. Save the complete sanitized context snapshot, enqueue research_analysis through the existing provider/time/spending controls, and return Run with provider_snapshot/env omitted. The run has no node/branch execution binding and does not modify the graph/controller. Same request and payload replay the saved receipt before the revision guard; changed intent under the same ID conflicts. Literature retrieval uses selected Crossref/arXiv sources during execution. Only actual retrieved/library citation IDs are accepted. Advice remains a proposed Analysis record and cannot verify science or execute its suggestions.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `ident` | path | string | yes |  |
+
+Body: `application/json`: `AnalysisRequest`; required.
+
+Success `200`: `application/json`: `Run`.
+
+Known domain failures: `404` NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND; `409` REQUEST_ID_CONFLICT, REVISION_CONFLICT, CONTEXT_CHANGED or TIME_BUDGET_EXHAUSTED; `422` PROVIDER_REQUIRED, invalid scope or request validation.
+
+#### `GET /api/projects/{ident}/research/analysis/context`
+
+Return every saved research node/path/dependency, scientific run and linked resource, verification receipt, tool receipt and material locator. scope changes the focus while retaining the full project context. Material text is not loaded in this preview. The snapshot fingerprint includes execution/source changes beyond the graph revision. AI analysis history is separate from scientific source records. Provider availability is configuration readback, not a connection test.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `ident` | path | string | yes |  |
+| `scope` | query | string | no | Default `project`.  Values: project, node, branch. |
+| `node_id` | query | string or null | no |  |
+| `branch_id` | query | string or null | no |  |
+
+Success `200`: `application/json`: `ResearchAnalysisContext`.
+
+Known domain failures: `404` NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND; `422` NODE_REQUIRED, BRANCH_REQUIRED or SCOPE_CONFLICT.
+
 #### `GET /api/projects/{ident}/research/route-health`
 
 Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.
@@ -1723,6 +1764,18 @@ Body: `application/json`: `QueuedTaskRequest`; required.
 Success `200`: `application/json`: `Run`.
 
 Known domain failures: `400` Scheduling/input errors; `404` NOT_FOUND.
+
+#### `GET /api/runs/{ident}/research-analysis`
+
+For a research_analysis run, return actual lifecycle/error, original snapshot identities, current/stale reasons, source citations/search receipts and artifact locators. A report is exposed only after completed execution and matching recorded report SHA256; missing/changed files yield report:null and artifact_error. Graph edits, later scientific run changes and source-file changes make the advice stale while retaining its history. Scientific verification and AI advice remain distinct.
+
+| Parameter | Location | Type | Required | Default / description |
+| --- | --- | --- | --- | --- |
+| `ident` | path | string | yes |  |
+
+Success `200`: `application/json`: `ResearchAnalysisResult`.
+
+Known domain failures: `404` NOT_FOUND; `422` INVALID_RUN_KIND.
 
 #### `POST /api/theory/check`
 
@@ -2425,7 +2478,7 @@ Known domain failures: `404` NOT_FOUND; `409` NO_CHECKPOINT.
 
 #### `PATCH /api/runs/{ident}/configuration`
 
-Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result identities. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible.
+Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result/analysis-snapshot identities. For research_analysis only budget, agent_budget, timeout and priority are editable; changed question/scope/literature/provider requires a new analysis intent. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible for other kinds.
 
 | Parameter | Location | Type | Required | Default / description |
 | --- | --- | --- | --- | --- |
@@ -2435,7 +2488,7 @@ Body: `application/json`: `JsonObject`; required.
 
 Success `200`: `application/json`: `RunConfiguration`.
 
-Known domain failures: `404` NOT_FOUND; `422` INVALID_CONFIGURATION or INVALID_REPOSITORY.
+Known domain failures: `404` NOT_FOUND; `409` ANALYSIS_INTENT_BOUND; `422` INVALID_CONFIGURATION or INVALID_REPOSITORY.
 
 #### `GET /api/runs/{ident}/diagnostics`
 
@@ -2648,6 +2701,26 @@ Additional properties: extensible JSON.
 | `enabled` | boolean | no |  |
 
 Additional properties: extensible JSON.
+
+### `AnalysisRequest`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `request_id` | string | yes |  minLength=1, maxLength=120. |
+| `expected_revision` | integer | yes |  minimum=0.0. |
+| `expected_fingerprint` | string or null | no |  |
+| `scope` | string | no |  Default: `project`. Values: `project`, `node`, `branch`. |
+| `node_id` | string or null | no |  |
+| `branch_id` | string or null | no |  |
+| `question` | string | no |  Default: ``. maxLength=16000. |
+| `language` | string | no |  Default: `en`. Values: `zh`, `en`. |
+| `literature_query` | string | no |  Default: ``. maxLength=1000. |
+| `literature_sources` | string[] | no |  |
+| `literature_limit` | integer | no |  Default: `6`. minimum=1.0, maximum=12.0. |
+| `timeout` | number | no |  Default: `180`. maximum=3600.0. |
+| `provider_id` | string or null | no |  |
+
+Additional properties: rejected by the existing typed/schema-specific validator.
 
 ### `ApiError`
 
@@ -4303,6 +4376,101 @@ Additional properties: rejected by the existing typed/schema-specific validator.
 | `commit` | string | yes |  |
 | `directory` | string | yes |  |
 | `transport` | string | yes |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisContext`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `project` | JsonObject | yes |  |
+| `graph` | GraphState | yes |  |
+| `runs` | JsonObject[] | yes |  |
+| `resources` | JsonObject | yes |  |
+| `materials` | JsonObject[] | yes |  |
+| `route_health` | RouteHealth | yes |  |
+| `coverage` | JsonObject | yes |  |
+| `focus` | ResearchAnalysisFocus | yes |  |
+| `snapshot` | ResearchAnalysisSnapshot | yes |  |
+| `provider` | JsonObject | yes |  |
+| `counts` | JsonObject | yes |  |
+| `execution_dependencies` | JsonObject[] | no |  |
+| `tool_executions` | JsonObject[] | no |  |
+| `events` | JsonObject[] | no |  |
+| `file_revisions` | JsonObject[] | no |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisFocus`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `scope` | string | yes |  |
+| `node_id` | string or null | yes |  |
+| `branch_id` | string or null | yes |  |
+| `node_ids` | string[] | yes |  |
+| `run_ids` | string[] | yes |  |
+| `upstream_node_ids` | string[] | yes |  |
+| `downstream_node_ids` | string[] | yes |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisHistory`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `runs` | ResearchAnalysisHistoryItem[] | yes |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisHistoryItem`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `id` | string | yes |  |
+| `status` | string | yes |  |
+| `created_at` | string | yes |  |
+| `error` | string or null | yes |  |
+| `scope` | string | yes |  |
+| `node_id` | string or null | yes |  |
+| `branch_id` | string or null | yes |  |
+| `question` | string | yes |  |
+| `project_revision` | integer | yes |  |
+| `report_available` | boolean | yes |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisResult`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `run_id` | string | yes |  |
+| `status` | string | yes |  |
+| `error` | string or null | yes |  |
+| `artifact_error` | string or null | yes |  |
+| `report` | JsonObject or null | yes |  |
+| `citations` | JsonObject[] | yes |  |
+| `literature_searches` | JsonObject[] | yes |  |
+| `snapshot` | ResearchAnalysisSnapshot | yes |  |
+| `current` | boolean | yes |  |
+| `stale_reasons` | string[] | yes |  |
+| `artifacts` | JsonObject | yes |  |
+| `model` | string or null | no |  |
+| `usage` | JsonObject | no |  |
+| `focus` | ResearchAnalysisFocus | no |  |
+| `question` | string | no |  |
+| `verification_scope` | string | no |  |
+
+Additional properties: extensible JSON.
+
+### `ResearchAnalysisSnapshot`
+
+| Field | Type | Required | Details |
+| --- | --- | --- | --- |
+| `project_revision` | integer | yes |  |
+| `fingerprint` | string | yes |  |
+| `path` | string | no |  |
+| `sha256` | string | no |  |
 
 Additional properties: extensible JSON.
 

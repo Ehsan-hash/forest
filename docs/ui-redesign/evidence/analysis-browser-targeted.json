@@ -1,0 +1,48 @@
+{
+  "build": {
+    "main": "index-x1iTLUfo.js",
+    "workspace": "WorkspacePage-BYB1f94v.js",
+    "css": "index-CbRmnXor.css"
+  },
+  "backend": "http://127.0.0.1:18340",
+  "targeted_result": {
+    "passed": 10,
+    "failed": 0,
+    "duration_seconds": 11.4
+  },
+  "analysis_cases": 6,
+  "critical_neighbor_cases": 4,
+  "actual_backend_observations": [
+    "Project/node/path saved-context preview uses full IDs; selection produces no model POST.",
+    "Independent scope drafts survive reload and back/forward.",
+    "Same-revision actual source import changes fingerprint; original intent receives HTTP409 CONTEXT_CHANGED without enqueueing a Run.",
+    "Explicit citation metadata import succeeds and is read back from canonical library endpoint with durable record ID and reading scope."
+  ],
+  "authored_protocol_fixture_observations": [
+    "Uncertain submit retries reuse UUID/revision/fingerprint/provider and preserve later question.",
+    "Delayed node context cannot initialize a different node session.",
+    "Completed report invalidation reloads current/stale reasons; artifact_error suppresses trusted rendering/export.",
+    "JSON export preserves full snapshot/run/source IDs."
+  ],
+  "responsive_observations": [
+    "390px shared Analysis/Paper dialog traps focus, background graph is inert, Edit selected node restores inspector, no horizontal page overflow."
+  ],
+  "critical_neighbors": [
+    "Workspace URL reload/history",
+    "Complete dirty node inspector through dismissal/focus/reload/resize",
+    "Paper complete shared draft through panel/full-page/reload",
+    "Later Paper typing retained during acknowledged save"
+  ],
+  "unexpected_runtime_errors": [],
+  "expected_error_observations": [
+    "Existing Paper conflict test returns HTTP409.",
+    "Authored lost-response protocol test deliberately aborts its intercepted request."
+  ],
+  "actual_ai_quality": "NOT RUN",
+  "scientific_verification": "NOT RUN",
+  "paid_model_calls": 0,
+  "unit_result": {
+    "analysis_helper_tests": 5,
+    "passed": 5
+  }
+}

@@ -1,0 +1,378 @@
+{
+  "projectId": "044f6395-ba94-493c-a1c4-8ddd4facaef3",
+  "measuredId": "407aa602-1301-4221-9a09-75753a8487d9",
+  "failedId": "a4df96ef-0744-4562-a56d-75ad83466026",
+  "metrics": {
+    "integral": 0.33333334000000003,
+    "absolute_error": 6.666666718668779e-9,
+    "intervals": 5000
+  },
+  "readings": [
+    {
+      "theme": "light",
+      "width": 390,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 15.1563842905496
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 15.1563842905496
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "5000.0",
+          "ratio": 16.481934307159577
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "Status",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "integral",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "intervals",
+          "ratio": 5.649593932904237
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 15.1563842905496
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 15.1563842905496
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "5000.0",
+          "ratio": 16.481934307159577
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "Status",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "integral",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "intervals",
+          "ratio": 5.649593932904237
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 15.1563842905496
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 15.1563842905496
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 16.481934307159577
+        },
+        {
+          "text": "5000.0",
+          "ratio": 16.481934307159577
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "Status",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "integral",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 5.649593932904237
+        },
+        {
+          "text": "intervals",
+          "ratio": 5.649593932904237
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 16.042983980507042
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 16.042983980507042
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "5000.0",
+          "ratio": 14.370040548970023
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "Status",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "integral",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "intervals",
+          "ratio": 6.796261684653271
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 16.042983980507042
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 16.042983980507042
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "5000.0",
+          "ratio": 14.370040548970023
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "Status",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "integral",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "intervals",
+          "ratio": 6.796261684653271
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "surface": "output",
+      "values": [
+        {
+          "text": "{\n  \"integral\": 0.33333334000000003,\n  \"absolute_error\": 6.666666718668779e-9,\n ",
+          "ratio": 16.042983980507042
+        },
+        {
+          "text": "{\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"inte",
+          "ratio": 16.042983980507042
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "surface": "measured table",
+      "values": [
+        {
+          "text": "0.33333",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "6.6667e-9",
+          "ratio": 14.370040548970023
+        },
+        {
+          "text": "5000.0",
+          "ratio": 14.370040548970023
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "surface": "measured table headers",
+      "values": [
+        {
+          "text": "Run / method",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "Status",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "integral",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "absolute_error",
+          "ratio": 6.796261684653271
+        },
+        {
+          "text": "intervals",
+          "ratio": 6.796261684653271
+        }
+      ]
+    }
+  ]
+}

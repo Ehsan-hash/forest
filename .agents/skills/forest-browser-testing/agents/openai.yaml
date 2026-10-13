@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Browser Testing"
+  short_description: "Isolated workflow tests and visual acceptance"
+  default_prompt: "Use $forest-browser-testing to verify a FOREST change with browser and real-backend evidence."

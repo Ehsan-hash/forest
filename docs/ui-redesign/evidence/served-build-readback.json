@@ -1,0 +1,26 @@
+{
+  "method": "Read-only GET of exact final production assets; byte SHA256 equals retained build",
+  "assets": [
+    {
+      "asset": "index-BIrSAtO6.js",
+      "response_status": 200,
+      "bytes": 410121,
+      "sha256": "6a74462af413cb9d1546ceb2b05ffaf84367312b10f8da684d0eb11b55ab1fdd",
+      "matches_saved_build": true
+    },
+    {
+      "asset": "WorkspacePage-BMJxELRb.js",
+      "response_status": 200,
+      "bytes": 265728,
+      "sha256": "9fcb15b784f177c16bb9064bdb9d9560b6aa41abd5430921e5fd1126647da62c",
+      "matches_saved_build": true
+    },
+    {
+      "asset": "index-CVqPoWfS.css",
+      "response_status": 200,
+      "bytes": 113655,
+      "sha256": "b21d84e19e0f7d97be0eddf20174dd54d400c4d54f9ae3c7d57a40aa444b8aa8",
+      "matches_saved_build": true
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Visual Design"
+  short_description: "Scientific workspace themes and visual review"
+  default_prompt: "Use $forest-visual-design to refine FOREST's visual system and verify the rendered page."

@@ -1,0 +1,130 @@
+
+Running 108 tests using 1 worker
+
+(node:58344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/108] tests/data-analysis.spec.ts:3:1 › recomputing analysis ignores repeated clicks while the request is pending
+[2/108] tests/experiment-launch.spec.ts:3:1 › experiment launch ignores repeated clicks until its request finishes
+[3/108] tests/failed-literature-search-clears-results.spec.ts:3:1 › a failed literature search clears results from the previous query
+[4/108] tests/figure-switch-confirms-unsaved-draft.spec.ts:3:1 › switching figures warns before discarding unsaved edits
+[5/108] tests/figure-switch-confirms-unsaved-draft.spec.ts:69:1 › reordering figures does not replace the selected unsaved draft
+[6/108] tests/file-pagination-freshness.spec.ts:31:1 › background refresh rereads the selected file cursor while explicit Refresh restarts the scan
+[7/108] tests/file-pagination-freshness.spec.ts:87:1 › file events during Next defer to its new cursor and an older refresh cannot override Previous
+[8/108] tests/file-preview-preserves-csv-draft.spec.ts:3:1 › switching from saved CSV preview back to editing keeps the unsaved draft
+[9/108] tests/files-binary.spec.ts:4:1 › browser uploads actual binary bytes and downloads the same persisted file after reload
+[10/108] tests/graph-history.spec.ts:66:1 › actual explicit and implicit dependency cycles are rejected from path actions without changing graph revision
+[11/108] tests/graph-history.spec.ts:166:1 › actual UI Undo and Redo preserve a completed run identity, source configuration and output history
+[12/108] tests/instruction-reliability.spec.ts:16:1 › formal instruction lost-response retry retains one actual saved receipt and request identity
+[13/108] tests/instruction-reliability.spec.ts:85:1 › editing a failed instruction allocates a new intent while retaining the reviewed revision
+[14/108] tests/instruction-reliability.spec.ts:151:1 › a concurrent project change requires explicit instruction re-review and preserves the draft
+[15/108] tests/instruction-reliability.spec.ts:236:1 › run instruction choices use only current active Agent state and force next_request
+[16/108] tests/instruction-reliability.spec.ts:323:1 › an older-history refresh cannot append into another project or a later visit to the same project
+[17/108] tests/instruction-reliability.spec.ts:430:1 › failed and stale decision answers retain the edited action and reason
+[18/108] tests/interventions.spec.ts:3:1 › two live tabs preserve reviewed subtree scope and a dirty node draft
+[19/108] tests/manual-autonomy-default.spec.ts:3:1 › a new Manual project defaults autonomy off until explicitly enabled
+[20/108] tests/manual-autonomy-default.spec.ts:78:1 › switching an unset Assisted project to Manual turns autonomy off
+[21/108] tests/manual-autonomy-default.spec.ts:139:1 › an explicitly saved Manual autonomy setting remains enabled on Overview load
+[22/108] tests/manual-autonomy-default.spec.ts:189:1 › a failed research-state load keeps autonomy controls disabled
+[23/108] tests/numerical-workflow.spec.ts:4:1 › owner executes a numerical graph node and exports actual measurements and source artifact
+[24/108] tests/paper-evidence-eligibility.spec.ts:3:1 › Paper only offers completed runs with actual numeric metrics
+[25/108] tests/paper-revise.spec.ts:3:1 › paper revision ignores repeated clicks while the request is pending
+[26/108] tests/paper-session.spec.ts:17:1 › manuscript draft keeps source, references, layout, instruction and revision through panel/full-page/reload
+tests/paper-session.spec.ts:17:1 › manuscript draft keeps source, references, layout, instruction and revision through panel/full-page/reload
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+
+[27/108] tests/paper-session.spec.ts:158:1 › an accepted save from the hidden panel keeps newer typing in the full editor
+[28/108] tests/paper-session.spec.ts:255:1 › paper saves real source, compiles through the worker, downloads current PDF and rejects the actual stale PDF
+tests/paper-session.spec.ts:255:1 › paper saves real source, compiles through the worker, downloads current PDF and rejects the actual stale PDF
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+
+{"observed":"real worker PDF","project_id":"6ea003d4-f25c-4c1d-8d67-3d74bc834a59","run_id":"45ebfe01-2b7a-4392-83ea-73cc120ff8b0","paper_revision":1,"compiled_revision":1,"pdf_path":"runs/45ebfe01-2b7a-4392-83ea-73cc120ff8b0/paper/paper.pdf","downloaded_bytes":3815}
+
+Manuscript browser error: Worker was terminated
+
+Manuscript browser error: Worker was terminated
+
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+
+[29/108] tests/populated-readability.spec.ts:4:1 › actual run titles, textual states, output and measured table values remain readable at compact widths in both themes
+[30/108] tests/progress.spec.ts:4:1 › owner creates a project, runs silent success/failure, and follows a scoped UTF-8 source
+[31/108] tests/progress.spec.ts:233:1 › a delayed real progress response cannot cross a project switch
+[32/108] tests/project-description-search.spec.ts:3:1 › projects search matches a description when the goal is empty
+[33/108] tests/project-duplicate-double-submit.spec.ts:3:1 › a repeated in-flight Duplicate click creates only one copy
+[34/108] tests/project-requirements.spec.ts:32:1 › publication edits preserve unknown fields and concurrent untouched requirements, while a conflict keeps the complete draft
+[35/108] tests/project-requirements.spec.ts:152:1 › actual structural protocol validation creates no run; guarded protocol revisions preserve drafts and original history
+[36/108] tests/project-requirements.spec.ts:301:1 › real literal writing review applies Unicode source spans to the draft while evidence judgments remain with the author
+[37/108] tests/project-requirements.spec.ts:398:1 › fresh protocol reload reads an external version and structural checks become stale when publication scope changes
+[38/108] tests/project-requirements.spec.ts:553:1 › an accepted protocol version with a lost response replays the same persisted request after reload
+[39/108] tests/raw-data-freshness.spec.ts:59:1 › delayed raw rows cannot replace a later A to B to A run selection
+[40/108] tests/raw-data-freshness.spec.ts:117:1 › a stale path failure cannot clear the current pending read or show an obsolete error
+[41/108] tests/redesign-accessibility.spec.ts:3:1 › system appearance follows actual media changes and reduced transparency removes chrome blur
+[42/108] tests/redesign-accessibility.spec.ts:30:1 › compact manuscript panel keeps keyboard focus and Escape returns to the selected graph node
+[43/108] tests/redesign-shell.spec.ts:3:1 › five main entries retain all project pages and global settings at every requested width
+[44/108] tests/redesign-shell.spec.ts:79:1 › budget draft survives real SSE, route changes and reload with a retained revision conflict
+[45/108] tests/redesign-shell.spec.ts:149:1 › an actual controls acknowledgment preserves later budget and mode edits with its accepted revision
+[46/108] tests/redesign-shell.spec.ts:298:1 › palette searches actual projects and nodes, supports keyboard selection and missing routes recover
+[47/108] tests/research-analysis.spec.ts:149:1 › actual analysis preview follows full node/path URLs and retains independent drafts without model calls
+[48/108] tests/research-analysis.spec.ts:228:1 › uncertain analysis transport replays original UUID/fingerprint and preserves edits made before acknowledgment
+[49/108] tests/research-analysis.spec.ts:343:1 › rapid node selection waits for matching actual focus before initializing the new draft
+[50/108] tests/research-analysis.spec.ts:385:1 › completed report refreshes staleness, exports full IDs, explicitly imports citations and hides changed artifacts
+[51/108] tests/research-analysis.spec.ts:486:1 › compact shared pane traps focus and preserves analysis drafts across Paper and node editing
+[52/108] tests/research-analysis.spec.ts:538:1 › actual same-revision source changes reject the retained analysis fingerprint until explicit context review
+[53/108] tests/research-tools-reliability.spec.ts:3:1 › an uncertain actual paired submission keeps the same request identity through language change and reload
+[54/108] tests/research-tools.spec.ts:31:1 › paired inference uses the uploaded table and retains its exact input artifact
+[55/108] tests/research-tools.spec.ts:99:1 › independent CSV integrity checks bind to the actual producer and declared file scope
+[56/108] tests/research-tools.spec.ts:186:1 › repository preparation retains the actual GitHub commit in its run manifest
+[57/108] tests/research-tools.spec.ts:233:1 › figure render and exported SVG and PDF use the actual numerical run
+[58/108] tests/responsive-actions.spec.ts:3:1 › responsive graph exposes reachable path comparison and path actions at every compact width
+[59/108] tests/run-lifecycle.spec.ts:95:1 › actual stopped debug checkpoint saves an override separately from same-run Resume
+[60/108] tests/run-lifecycle.spec.ts:208:1 › actual pause and Resume keep the run identity, and exact cancel leaves a neighboring run intact
+[61/108] tests/run-list-refresh.spec.ts:3:1 › Data and Figure Studio refresh run statuses on project updates
+[62/108] tests/settings-draft.spec.ts:3:1 › invalid connection configuration remains editable with a durable form error
+[63/108] tests/settings-draft.spec.ts:36:1 › global settings draft survives real refresh and navigation, saving only changed keys
+[64/108] tests/settings-draft.spec.ts:121:1 › changing the default provider preserves valid unknown settings and invalid JSON drafts
+[65/108] tests/sharing-access.spec.ts:3:1 › anonymous real share exposes only selected nodes without requesting owner data, then honors revocation
+[66/108] tests/sharing-access.spec.ts:75:1 › actual authentication rejection opens sign-in and retains an invalid token for correction
+[67/108] tests/sharing-access.spec.ts:107:1 › actual cross-origin permission rejection shows a durable error instead of a project success state
+[68/108] tests/storage-cleanup-retention.spec.ts:3:1 › storage cleanup uses the saved retention period
+[69/108] tests/storage-cleanup-retention.spec.ts:14:1 › cleanup stays disabled for invalid saved retention until corrected
+[70/108] tests/storage-cleanup-retention.spec.ts:30:1 › cleanup requires an explicit value when saved settings fail to load
+[71/108] tests/succeeded-run-filter.spec.ts:3:1 › Succeeded filter includes completed runs in the table and CSV export
+[72/108] tests/web-page-import-double-submit.spec.ts:3:1 › a repeated in-flight web-page import submits only once
+[73/108] tests/workspace-navigation.spec.ts:65:1 › workspace branch and node URL state survives reload and history without editing the graph
+[74/108] tests/workspace-navigation.spec.ts:141:1 › temporary inspector keeps complete dirty drafts through dismissal, focus, reload and resize
+[75/108] tests/workspace-navigation.spec.ts:218:1 › full-ID run links show actual worker output, history and recoverable missing or cross-project selections
+[76/108] tests/workspace-navigation.spec.ts:349:1 › explicit branch execution uses the branch receipt and can skip a queued descendant
+[77/108] tests/workspace-navigation.spec.ts:460:1 › configuration acknowledgment retains a patch edited during the actual pending save
+[78/108] tests/workspace-navigation.spec.ts:539:1 › a delayed actual Retry receipt retains history without redirecting a newer selected Run ID
+[79/108] tests/workspace-navigation.spec.ts:689:1 › an authoritative graph refresh preserves an active drag until its actual position receipt
+[80/108] tests/workspace.spec.ts:23:1 › queued approved actions do not offer an invalid continuation
+[81/108] tests/workspace.spec.ts:70:1 › Files folders expand and collapse nested entries
+[82/108] tests/workspace.spec.ts:133:1 › keyboard node movement persists its position
+[83/108] tests/workspace.spec.ts:232:1 › keyboard position saves recover from a graph revision conflict
+[84/108] tests/workspace.spec.ts:326:1 › a lost position-save response replays the original command receipt
+[85/108] tests/workspace.spec.ts:397:1 › discard position retries for nodes deleted by a concurrent edit
+[86/108] tests/workspace.spec.ts:482:1 › Workspace edges expose their relationship and support keyboard deletion
+[87/108] tests/workspace.spec.ts:619:1 › filtering an edge off the canvas prevents its keyboard deletion
+[88/108] tests/workspace.spec.ts:718:1 › a stale editor cannot overwrite a file recreated after deletion
+[89/108] tests/workspace.spec.ts:773:1 › Files page navigates bounded file-list pages
+[90/108] tests/workspace.spec.ts:815:1 › Files page discards an in-flight page after switching projects
+[91/108] tests/workspace.spec.ts:877:1 › Files upload preflight detects conflicts outside the visible page
+[92/108] tests/workspace.spec.ts:911:1 › the newest CSV text read wins when preview toggles overlap
+[93/108] tests/workspace.spec.ts:961:1 › a failed CSV text read shows an error with a retry action
+[94/108] tests/workspace.spec.ts:1001:3 › mounted Workspace refreshes after silent success
+[95/108] tests/workspace.spec.ts:1001:3 › mounted Workspace refreshes after failure traceback progress
+[96/108] tests/workspace.spec.ts:1001:3 › mounted Workspace refreshes after stdout progress
+[97/108] tests/workspace.spec.ts:1082:1 › RunPanel shows an Agent final summary alongside its output log
+[98/108] tests/workspace.spec.ts:1123:1 › graph updates remain stable and persist a node created through the inspector UI
+[99/108] tests/workspace.spec.ts:1163:1 › a stale editor cannot recreate an untracked file after another tab renames it
+[100/108] tests/workspace.spec.ts:1262:1 › Overview reload and continue preserve the saved autonomous-planning setting
+[101/108] tests/workspace.spec.ts:1310:1 › another editor changing the node presents a conflict without overwriting server content
+[102/108] tests/workspace.spec.ts:1360:1 › saved CSV preview reads real file rows and paginates without altering the file
+[103/108] tests/workspace.spec.ts:1392:1 › guided demonstration follows ordinary project pages without automatically executing research
+[104/108] tests/workspace.spec.ts:1432:1 › search reveals an offscreen node in a large graph and reopens its inspector
+[105/108] tests/workspace.spec.ts:1500:1 › search reveals nodes hidden by the current branch or a collapsed ancestor
+[106/108] tests/workspace.spec.ts:1576:1 › narrow workspace opens a dismissible inspector and keeps the searched node visible after closing
+[107/108] tests/workspace.spec.ts:1681:1 › Paper full-manuscript picker lists completed runs from this project
+[108/108] tests/workspace.spec.ts:1827:1 › Paper full-manuscript picker keeps the empty-project control
+  108 passed (2.9m)

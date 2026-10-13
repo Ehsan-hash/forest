@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Product UX"
+  short_description: "Research navigation and task interaction design"
+  default_prompt: "Use $forest-product-ux to redesign a FOREST user journey while preserving every real capability."

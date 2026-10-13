@@ -1,0 +1,119 @@
+{
+  "variant": "before",
+  "frontend_sha": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "frontend_mode": "original Vite with shared installed dependencies",
+  "backend": "isolated real 18340 API and normal worker",
+  "project_id": "4f442d6a-36de-4f39-818f-4b6c147800d7",
+  "goal_id": "b67efce1-d395-5f86-9ced-ac4ce3837636",
+  "node_id": "1c2530b9-e970-550c-8800-0af393c12463",
+  "fixture": true,
+  "scientific_validation": false,
+  "journeys": [
+    {
+      "name": "Overview to saved node and actual run output",
+      "actions": [
+        {
+          "name": "Open Workspace",
+          "context_switch": true,
+          "selection": false
+        },
+        {
+          "name": "Select command node",
+          "context_switch": false,
+          "selection": true
+        },
+        {
+          "name": "Save changes",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Run node",
+          "context_switch": false,
+          "selection": false
+        }
+      ],
+      "form_edits": [
+        "Node title"
+      ],
+      "result": "PASS",
+      "run_id": "a65b87b2-68e3-419c-8461-69d1d2075dbd",
+      "saved_node_revision": 0,
+      "saved_node_title": "Journey command edited",
+      "terminal_status": "completed",
+      "output": {
+        "text": "journey actual local output\n",
+        "offset": 28,
+        "status": "completed"
+      },
+      "clicks": 4,
+      "context_switches": 1,
+      "explicit_selection_actions": 1
+    },
+    {
+      "name": "Goal save, manuscript evidence check, compile, current PDF download, return to graph",
+      "actions": [
+        {
+          "name": "Select Goal node",
+          "context_switch": false,
+          "selection": true
+        },
+        {
+          "name": "Save Goal changes",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Open Paper workspace view",
+          "context_switch": true,
+          "selection": false
+        },
+        {
+          "name": "Check evidence",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Compile PDF",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Export",
+          "context_switch": false,
+          "selection": false
+        },
+        {
+          "name": "Return Forest graph view",
+          "context_switch": true,
+          "selection": false
+        }
+      ],
+      "form_edits": [
+        "Goal instructions"
+      ],
+      "result": "PARTIAL: evidence and real compile passed; current PDF download unavailable",
+      "graph_mounted_during_paper": false,
+      "evidence_check_status": 200,
+      "compile_run_id": "104f3e28-1461-477b-96db-0c404eb06976",
+      "paper_revision": 1,
+      "compiled_revision": 1,
+      "pdf_path": "runs/104f3e28-1461-477b-96db-0c404eb06976/paper/paper.pdf",
+      "export_response_status": 200,
+      "export_response_content_type": "application/zip",
+      "export_request_body": {
+        "request_id": "42972eaa-3b64-44c8-898c-28a14174f512",
+        "expected_revision": 1,
+        "source": "\\documentclass{article}\n\\begin{document}\nActual UI journey compilation fixture. No research experiment.\n\\end{document}\n",
+        "bibtex": ""
+      },
+      "download_result": "Source ZIP only; no Current PDF control",
+      "current_pdf_control_count": 0,
+      "goal_selection_returned": true,
+      "clicks": 7,
+      "context_switches": 2,
+      "explicit_selection_actions": 1
+    }
+  ],
+  "errors": []
+}

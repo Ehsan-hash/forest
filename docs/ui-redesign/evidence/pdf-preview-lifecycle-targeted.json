@@ -1,0 +1,13 @@
+{
+  "cycles": 12,
+  "delayed_gets": 12,
+  "actual_pdf_bytes": 3815,
+  "rendered_ink": true,
+  "page_errors": [],
+  "build": "final-63005",
+  "project_id": "8d6ec611-4ad4-4724-8f06-0e4276cd3ee0",
+  "compile_run_id": "4d1bae24-5c5a-4d73-b1b9-c40b085474ff",
+  "paper_revision": 1,
+  "compiled_revision": 1,
+  "method": "Actual API/worker compile and export; browser-delayed GET delivery of its PDF bytes for cancellation stress; final direct real API GET renders canvas ink."
+}

@@ -1,0 +1,771 @@
+{
+  "method": "REAL API + REAL WORKER + actual ModelClient HTTP transport + authored local provider protocol fixture; actual Crossref retrieval where completed",
+  "live_model_quality": "NOT RUN",
+  "project_id": "d935f3bd-908c-40a5-842d-a7d219a98b16",
+  "actual_experiments": [
+    {
+      "id": "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+      "status": "completed",
+      "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+      "metrics": {
+        "integral": 0.33333334000000003,
+        "absolute_error": 6.666666718668779e-09,
+        "intervals": 5000
+      },
+      "error": null
+    },
+    {
+      "id": "44c4a640-05d3-4fc0-9e4f-229298e2becc",
+      "status": "failed",
+      "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+      "metrics": {},
+      "error": "Command exited with code 7"
+    }
+  ],
+  "analysis_reports": [
+    {
+      "run_id": "a4f6faa2-f1e1-43e3-9bb5-99c1968b119c",
+      "origin": "workspace_ai_analysis",
+      "report": {
+        "summary": "PROTOCOL FIXTURE: actual source context contains completed and failed experiments; model quality is not assessed.",
+        "experiments": [
+          {
+            "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "run_ids": [
+              "f45b3e38-163b-4d16-86f2-4869bc14f8e7"
+            ],
+            "what_was_done": "Actual numerical measurement",
+            "result": "{\"status\": \"completed\", \"metrics\": {\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"intervals\": 5000}}",
+            "problems": "None recorded"
+          },
+          {
+            "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "what_was_done": "Actual diagnostic failure",
+            "result": "{\"status\": \"failed\", \"metrics\": {}}",
+            "problems": "Command exited with code 7"
+          }
+        ],
+        "findings": [
+          {
+            "title": "Inspect actual failure",
+            "detail": "The saved run contains an actual command failure.",
+            "severity": "warning",
+            "evidence_label": "REPORTED",
+            "node_ids": [
+              "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+            ],
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "citation_ids": []
+          }
+        ],
+        "recommendations": [
+          {
+            "title": "Read retrieved source metadata",
+            "action": "Open the cited source and inspect its scope.",
+            "rationale": "Protocol fixture verifies a retrieved source ID reaches the report.",
+            "priority": "high",
+            "kind": "reading",
+            "node_ids": [],
+            "run_ids": [],
+            "citation_ids": [
+              "search:crossref:5cb1cef078e358164cce"
+            ]
+          }
+        ],
+        "limitations": [
+          "Model output is an explicitly authored local protocol fixture, not an actual AI judgment."
+        ],
+        "coverage": {
+          "node_ids": [
+            "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+          ],
+          "run_ids": [
+            "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+            "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+          ],
+          "resource_ids": [
+            "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+            "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+            "0610ebc5-9194-4a63-b4d2-396289984517"
+          ]
+        }
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "authors": [],
+          "year": 2018,
+          "doi": "10.1201/9781315274867-11",
+          "url": "https://doi.org/10.1201/9781315274867-11",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "authors": [],
+          "year": 2025,
+          "doi": "10.62486/978-628-97230-0-7.ch02",
+          "url": "https://doi.org/10.62486/978-628-97230-0-7.ch02",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        }
+      ],
+      "literature_searches": [
+        {
+          "query": "trapezoidal rule numerical integration error",
+          "source": "crossref",
+          "status": "completed",
+          "count": 2
+        }
+      ],
+      "snapshot": {
+        "project_revision": 2,
+        "fingerprint": "dddebcb8ec28236f5643d45e415fef3d55f7214659fccc1557dcf247a4fdbebf",
+        "path": "runs/a4f6faa2-f1e1-43e3-9bb5-99c1968b119c/analysis_input.json",
+        "sha256": "4627f7a7069f41cda174a1807a77777beffe9c5c5185d6b1659c8a6d49c1569f"
+      },
+      "focus": {
+        "scope": "project",
+        "node_id": null,
+        "branch_id": null,
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "model": "declared-protocol-fixture",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 100,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null,
+        "cost_source": "unknown"
+      },
+      "verification_scope": "Source identities and report structure checked; AI advice is not scientific verification",
+      "artifacts": {
+        "context": "runs/a4f6faa2-f1e1-43e3-9bb5-99c1968b119c/analysis_input.json",
+        "report": "runs/a4f6faa2-f1e1-43e3-9bb5-99c1968b119c/research_analysis.json"
+      },
+      "status": "completed",
+      "error": null,
+      "artifact_error": null,
+      "current": true,
+      "stale_reasons": []
+    },
+    {
+      "run_id": "a878c1fe-71a0-49c9-a59f-80970ea1862a",
+      "origin": "workspace_ai_analysis",
+      "report": {
+        "summary": "PROTOCOL FIXTURE: actual source context contains completed and failed experiments; model quality is not assessed.",
+        "experiments": [
+          {
+            "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "run_ids": [
+              "f45b3e38-163b-4d16-86f2-4869bc14f8e7"
+            ],
+            "what_was_done": "Actual numerical measurement",
+            "result": "{\"status\": \"completed\", \"metrics\": {\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"intervals\": 5000}}",
+            "problems": "None recorded"
+          },
+          {
+            "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "what_was_done": "Actual diagnostic failure",
+            "result": "{\"status\": \"failed\", \"metrics\": {}}",
+            "problems": "Command exited with code 7"
+          }
+        ],
+        "findings": [
+          {
+            "title": "Inspect actual failure",
+            "detail": "The saved run contains an actual command failure.",
+            "severity": "warning",
+            "evidence_label": "REPORTED",
+            "node_ids": [
+              "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+            ],
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "citation_ids": []
+          }
+        ],
+        "recommendations": [
+          {
+            "title": "Read retrieved source metadata",
+            "action": "Open the cited source and inspect its scope.",
+            "rationale": "Protocol fixture verifies a retrieved source ID reaches the report.",
+            "priority": "high",
+            "kind": "reading",
+            "node_ids": [],
+            "run_ids": [],
+            "citation_ids": [
+              "search:crossref:5cb1cef078e358164cce"
+            ]
+          }
+        ],
+        "limitations": [
+          "Model output is an explicitly authored local protocol fixture, not an actual AI judgment."
+        ],
+        "coverage": {
+          "node_ids": [
+            "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+          ],
+          "run_ids": [
+            "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+            "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+          ],
+          "resource_ids": [
+            "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+            "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+            "0610ebc5-9194-4a63-b4d2-396289984517"
+          ]
+        }
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "authors": [],
+          "year": 2018,
+          "doi": "10.1201/9781315274867-11",
+          "url": "https://doi.org/10.1201/9781315274867-11",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "authors": [],
+          "year": 2025,
+          "doi": "10.62486/978-628-97230-0-7.ch02",
+          "url": "https://doi.org/10.62486/978-628-97230-0-7.ch02",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        }
+      ],
+      "literature_searches": [
+        {
+          "query": "trapezoidal rule numerical integration error",
+          "source": "crossref",
+          "status": "completed",
+          "count": 2
+        }
+      ],
+      "snapshot": {
+        "project_revision": 2,
+        "fingerprint": "dddebcb8ec28236f5643d45e415fef3d55f7214659fccc1557dcf247a4fdbebf",
+        "path": "runs/a878c1fe-71a0-49c9-a59f-80970ea1862a/analysis_input.json",
+        "sha256": "27364fdc3b84790cd12b56831adc7124ecf37829befd6c3f9bbe31b4589ff8e4"
+      },
+      "focus": {
+        "scope": "node",
+        "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+        "branch_id": null,
+        "node_ids": [
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "model": "declared-protocol-fixture",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 100,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null,
+        "cost_source": "unknown"
+      },
+      "verification_scope": "Source identities and report structure checked; AI advice is not scientific verification",
+      "artifacts": {
+        "context": "runs/a878c1fe-71a0-49c9-a59f-80970ea1862a/analysis_input.json",
+        "report": "runs/a878c1fe-71a0-49c9-a59f-80970ea1862a/research_analysis.json"
+      },
+      "status": "completed",
+      "error": null,
+      "artifact_error": null,
+      "current": true,
+      "stale_reasons": []
+    },
+    {
+      "run_id": "5d21f911-0dbd-4e57-90b0-adc28109eca2",
+      "origin": "workspace_ai_analysis",
+      "report": {
+        "summary": "PROTOCOL FIXTURE: actual source context contains completed and failed experiments; model quality is not assessed.",
+        "experiments": [
+          {
+            "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "run_ids": [
+              "f45b3e38-163b-4d16-86f2-4869bc14f8e7"
+            ],
+            "what_was_done": "Actual numerical measurement",
+            "result": "{\"status\": \"completed\", \"metrics\": {\"integral\": 0.33333334000000003, \"absolute_error\": 6.666666718668779e-09, \"intervals\": 5000}}",
+            "problems": "None recorded"
+          },
+          {
+            "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "what_was_done": "Actual diagnostic failure",
+            "result": "{\"status\": \"failed\", \"metrics\": {}}",
+            "problems": "Command exited with code 7"
+          }
+        ],
+        "findings": [
+          {
+            "title": "Inspect actual failure",
+            "detail": "The saved run contains an actual command failure.",
+            "severity": "warning",
+            "evidence_label": "REPORTED",
+            "node_ids": [
+              "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+            ],
+            "run_ids": [
+              "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+            ],
+            "citation_ids": []
+          }
+        ],
+        "recommendations": [
+          {
+            "title": "Read retrieved source metadata",
+            "action": "Open the cited source and inspect its scope.",
+            "rationale": "Protocol fixture verifies a retrieved source ID reaches the report.",
+            "priority": "high",
+            "kind": "reading",
+            "node_ids": [],
+            "run_ids": [],
+            "citation_ids": [
+              "search:crossref:5cb1cef078e358164cce"
+            ]
+          }
+        ],
+        "limitations": [
+          "Model output is an explicitly authored local protocol fixture, not an actual AI judgment."
+        ],
+        "coverage": {
+          "node_ids": [
+            "74a59cde-c1bc-5786-9aa0-e527de34610f",
+            "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+          ],
+          "run_ids": [
+            "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+            "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+          ],
+          "resource_ids": [
+            "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+            "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+            "0610ebc5-9194-4a63-b4d2-396289984517"
+          ]
+        }
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "authors": [],
+          "year": 2018,
+          "doi": "10.1201/9781315274867-11",
+          "url": "https://doi.org/10.1201/9781315274867-11",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "authors": [],
+          "year": 2025,
+          "doi": "10.62486/978-628-97230-0-7.ch02",
+          "url": "https://doi.org/10.62486/978-628-97230-0-7.ch02",
+          "arxiv_id": null,
+          "source": "crossref",
+          "read_scope": "metadata",
+          "abstract": "",
+          "passages": [],
+          "library_id": null
+        }
+      ],
+      "literature_searches": [
+        {
+          "query": "trapezoidal rule numerical integration error",
+          "source": "crossref",
+          "status": "completed",
+          "count": 2
+        }
+      ],
+      "snapshot": {
+        "project_revision": 2,
+        "fingerprint": "dddebcb8ec28236f5643d45e415fef3d55f7214659fccc1557dcf247a4fdbebf",
+        "path": "runs/5d21f911-0dbd-4e57-90b0-adc28109eca2/analysis_input.json",
+        "sha256": "4fcbb5a09b3de7cb1915a8ea64fab171f2e68407f7c3d52a5d87c4986ed8bfd0"
+      },
+      "focus": {
+        "scope": "branch",
+        "node_id": null,
+        "branch_id": "38ec85ea-2bd0-4657-ba4d-0e464c435dcb",
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "model": "declared-protocol-fixture",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 100,
+        "cached_input_tokens": null,
+        "reasoning_tokens": null,
+        "cost": null,
+        "cost_source": "unknown"
+      },
+      "verification_scope": "Source identities and report structure checked; AI advice is not scientific verification",
+      "artifacts": {
+        "context": "runs/5d21f911-0dbd-4e57-90b0-adc28109eca2/analysis_input.json",
+        "report": "runs/5d21f911-0dbd-4e57-90b0-adc28109eca2/research_analysis.json"
+      },
+      "status": "completed",
+      "error": null,
+      "artifact_error": null,
+      "current": true,
+      "stale_reasons": []
+    }
+  ],
+  "provider_requests": [
+    {
+      "model": "declared-protocol-fixture",
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "focus": {
+        "scope": "project",
+        "node_id": null,
+        "branch_id": null,
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "coverage": {
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ],
+        "resource_ids": [
+          "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+          "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+          "0610ebc5-9194-4a63-b4d2-396289984517"
+        ],
+        "scope": "All recorded nodes/configurations, runs and linked research records; credentials excluded and actual text previews identify unread remainders explicitly.",
+        "edge_ids": [],
+        "branch_ids": [
+          "38ec85ea-2bd0-4657-ba4d-0e464c435dcb"
+        ],
+        "material_paths": [
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/execution.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/result.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/execution.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/result.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/stdout.txt",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/stdout.txt"
+        ],
+        "tool_execution_ids": [],
+        "event_count": 14,
+        "material_text_loaded": true
+      },
+      "run_states": {
+        "f45b3e38-163b-4d16-86f2-4869bc14f8e7": "completed",
+        "44c4a640-05d3-4fc0-9e4f-229298e2becc": "failed"
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "read_scope": "metadata"
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "read_scope": "metadata"
+        }
+      ]
+    },
+    {
+      "model": "declared-protocol-fixture",
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "focus": {
+        "scope": "node",
+        "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+        "branch_id": null,
+        "node_ids": [
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "coverage": {
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ],
+        "resource_ids": [
+          "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+          "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+          "0610ebc5-9194-4a63-b4d2-396289984517"
+        ],
+        "scope": "All recorded nodes/configurations, runs and linked research records; credentials excluded and actual text previews identify unread remainders explicitly.",
+        "edge_ids": [],
+        "branch_ids": [
+          "38ec85ea-2bd0-4657-ba4d-0e464c435dcb"
+        ],
+        "material_paths": [
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/execution.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/result.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/execution.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/result.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/stdout.txt",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/stdout.txt"
+        ],
+        "tool_execution_ids": [],
+        "event_count": 14,
+        "material_text_loaded": true
+      },
+      "run_states": {
+        "f45b3e38-163b-4d16-86f2-4869bc14f8e7": "completed",
+        "44c4a640-05d3-4fc0-9e4f-229298e2becc": "failed"
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "read_scope": "metadata"
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "read_scope": "metadata"
+        }
+      ]
+    },
+    {
+      "model": "declared-protocol-fixture",
+      "question": "Summarize the actual experiments, failure and relevant references",
+      "focus": {
+        "scope": "branch",
+        "node_id": null,
+        "branch_id": "38ec85ea-2bd0-4657-ba4d-0e464c435dcb",
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "upstream_node_ids": [],
+        "downstream_node_ids": [],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ]
+      },
+      "coverage": {
+        "node_ids": [
+          "74a59cde-c1bc-5786-9aa0-e527de34610f",
+          "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7"
+        ],
+        "run_ids": [
+          "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+          "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+        ],
+        "resource_ids": [
+          "341e8580-fb5e-45f0-bab7-00a1dd653f2b",
+          "48f8e5e0-239a-4599-9996-a5490a8bbb7f",
+          "0610ebc5-9194-4a63-b4d2-396289984517"
+        ],
+        "scope": "All recorded nodes/configurations, runs and linked research records; credentials excluded and actual text previews identify unread remainders explicitly.",
+        "edge_ids": [],
+        "branch_ids": [
+          "38ec85ea-2bd0-4657-ba4d-0e464c435dcb"
+        ],
+        "material_paths": [
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/execution.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/result.json",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/execution.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/result.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace/metrics.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/workspace_preparation.json",
+          "runs/f45b3e38-163b-4d16-86f2-4869bc14f8e7/stdout.txt",
+          "runs/44c4a640-05d3-4fc0-9e4f-229298e2becc/stdout.txt"
+        ],
+        "tool_execution_ids": [],
+        "event_count": 14,
+        "material_text_loaded": true
+      },
+      "run_states": {
+        "f45b3e38-163b-4d16-86f2-4869bc14f8e7": "completed",
+        "44c4a640-05d3-4fc0-9e4f-229298e2becc": "failed"
+      },
+      "citations": [
+        {
+          "id": "search:crossref:5cb1cef078e358164cce",
+          "title": "Numerical Integration (Trapezoidal Rule)",
+          "read_scope": "metadata"
+        },
+        {
+          "id": "search:crossref:229dc966a037384dd9df",
+          "title": "Chapter 2. Trapezoidal Rule",
+          "read_scope": "metadata"
+        }
+      ]
+    }
+  ],
+  "graph_unchanged": true,
+  "provider_cleanup": {
+    "id": "ea387e38-5d35-4c8a-a738-a78f18d304f1",
+    "status": "retired",
+    "method": "POST /providers/{id}/retire followed by actual GET readback",
+    "updated_reference_count": 1,
+    "reports_current_before_provider_retirement": true,
+    "note": "Retirement removes the fixture provider from saved project config; retained reports may then be stale."
+  },
+  "post_smoke_visual_layout": {
+    "observed_at": "2026-10-13T15:45:07.952399+00:00",
+    "method": "READBACK of earlier guarded edit_node on owned isolated fixture; no mutation performed while writing this receipt",
+    "project_id": "d935f3bd-908c-40a5-842d-a7d219a98b16",
+    "purpose": "Separate two existing smoke nodes for final rendered visual review",
+    "graph_revision_before": 2,
+    "graph_revision_after": 3,
+    "node_changes": [
+      {
+        "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+        "changed_fields": [
+          "position",
+          "updated_at"
+        ],
+        "position_before": {
+          "x": 0,
+          "y": 0
+        },
+        "position_after": {
+          "x": 120,
+          "y": 180
+        },
+        "updated_at_after": "2026-10-13T15:39:52.325308+00:00",
+        "all_other_node_fields_unchanged": true
+      },
+      {
+        "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+        "changed_fields": [
+          "position",
+          "updated_at"
+        ],
+        "position_before": {
+          "x": 0,
+          "y": 0
+        },
+        "position_after": {
+          "x": 520,
+          "y": 180
+        },
+        "updated_at_after": "2026-10-13T15:39:52.325301+00:00",
+        "all_other_node_fields_unchanged": true
+      }
+    ],
+    "edges_and_branches_unchanged": true,
+    "scientific_runs_source_fields_unchanged": true,
+    "compared_run_fields": [
+      "status",
+      "metrics",
+      "error",
+      "node_id",
+      "branch_id",
+      "kind",
+      "config",
+      "output_path",
+      "started_at",
+      "completed_at"
+    ],
+    "run_comparison_normalization": "Remove credential_ref key already omitted from sanitized saved analysis context",
+    "scientific_run_ids": [
+      "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+      "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+    ],
+    "analysis_history_count": 3,
+    "saved_analysis_snapshot_revision": 2,
+    "scope": "Post-smoke visual-only fixture layout. graph_unchanged in original smoke applies during analysis execution. updated_at also changed with the guarded layout edit.",
+    "production_source_changed": false,
+    "provider_requests_added": 0
+  }
+}

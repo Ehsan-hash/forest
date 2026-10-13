@@ -1,0 +1,21 @@
+{
+  "method": "Actual local PNG opened with view_image after final production capture",
+  "build": "index-BIrSAtO6.js",
+  "opened_files": [
+    "numerical-data-light-1440.png",
+    "command-failed-dark-390.png",
+    "numerical-completed-light-390.png",
+    "selected-node-focus-dark-1440.png",
+    "debug-checkpoint-waiting-input-light-390.png",
+    "debug-checkpoint-resumed-completed-dark-1440.png",
+    "command-running-dark-390.png",
+    "many-node-layout-fixture-light-1440.png"
+  ],
+  "observed": "All eight distinct state types inspected; compact titles and textual status badges are visible, output/metric text and corrected raw-table headers are readable, current stopped override controls fit, final Focus heading is present and inspector metadata readable. Canvas/run-history scrolling remains intentional.",
+  "limits": "Eight exact final pixels inspected; 32 final state captures have measured geometry/browser error observations. Earlier 32-image review on81903 remains separately archived.",
+  "additional_settled_recapture": {
+    "opened_file": "selected-node-focus-dark-390.png",
+    "receipt": "evidence/focus-title-settled.json",
+    "result": "PASS: actual final computed color rgb(237,242,238), no overflow/runtime errors; heading readable in opened pixels"
+  }
+}

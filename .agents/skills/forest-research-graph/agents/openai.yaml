@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Research Graph"
+  short_description: "Graph identities, commands, branches and revisions"
+  default_prompt: "Use $forest-research-graph to implement a FOREST graph interaction against its current contract."

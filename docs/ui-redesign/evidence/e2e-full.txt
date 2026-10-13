@@ -1,0 +1,567 @@
+
+Running 86 tests using 1 worker
+
+(node:31376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/data-analysis.spec.ts:3:1 › recomputing analysis ignores repeated clicks while the request is pending (5.1s)
+  ✓   2 tests/experiment-launch.spec.ts:3:1 › experiment launch ignores repeated clicks until its request finishes (2.1s)
+  ✓   3 tests/failed-literature-search-clears-results.spec.ts:3:1 › a failed literature search clears results from the previous query (578ms)
+  ✓   4 tests/figure-switch-confirms-unsaved-draft.spec.ts:3:1 › switching figures warns before discarding unsaved edits (533ms)
+  ✘   5 tests/figure-switch-confirms-unsaved-draft.spec.ts:69:1 › reordering figures does not replace the selected unsaved draft (5.5s)
+(node:31525) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   6 tests/file-preview-preserves-csv-draft.spec.ts:3:1 › switching from saved CSV preview back to editing keeps the unsaved draft (1.4s)
+  ✓   7 tests/instruction-reliability.spec.ts:16:1 › formal instruction lost-response retry retains one actual saved receipt and request identity (594ms)
+  ✓   8 tests/instruction-reliability.spec.ts:85:1 › editing a failed instruction allocates a new intent while retaining the reviewed revision (629ms)
+  ✓   9 tests/instruction-reliability.spec.ts:148:1 › a concurrent project change requires explicit instruction re-review and preserves the draft (675ms)
+  ✓  10 tests/instruction-reliability.spec.ts:233:1 › run instruction choices use only current active Agent state and force next_request (555ms)
+  ✓  11 tests/instruction-reliability.spec.ts:320:1 › an older-history refresh cannot append into another project or a later visit to the same project (708ms)
+  ✓  12 tests/instruction-reliability.spec.ts:427:1 › failed and stale decision answers retain the edited action and reason (563ms)
+  ✓  13 tests/interventions.spec.ts:3:1 › two live tabs preserve reviewed subtree scope and a dirty node draft (2.8s)
+  ✓  14 tests/manual-autonomy-default.spec.ts:3:1 › a new Manual project defaults autonomy off until explicitly enabled (501ms)
+  ✓  15 tests/manual-autonomy-default.spec.ts:78:1 › switching an unset Assisted project to Manual turns autonomy off (512ms)
+  ✓  16 tests/manual-autonomy-default.spec.ts:139:1 › an explicitly saved Manual autonomy setting remains enabled on Overview load (1.1s)
+  ✓  17 tests/manual-autonomy-default.spec.ts:189:1 › a failed research-state load keeps autonomy controls disabled (427ms)
+  ✓  18 tests/numerical-workflow.spec.ts:4:1 › owner executes a numerical graph node and exports actual measurements and source artifact (3.3s)
+  ✓  19 tests/paper-evidence-eligibility.spec.ts:3:1 › Paper only offers completed runs with actual numeric metrics (10.5s)
+  ✓  20 tests/paper-revise.spec.ts:3:1 › paper revision ignores repeated clicks while the request is pending (2.2s)
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+  ✓  21 tests/paper-session.spec.ts:17:1 › manuscript draft keeps source, references, layout, instruction and revision through panel/full-page/reload (2.9s)
+Manuscript console: Failed to load resource: the server responded with a status of 404 (Not Found)
+  ✓  22 tests/paper-session.spec.ts:136:1 › an accepted save from the hidden panel keeps newer typing in the full editor (1.1s)
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+{"observed":"real worker PDF","project_id":"9dd366b1-6de4-42bf-a4af-60f6181eef40","run_id":"0dcfee78-94c5-47cf-aa50-207573406037","paper_revision":1,"compiled_revision":1,"pdf_path":"runs/0dcfee78-94c5-47cf-aa50-207573406037/paper/paper.pdf","downloaded_bytes":3815}
+Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)
+  ✓  23 tests/paper-session.spec.ts:233:1 › paper saves real source, compiles through the worker, downloads current PDF and rejects the actual stale PDF (3.2s)
+  ✓  24 tests/progress.spec.ts:4:1 › owner creates a project, runs silent success/failure, and follows a scoped UTF-8 source (13.5s)
+  ✘  25 tests/progress.spec.ts:91:1 › a delayed real progress response cannot cross a project switch (30.2s)
+(node:32125) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  26 tests/project-description-search.spec.ts:3:1 › projects search matches a description when the goal is empty (429ms)
+  ✓  27 tests/project-duplicate-double-submit.spec.ts:3:1 › a repeated in-flight Duplicate click creates only one copy (685ms)
+  ✓  28 tests/project-requirements.spec.ts:32:1 › publication edits preserve unknown fields and concurrent untouched requirements, while a conflict keeps the complete draft (829ms)
+  ✓  29 tests/project-requirements.spec.ts:152:1 › actual structural protocol validation creates no run; guarded protocol revisions preserve drafts and original history (1.0s)
+  ✓  30 tests/project-requirements.spec.ts:301:1 › real literal writing review applies Unicode source spans to the draft while evidence judgments remain with the author (797ms)
+  ✘  31 tests/project-requirements.spec.ts:398:1 › fresh protocol reload reads an external version and structural checks become stale when publication scope changes (6.0s)
+(node:32214) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  32 tests/project-requirements.spec.ts:551:1 › an accepted protocol version with a lost response replays the same persisted request after reload (994ms)
+  ✓  33 tests/raw-data-freshness.spec.ts:59:1 › delayed raw rows cannot replace a later A to B to A run selection (514ms)
+  ✓  34 tests/raw-data-freshness.spec.ts:117:1 › a stale path failure cannot clear the current pending read or show an obsolete error (507ms)
+  ✘  35 tests/redesign-accessibility.spec.ts:3:1 › system appearance follows actual media changes and reduced transparency removes chrome blur (399ms)
+(node:32250) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  36 tests/redesign-accessibility.spec.ts:28:1 › compact manuscript panel keeps keyboard focus and Escape returns to the selected graph node (699ms)
+  ✓  37 tests/redesign-shell.spec.ts:3:1 › five main entries retain all project pages and global settings at every requested width (1.9s)
+  ✓  38 tests/redesign-shell.spec.ts:31:1 › budget draft survives real SSE, route changes and reload with a retained revision conflict (1.2s)
+  ✓  39 tests/redesign-shell.spec.ts:59:1 › palette searches actual projects and nodes, supports keyboard selection and missing routes recover (512ms)
+  ✓  40 tests/research-tools.spec.ts:31:1 › paired inference uses the uploaded table and retains its exact input artifact (2.5s)
+  ✓  41 tests/research-tools.spec.ts:99:1 › independent CSV integrity checks bind to the actual producer and declared file scope (4.3s)
+  ✓  42 tests/research-tools.spec.ts:186:1 › repository preparation retains the actual GitHub commit in its run manifest (2.3s)
+  ✓  43 tests/research-tools.spec.ts:233:1 › figure render and exported SVG and PDF use the actual numerical run (4.4s)
+  ✓  44 tests/run-list-refresh.spec.ts:3:1 › Data and Figure Studio refresh run statuses on project updates (515ms)
+  ✓  45 tests/settings-draft.spec.ts:3:1 › invalid connection configuration remains editable with a durable form error (433ms)
+  ✓  46 tests/settings-draft.spec.ts:36:1 › global settings draft survives real refresh and navigation, saving only changed keys (666ms)
+  ✓  47 tests/settings-draft.spec.ts:121:1 › changing the default provider preserves valid unknown settings and invalid JSON drafts (638ms)
+  ✓  48 tests/storage-cleanup-retention.spec.ts:3:1 › storage cleanup uses the saved retention period (603ms)
+  ✓  49 tests/storage-cleanup-retention.spec.ts:14:1 › cleanup stays disabled for invalid saved retention until corrected (619ms)
+  ✓  50 tests/storage-cleanup-retention.spec.ts:30:1 › cleanup requires an explicit value when saved settings fail to load (624ms)
+  ✓  51 tests/succeeded-run-filter.spec.ts:3:1 › Succeeded filter includes completed runs in the table and CSV export (333ms)
+  ✓  52 tests/web-page-import-double-submit.spec.ts:3:1 › a repeated in-flight web-page import submits only once (480ms)
+  ✓  53 tests/workspace-navigation.spec.ts:65:1 › workspace branch and node URL state survives reload and history without editing the graph (1.0s)
+  ✓  54 tests/workspace-navigation.spec.ts:141:1 › temporary inspector keeps complete dirty drafts through dismissal, focus, reload and resize (806ms)
+  ✓  55 tests/workspace-navigation.spec.ts:218:1 › full-ID run links show actual worker output, history and recoverable missing or cross-project selections (3.4s)
+  ✓  56 tests/workspace-navigation.spec.ts:349:1 › explicit branch execution uses the branch receipt and can skip a queued descendant (7.6s)
+  ✘  57 tests/workspace-navigation.spec.ts:460:1 › configuration acknowledgment retains a patch edited during the actual pending save (7.6s)
+(node:32567) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  58 tests/workspace.spec.ts:23:1 › queued approved actions do not offer an invalid continuation (544ms)
+  ✘  59 tests/workspace.spec.ts:70:1 › Files folders expand and collapse nested entries (394ms)
+(node:32594) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  60 tests/workspace.spec.ts:132:1 › keyboard node movement persists its position (30.1s)
+(node:32769) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  61 tests/workspace.spec.ts:231:1 › keyboard position saves recover from a graph revision conflict (5.7s)
+(node:32805) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  62 tests/workspace.spec.ts:325:1 › a lost position-save response replays the original command receipt (947ms)
+  ✘  63 tests/workspace.spec.ts:396:1 › discard position retries for nodes deleted by a concurrent edit (5.4s)
+(node:32918) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  64 tests/workspace.spec.ts:481:1 › Workspace edges expose their relationship and support keyboard deletion (796ms)
+  ✓  65 tests/workspace.spec.ts:618:1 › filtering an edge off the canvas prevents its keyboard deletion (485ms)
+  ✓  66 tests/workspace.spec.ts:717:1 › a stale editor cannot overwrite a file recreated after deletion (969ms)
+  ✘  67 tests/workspace.spec.ts:772:1 › Files page navigates bounded file-list pages (5.4s)
+(node:32992) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  68 tests/workspace.spec.ts:814:1 › Files page discards an in-flight page after switching projects (1.0s)
+  ✓  69 tests/workspace.spec.ts:876:1 › Files upload preflight detects conflicts outside the visible page (408ms)
+  ✓  70 tests/workspace.spec.ts:910:1 › the newest CSV text read wins when preview toggles overlap (896ms)
+  ✓  71 tests/workspace.spec.ts:960:1 › a failed CSV text read shows an error with a retry action (498ms)
+  ✓  72 tests/workspace.spec.ts:1000:3 › mounted Workspace refreshes after silent success (4.6s)
+  ✓  73 tests/workspace.spec.ts:1000:3 › mounted Workspace refreshes after failure traceback progress (4.7s)
+  ✓  74 tests/workspace.spec.ts:1000:3 › mounted Workspace refreshes after stdout progress (4.6s)
+  ✘  75 tests/workspace.spec.ts:1081:1 › RunPanel shows an Agent final summary alongside its output log (604ms)
+(node:33099) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  76 tests/workspace.spec.ts:1122:1 › graph updates remain stable and persist a node created through the inspector UI (821ms)
+  ✓  77 tests/workspace.spec.ts:1162:1 › a stale editor cannot recreate an untracked file after another tab renames it (1.8s)
+  ✓  78 tests/workspace.spec.ts:1261:1 › Overview reload and continue preserve the saved autonomous-planning setting (688ms)
+  ✓  79 tests/workspace.spec.ts:1309:1 › another editor changing the node presents a conflict without overwriting server content (1.9s)
+  ✓  80 tests/workspace.spec.ts:1359:1 › saved CSV preview reads real file rows and paginates without altering the file (517ms)
+  ✘  81 tests/workspace.spec.ts:1391:1 › guided demonstration follows ordinary project pages without automatically executing research (30.1s)
+(node:33304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  82 tests/workspace.spec.ts:1432:1 › search reveals an offscreen node in a large graph and reopens its inspector (6.0s)
+  ✓  83 tests/workspace.spec.ts:1500:1 › search reveals nodes hidden by the current branch or a collapsed ancestor (936ms)
+  ✓  84 tests/workspace.spec.ts:1576:1 › narrow workspace opens a dismissible inspector and keeps the searched node visible after closing (6.2s)
+  ✘  85 tests/workspace.spec.ts:1681:1 › Paper full-manuscript picker lists completed runs from this project (7.6s)
+(node:33566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  86 tests/workspace.spec.ts:1827:1 › Paper full-manuscript picker keeps the empty-project control (724ms)
+
+
+  1) tests/figure-switch-confirms-unsaved-draft.spec.ts:69:1 › reordering figures does not replace the selected unsaved draft 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.figure-selector button').first()
+    Expected substring: "Reordered figure"
+    Received string:    "Fig. 1Pinned figuredraft"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" locator('.figure-selector button').first() with timeout 5000ms
+      - waiting for locator('.figure-selector button').first()
+        14 × locator resolved to <button class="active">…</button>
+           - unexpected value "Fig. 1Pinned figuredraft"
+
+
+      121 |     await expect(caption).toHaveValue("Unsaved pinned draft");
+      122 |     await expect(pinned).toHaveClass(/active/);
+    > 123 |     await expect(page.locator(".figure-selector button").first()).toContainText(
+          |                                                                   ^
+      124 |       "Reordered figure",
+      125 |     );
+      126 |   } finally {
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts:123:67
+
+    Error Context: test-results/full-redesign/figure-switch-confirms-uns-4064c--the-selected-unsaved-draft/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/figure-switch-confirms-uns-4064c--the-selected-unsaved-draft/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/figure-switch-confirms-uns-4064c--the-selected-unsaved-draft/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/progress.spec.ts:91:1 › a delayed real progress response cannot cross a project switch ──
+
+    Test timeout of 30000ms exceeded.
+
+    Error: apiRequestContext.delete: Target page, context or browser has been closed
+
+      120 |   } finally {
+      121 |     release();
+    > 122 |     await request.delete(`/api/projects/${a.id}`);
+          |                         ^
+      123 |     await request.delete(`/api/projects/${b.id}`);
+      124 |   }
+      125 | });
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/progress.spec.ts:122:25
+
+    Error Context: test-results/full-redesign/progress-a-delayed-real-pr-ee3c2-nnot-cross-a-project-switch/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/progress-a-delayed-real-pr-ee3c2-nnot-cross-a-project-switch/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/progress-a-delayed-real-pr-ee3c2-nnot-cross-a-project-switch/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) tests/project-requirements.spec.ts:398:1 › fresh protocol reload reads an external version and structural checks become stale when publication scope changes 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('region', { name: 'Protocol structure result' })
+    Expected substring: "The draft or publication requirements changed. Validate again."
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" getByRole('region', { name: 'Protocol structure result' }) with timeout 5000ms
+      - waiting for getByRole('region', { name: 'Protocol structure result' })
+        - locator resolved to <section aria-label="Protocol structure result">…</section>
+        - unexpected value "structurally_checkedProtocol structure only; real execution, source verification and independent review remain required.{
+      "protocol": {
+        "research_question": "Does the declared candidate improve the paired numerical outcome?",
+        "hypothesis": "The candidate's paired effect exceeds the declared meaningful threshold.",
+        "baseline": "The fixed declared comparator",
+        "candidate": "The explicitly declared candidate",
+        "metric": "Paired mean outcome difference",
+        "statistical_unit": "Independent subject",
+        "split_policy": "Hold out confirmation subjects before exploratory selection",
+        "selection_policy": "Choose parameters using exploratory subjects only",
+        "decision_rule": "Report the paired interval and compare it to the declared threshold",
+        "argumentative_duty": "effectiveness",
+        "meaningful_effect": 0.4,
+        "phase": "exploratory",
+        "future_definition": {
+          "untouched": [
+            1,
+            2,
+            3
+          ]
+        },
+        "editing_policy": "Editable; record changed decisions and their affected evidence"
+      },
+      "status": "structurally_checked",
+      "publication_profile": {
+        "id": "operational",
+        "version": 1,
+        "target": "Explicitly requested operational task"
+      },
+      "verification_scope": "Protocol structure only; real execution, source verification and independent review remain required."
+    }"
+
+
+      532 |       .getByRole("button", { name: "Refresh audit", exact: true })
+      533 |       .click();
+    > 534 |     await expect(structure).toContainText(
+          |                             ^
+      535 |       "The draft or publication requirements changed. Validate again.",
+      536 |     );
+      537 |     const history = await (
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts:534:29
+
+    Error Context: test-results/full-redesign/project-requirements-fresh-79a95-n-publication-scope-changes/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/project-requirements-fresh-79a95-n-publication-scope-changes/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/project-requirements-fresh-79a95-n-publication-scope-changes/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) tests/redesign-accessibility.spec.ts:3:1 › system appearance follows actual media changes and reduced transparency removes chrome blur 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "none"
+    Received: "blur(16px) saturate(1.35)"
+
+      21 |       .locator(".sidebar")
+      22 |       .evaluate((el) => getComputedStyle(el).backdropFilter),
+    > 23 |   ).toBe("none");
+         |     ^
+      24 |   await page.reload();
+      25 |   await expect(page.getByLabel("Reduce transparency")).toBeChecked();
+      26 | });
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts:23:5
+
+    Error Context: test-results/full-redesign/redesign-accessibility-sys-66835-parency-removes-chrome-blur/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/redesign-accessibility-sys-66835-parency-removes-chrome-blur/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/redesign-accessibility-sys-66835-parency-removes-chrome-blur/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) tests/workspace-navigation.spec.ts:460:1 › configuration acknowledgment retains a patch edited during the actual pending save 
+
+    Error: expect(locator).toHaveValue(expected) failed
+
+    Locator:  getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')
+    Expected: "{\"priority\":44,\"late_unsaved_key\":{\"kept\":true}}"
+    Received: "{}"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveValue" getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)') with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')
+        14 × locator resolved to <textarea rows="6" class="code-input">{}</textarea>
+           - unexpected value "{}"
+
+
+      519 |       }),
+      520 |     ).toBeEnabled();
+    > 521 |     await expect(editor).toHaveValue(lateText);
+          |                          ^
+      522 |     expect(
+      523 |       (await (await request.get(`/api/runs/${run.id}`)).json()).config
+      524 |         .late_unsaved_key,
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts:521:26
+
+    Error Context: test-results/full-redesign/workspace-navigation-confi-d0359-ing-the-actual-pending-save/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-navigation-confi-d0359-ing-the-actual-pending-save/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-navigation-confi-d0359-ing-the-actual-pending-save/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) tests/workspace.spec.ts:70:1 › Files folders expand and collapse nested entries ───────────────
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 4
+    + Received  + 1
+
+    - Array [
+    -   "archive",
+    -   "archive/summary.txt",
+    - ]
+    + Array []
+
+      88 |   const archiveIndex = rowLabels.indexOf("archive");
+      89 |   const recordsIndex = rowLabels.indexOf("records");
+    > 90 |   expect(rowLabels.slice(archiveIndex, archiveIndex + 2)).toEqual([
+         |                                                           ^
+      91 |     "archive",
+      92 |     otherFilePath,
+      93 |   ]);
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:90:59
+
+    Error Context: test-results/full-redesign/workspace-Files-folders-expand-and-collapse-nested-entries/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-Files-folders-expand-and-collapse-nested-entries/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-Files-folders-expand-and-collapse-nested-entries/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) tests/workspace.spec.ts:132:1 › keyboard node movement persists its position ──────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error Context: test-results/full-redesign/workspace-keyboard-node-movement-persists-its-position/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-keyboard-node-movement-persists-its-position/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-keyboard-node-movement-persists-its-position/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) tests/workspace.spec.ts:231:1 › keyboard position saves recover from a graph revision conflict 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "x": 205,
+    +   "x": 200,
+        "y": 160,
+      }
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      313 |         ?.position;
+      314 |     })
+    > 315 |     .toEqual({ x: 205, y: 160 });
+          |      ^
+      316 |   expect(batchRevisions).toEqual([1, 2]);
+      317 |   await page.reload();
+      318 |   await expect
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:315:6
+
+    Error Context: test-results/full-redesign/workspace-keyboard-positio-b19da-m-a-graph-revision-conflict/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-keyboard-positio-b19da-m-a-graph-revision-conflict/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-keyboard-positio-b19da-m-a-graph-revision-conflict/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) tests/workspace.spec.ts:396:1 › discard position retries for nodes deleted by a concurrent edit 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      465 |       return current.nodes.some((item: { id: string }) => item.id === nodeId);
+      466 |     })
+    > 467 |     .toBe(false);
+          |      ^
+      468 |
+      469 |   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
+      470 |   await expect
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:467:6
+
+    Error Context: test-results/full-redesign/workspace-discard-position-a93cc-eleted-by-a-concurrent-edit/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-discard-position-a93cc-eleted-by-a-concurrent-edit/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-discard-position-a93cc-eleted-by-a-concurrent-edit/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) tests/workspace.spec.ts:772:1 › Files page navigates bounded file-list pages ─────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.file-tree')
+    Expected substring: "zeta.txt"
+    Received string:    "alpha.txt1 BPage 1 · Search covers this page onlyPreviousNext"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" locator('.file-tree') with timeout 5000ms
+      - waiting for locator('.file-tree')
+        2 × locator resolved to <aside class="file-tree">…</aside>
+          - unexpected value "alpha.txt1 BPage 1 · Search covers this page onlyPreviousLoading…"
+        12 × locator resolved to <aside class="file-tree">…</aside>
+           - unexpected value "alpha.txt1 BPage 1 · Search covers this page onlyPreviousNext"
+
+
+      807 |     .getByRole("button", { name: "Next", exact: true })
+      808 |     .click();
+    > 809 |   await expect(tree).toContainText("zeta.txt");
+          |                      ^
+      810 |   await expect(tree).not.toContainText("alpha.txt");
+      811 |   await expect(tree.locator(".file-tree-pagination")).toContainText("Page 2");
+      812 | });
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:809:22
+
+    Error Context: test-results/full-redesign/workspace-Files-page-navigates-bounded-file-list-pages/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-Files-page-navigates-bounded-file-list-pages/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-Files-page-navigates-bounded-file-list-pages/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) tests/workspace.spec.ts:1081:1 › RunPanel shows an Agent final summary alongside its output log 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.run-panel').locator('pre')
+    Expected substring: "Tool response trace"
+    Error: strict mode violation: locator('.run-panel').locator('pre') resolved to 2 elements:
+        1) <pre class="json-view">{↵  "summary": "The Agent's final answer is ready…</pre> aka getByText('{ "summary": "The Agent\'s')
+        2) <pre>Tool response trace</pre> aka getByText('Tool response trace')
+
+    Call log:
+      - Expect "toContainText" locator('.run-panel').locator('pre') with timeout 5000ms
+      - waiting for locator('.run-panel').locator('pre')
+
+
+      1117 |     "The Agent's final answer is ready.",
+      1118 |   );
+    > 1119 |   await expect(panel.locator("pre")).toContainText("Tool response trace");
+           |                                      ^
+      1120 | });
+      1121 |
+      1122 | test("graph updates remain stable and persist a node created through the inspector UI", async ({
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1119:38
+
+    Error Context: test-results/full-redesign/workspace-RunPanel-shows-a-3a1e7-ry-alongside-its-output-log/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-RunPanel-shows-a-3a1e7-ry-alongside-its-output-log/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-RunPanel-shows-a-3a1e7-ry-alongside-its-output-log/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) tests/workspace.spec.ts:1391:1 › guided demonstration follows ordinary project pages without automatically executing research 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for locator('.sidebar nav a').filter({ hasText: 'Data & analysis' })
+
+
+      1410 |     .locator(".sidebar nav a")
+      1411 |     .filter({ hasText: "Data & analysis" })
+    > 1412 |     .click();
+           |      ^
+      1413 |   await expect(page).toHaveURL(
+      1414 |     new RegExp(`/projects/${projectId}/data\\?demo=1`),
+      1415 |   );
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1412:6
+
+    Error Context: test-results/full-redesign/workspace-guided-demonstra-a90c2-atically-executing-research/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-guided-demonstra-a90c2-atically-executing-research/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-guided-demonstra-a90c2-atically-executing-research/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) tests/workspace.spec.ts:1681:1 › Paper full-manuscript picker lists completed runs from this project 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' }) with timeout 5000ms
+      - waiting for locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })
+
+
+      1800 |     exact: true,
+      1801 |   });
+    > 1802 |   await expect(runCheckbox).toBeVisible();
+           |                             ^
+      1803 |   await expect(generate).toBeDisabled();
+      1804 |   await runCheckbox.check();
+      1805 |   await expect(generate).toBeEnabled();
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1802:29
+
+    Error Context: test-results/full-redesign/workspace-Paper-full-manus-47851-eted-runs-from-this-project/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/full-redesign/workspace-Paper-full-manus-47851-eted-runs-from-this-project/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/full-redesign/workspace-Paper-full-manus-47851-eted-runs-from-this-project/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13 failed
+    tests/figure-switch-confirms-unsaved-draft.spec.ts:69:1 › reordering figures does not replace the selected unsaved draft 
+    tests/progress.spec.ts:91:1 › a delayed real progress response cannot cross a project switch ───
+    tests/project-requirements.spec.ts:398:1 › fresh protocol reload reads an external version and structural checks become stale when publication scope changes 
+    tests/redesign-accessibility.spec.ts:3:1 › system appearance follows actual media changes and reduced transparency removes chrome blur 
+    tests/workspace-navigation.spec.ts:460:1 › configuration acknowledgment retains a patch edited during the actual pending save 
+    tests/workspace.spec.ts:70:1 › Files folders expand and collapse nested entries ────────────────
+    tests/workspace.spec.ts:132:1 › keyboard node movement persists its position ───────────────────
+    tests/workspace.spec.ts:231:1 › keyboard position saves recover from a graph revision conflict ─
+    tests/workspace.spec.ts:396:1 › discard position retries for nodes deleted by a concurrent edit 
+    tests/workspace.spec.ts:772:1 › Files page navigates bounded file-list pages ───────────────────
+    tests/workspace.spec.ts:1081:1 › RunPanel shows an Agent final summary alongside its output log 
+    tests/workspace.spec.ts:1391:1 › guided demonstration follows ordinary project pages without automatically executing research 
+    tests/workspace.spec.ts:1681:1 › Paper full-manuscript picker lists completed runs from this project 
+  73 passed (4.7m)

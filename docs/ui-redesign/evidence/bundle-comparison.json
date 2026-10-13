@@ -1,0 +1,22 @@
+{
+  "baseline_source": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "after_source": "uncommitted codex/frontend-product-redesign",
+  "dependency_condition": "Same current installed frontend dependencies for both; Vite6.4.3",
+  "measurement": "Initial index JavaScript file bytes and Node zlib gzipSync default compression; route/dependency chunks measured separately by build log",
+  "before": {
+    "path": "/var/folders/6c/h870p8gn45z74jqmgdl9jp680000gn/T/forest-baseline-production-20261013-gpsu5m8j/assets/index-BG8pLEZC.js",
+    "bytes": 694362,
+    "gzip_bytes": 217261
+  },
+  "after": {
+    "build": "final-63005",
+    "path": "apps/web/dist/assets/index-BIrSAtO6.js",
+    "bytes": 410121,
+    "gzip_bytes": 128162
+  },
+  "baseline_build_exit": 0,
+  "baseline_checkout_after": "clean",
+  "runtime_FCP_comparison": "NOT RUN",
+  "initial_js_reduction_percent": 40.935563870142666,
+  "initial_js_gzip_reduction_percent": 41.010121466807206
+}

@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-10-13T15:46:12.824Z",
+  "method": "Actual production browser settled networkidle + fonts.ready, owned saved layout fixture; GET navigation only",
+  "route": "/projects/728f0a26-67e3-44d4-a7ce-d49ce43fa60d/workspace?node=7d520fb3-1396-496f-9dd9-b70f3a8cdef5&view=focus",
+  "width": 390,
+  "height": 844,
+  "priorCaptureFinding": "Dark390 title captured in near-black; replaced after full navigation/style settle",
+  "before": {
+    "title": "Layout fixture 050",
+    "color": "rgb(237, 242, 238)",
+    "background": "rgba(0, 0, 0, 0)",
+    "cssVariable": "",
+    "theme": "dark",
+    "assetScripts": [
+      "/assets/index-BIrSAtO6.js"
+    ],
+    "overflow": false
+  },
+  "after": {
+    "title": "Layout fixture 050",
+    "color": "rgb(237, 242, 238)",
+    "background": "rgba(0, 0, 0, 0)",
+    "cssVariable": "",
+    "theme": "dark",
+    "assetScripts": [
+      "/assets/index-BIrSAtO6.js"
+    ],
+    "overflow": false
+  },
+  "pageErrors": [],
+  "screenshot": "screenshots/states/selected-node-focus-dark-390.png",
+  "pixelReview": "PASS: exact recaptured dark390 PNG opened; title is fully readable and appears in the expected heading"
+}

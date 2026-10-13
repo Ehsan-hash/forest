@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Run Lifecycle"
+  short_description: "Execution controls, instructions and recovery"
+  default_prompt: "Use $forest-run-lifecycle to improve FOREST run controls while preserving execution scope and history."

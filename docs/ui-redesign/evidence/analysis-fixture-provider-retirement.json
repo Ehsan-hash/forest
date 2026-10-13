@@ -1,0 +1,30 @@
+{
+  "method": "actual dedicated POST retirement endpoint and GET readback, only five owned loopback protocol fixtures in isolated test database",
+  "providers": [
+    {
+      "id": "294a7cf7-61c6-4377-8aff-034bfc21743b",
+      "status": "retired",
+      "updated_reference_count": 0
+    },
+    {
+      "id": "115aff33-a0f7-413c-a7ed-7c81f252a814",
+      "status": "retired",
+      "updated_reference_count": 0
+    },
+    {
+      "id": "59cb8aa0-1c84-4ff2-b28f-8081559cded8",
+      "status": "retired",
+      "updated_reference_count": 1
+    },
+    {
+      "id": "749af9d5-ec2c-4f19-a2d1-657cd8644382",
+      "status": "retired",
+      "updated_reference_count": 1
+    },
+    {
+      "id": "9a26f53f-10a6-49c8-ae5a-57d6a875a882",
+      "status": "retired",
+      "updated_reference_count": 1
+    }
+  ]
+}

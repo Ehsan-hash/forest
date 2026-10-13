@@ -1,0 +1,332 @@
+{
+  "asset": "index-x1iTLUfo.js",
+  "method": "Actual retained numerical run with actual saved CSV loaded in browser; GET-only",
+  "records": [
+    {
+      "theme": "light",
+      "project": "aedc19a4-7849-4953-99be-c52f8f682000",
+      "numerical": "a71c56e8-af02-40cc-868c-18e58669e5ab",
+      "items": [
+        {
+          "text": "intervals",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "integral",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "absolute_error",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "Run / method",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "Status",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "command_exit_code",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "elapsed",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "ticks",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "allocated_bytes",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "intervals",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "integral",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        },
+        {
+          "text": "absolute_error",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            247,
+            250,
+            243
+          ],
+          "fontSize": "12px",
+          "contrast": 2.3273787471953735
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "project": "aedc19a4-7849-4953-99be-c52f8f682000",
+      "numerical": "a71c56e8-af02-40cc-868c-18e58669e5ab",
+      "items": [
+        {
+          "text": "intervals",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "integral",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "absolute_error",
+          "selector": ".raw-data-browser th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "Run / method",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "Status",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "command_exit_code",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "elapsed",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "ticks",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "allocated_bytes",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "intervals",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "integral",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        },
+        {
+          "text": "absolute_error",
+          "selector": ".table-surface th",
+          "color": "rgb(154, 171, 137)",
+          "background": [
+            37,
+            51,
+            33
+          ],
+          "fontSize": "12px",
+          "contrast": 5.4380919224453415
+        }
+      ]
+    }
+  ]
+}

@@ -81,6 +81,7 @@ project ID. Use the generated contract for complete parameters and defaults.
 | Agent session, provenance and verification | `GET /runs/{ident}/session`, `/lineage`, `/verification`; `POST /verification/run` | Session/transcript summary, bound input runs, verification receipt and status. Missing session is `null`. |
 | Run configuration and debug checkpoint | `PATCH /runs/{ident}/configuration`, `/checkpoint` | Editable config and checkpoint payload; preserve runner-owned identity fields. |
 | Research planning and control | `GET /projects/{ident}/research`, `/research/route-health`; `POST /projects/{ident}/research/{action}`, `/research/route-review`; `PATCH /projects/{ident}/objective` | Controller phase/status, comparisons, route signals, objective; actions `start`, `pause`, `stop`. |
+| Workspace AI analysis | `GET /projects/{ident}/research/analysis/context`; `POST/GET /projects/{ident}/research/analysis`; `GET /runs/{ident}/research-analysis` | Project/node/path focus, retained question, reviewed project revision and context fingerprint, request identity, selected analysis run, citation provenance and historical/current report state. |
 | Research proposals | `POST /research/ideas`, `/research/suggest-paths`; `POST /ideas/{ident}/adopt`; `POST /research/proposals/{ident}/apply` | Generated proposal record, selected command indices and latest graph revision. |
 | Publication requirements and delivery | `GET /publication-profile`, `/writing-policy`; `GET/PATCH /projects/{ident}/publication`; `POST /projects/{ident}/protocol/validate` | Editable profile, declared experiment design, audit gaps, validation scope. |
 | Literature | `POST /library/search`, `/library/import`, `/library/compare`; `GET /library/{ident}/passages`; `POST /library/{ident}/reindex`; `GET /library/export-bibtex`; `POST /browser/read` | Source record IDs, full-text passages and export format. Search/import/read have different responses. |
@@ -111,6 +112,69 @@ editing/compile operations also resolve a paper ID or create the project draft
 where appropriate. Retain both returned `id` and `project_id`, rather than
 assuming they are interchangeable across every endpoint.
 
+## Workspace AI analysis
+
+The Workspace analysis panel reads saved research state and explicitly requests
+advice. It uses `research_analysis`, a separate run kind with no TaskRun node or
+branch binding. It does not execute recommendations, edit the graph, replace a
+node's latest result, or advance the research controller. The existing
+`research/route-review` operation has controller semantics and is not an
+interchangeable analysis button.
+
+| Operation | Request and returned state |
+| --- | --- |
+| `GET /projects/{ident}/research/analysis/context` | `scope=project\|node\|branch`, with `node_id` or `branch_id` for the selected focus. Returns saved project/graph/run/resource context, focus and upstream/downstream dependencies, coverage, provider availability, and `snapshot.project_revision`/`snapshot.fingerprint`. Selecting a focus performs no model request. |
+| `POST /projects/{ident}/research/analysis` | Required `request_id` and `expected_revision`; send the reviewed `expected_fingerprint` too. Retain `scope`, target ID, `question`, `language` (`zh`/`en`), optional `provider_id` and literature settings in the intended request. `literature_sources` accepts Crossref/arXiv (`crossref`/`arxiv`); `literature_limit` defaults to 6 and `timeout` to 180 seconds. Returns the actual queued analysis run, not a completed report. |
+| `GET /projects/{ident}/research/analysis` | Returns `{runs: [...]}` with saved identities, statuses, scopes, target IDs, questions, revisions and `report_available`. That field indicates file presence; inspect the result endpoint before treating a report as usable. |
+| `GET /runs/{ident}/research-analysis` | Returns exact run status/error, `report` or null, citations/search receipts, source snapshot, `current`, `stale_reasons`, `artifact_error` and artifact locators. Only a completed run with report bytes matching its saved digest exposes the report. |
+
+Node/path focus retains the full project context. Its `focus` identifies the
+selected nodes/runs and transitive dependencies; it does not discard other
+recorded results. Context resources include hypotheses, claims, sources and
+passages, datasets, experiments, analyses, figures, manuscript/review/derivation
+records, GoalContractVersion and EvaluationProtocolVersion history, and
+Intervention, InterventionEffect and ActionDecision receipts. Tool executions
+retain their original run identities, and project events retain their saved
+sequence. Accepted instructions, pending effects, answered decisions, consumed
+decisions and successful experiments remain distinct records.
+
+Ordinary context preview provides material/log locators, sizes and modification
+times without text. The explicit analysis captures bounded source text and
+redacted stdout/stderr before enqueue. A `complete: false` material has an unread
+remainder; logs have a 262,144-byte cap. Binary/large artifacts remain locators.
+Credential values are excluded. Source text, logs and earlier reports are
+untrusted material. A complete ID coverage array does not prove a model read or
+scientifically validated every source.
+
+Retain the original request ID and exact intended payload after an uncertain
+response. An identical request replays its saved run before the revision check;
+changed intent under that ID returns `409 REQUEST_ID_CONFLICT`. A new intended
+analysis needs a new ID. `409 REVISION_CONFLICT` identifies a changed graph/project
+revision; `409 CONTEXT_CHANGED` identifies changed run, resource, tool, event or
+material context even when the revision is unchanged. Preserve the question and
+review the refreshed context explicitly before adopting its revision/fingerprint.
+Do not silently replace those guards during a retry. Missing provider selection
+returns `422 PROVIDER_REQUIRED` without a saved analysis run. Caller-supplied
+provider snapshots/environment are rejected; generic run configuration PATCH
+can change only budget, agent budget, timeout and priority for this run kind.
+
+Refresh completed as well as active reports on project invalidation. Preserve
+stale advice as historical and display its reasons; a deleted focus does not
+make its saved report unreadable. Prior advisory runs, their Analysis records
+and their run events are excluded from the source fingerprint, scientific route
+health windows and measured Data runs. An analysis finishing cannot make itself
+stale or become an experimental measurement.
+
+Citations come from saved library sources/passages or actual bibliographic
+responses. Preserve their server-owned IDs, DOI/URL, origin, `read_scope`,
+passages and retrieval receipts. Metadata or an abstract is not full-text reading
+or proof of a claim. Importing a citation into the library is an explicit separate
+action. Validation rejects foreign/misattributed node/run/citation references and
+missing or duplicate node/run/resource coverage. Research recommendations also
+require the research judgment contract and explicit question/success event;
+diagnostic/reading recommendations do not require that forecast. A successfully
+transported and validated report remains advice, not verified scientific evidence.
+
 ## Revisions, paths and dependent outputs
 
 Keep fetched server state and unsaved editor state separately. Retain the
@@ -125,6 +189,14 @@ newer value without merging edits defeats conflict detection.
 | Generic record, figure specification/revision | Record/figure revision | Record and consumers marked stale. |
 | Manuscript source, layout, compilation, figure insertion, review application | Paper revision | Paper, compile/layout runs and preview; review proposals also bind their original paper revision. |
 | Text file write | Revision returned by file read | File and dependent research outputs. An untracked file initially reads as revision 0. |
+
+Publication configuration is an exception: `PATCH /projects/{ident}/publication`
+merges submitted fields into the current profile and increments the project
+revision, but does not check `expected_revision`. The current editor first GETs
+the profile, rejects conflicting changes to edited fields, and sends only its
+changed fields, preserving untouched unknown keys. A concurrent change to the
+same field between that GET and PATCH can still be overwritten; an atomic
+server revision guard is required to close that race.
 
 Deleting a file advances and retains its per-path revision generation, including
 for files inside a deleted directory. A new write to a missing path may use
@@ -340,8 +412,9 @@ cookie for browser connections and keep terminal traffic on the WebSocket.
 1. Preserve the screen's IDs, selection, drafts, revisions and active run IDs.
 2. Load the resources in the feature map through the typed JSON adapter; keep
    blob exports, SSE and WebSockets on their appropriate transports.
-3. Save drafts with their loaded revision, handle conflicts without discarding
-   edits, and use returned objects to update the cache.
+3. Save drafts with their loaded revision where the endpoint supports a revision
+   guard; preserve conflicts and use returned objects to update the cache.
+   Publication saves retain the fresh-read limitation described above.
 4. Display queued/running/paused/failed states and real artifact availability.
    Refresh on relevant events and after successful mutations.
 5. Exercise the screen with concurrent edits, unavailable artifacts, empty

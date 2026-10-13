@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+(node:60024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/research-analysis.spec.ts:149:1 › actual analysis preview follows full node/path URLs and retains independent drafts without model calls (5.9s)
+
+
+  1) tests/research-analysis.spec.ts:149:1 › actual analysis preview follows full node/path URLs and retains independent drafts without model calls 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.research-analysis-panel').getByRole('region', { name: 'Saved analysis context' }).locator('details').filter({ has: locator(':scope > summary').filter({ hasText: /^Alpha analysis node · r\d+$/ }) }).locator('h4 + .analysis-bound-references').nth(1).getByRole('link')
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('.research-analysis-panel').getByRole('region', { name: 'Saved analysis context' }).locator('details').filter({ has: locator(':scope > summary').filter({ hasText: /^Alpha analysis node · r\d+$/ }) }).locator('h4 + .analysis-bound-references').nth(1).getByRole('link') with timeout 5000ms
+      - waiting for locator('.research-analysis-panel').getByRole('region', { name: 'Saved analysis context' }).locator('details').filter({ has: locator(':scope > summary').filter({ hasText: /^Alpha analysis node · r\d+$/ }) }).locator('h4 + .analysis-bound-references').nth(1).getByRole('link')
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      219 |       beta.id,
+      220 |     );
+    > 221 |     await expect(alphaDependencies.nth(1).getByRole("link")).toHaveCount(0);
+          |                                                              ^
+      222 |     await expect(
+      223 |       pane(page).getByRole("button", { name: "Request AI analysis" }),
+      224 |     ).toBeDisabled();
+        at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/research-analysis.spec.ts:221:62
+
+    Error Context: test-results/analysis-dependency-before-fix/research-analysis-actual-a-7d829--drafts-without-model-calls/error-context.md
+
+  1 failed
+    tests/research-analysis.spec.ts:149:1 › actual analysis preview follows full node/path URLs and retains independent drafts without model calls 

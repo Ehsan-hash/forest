@@ -1,0 +1,41 @@
+Recorded 2026-10-13 in the isolated repository test environment.
+
+Command:
+.venv/bin/python -m pytest tests/test_workspace_analysis.py -q --tb=short
+
+Observed result:
+.............                                                            [100%]
+13 passed in 11.57s
+
+Each scenario starts a fresh interpreter, SQLite database and data directory.
+FastAPI handlers, context construction, snapshot files, executor dispatch,
+context_model_json and worker receipt collection are real where identified in
+the test. ModelClient.complete, context_model_json or literature search replies
+are authored protocol fixtures in the named scenario. No remote/paid provider,
+external search or OS worker/model process is started by this file. Authored
+node/run/source records are not scientific observations.
+
+Executed scenarios:
+- complete_context_and_scoped_dependency_locators_preserve_real_record_identities
+- analysis_transport_does_not_change_scientific_route_health_windows
+- report_validation_rejects_foreign_and_misattributed_references_and_underspecified_research
+- citation_catalog_is_server_owned_and_search_failure_never_creates_a_reference
+- provider_requirement_rolls_back_and_public_submit_rejects_unowned_configuration
+- executor_persists_advice_without_changing_source_state_and_reports_exact_freshness
+- saved_intent_snapshot_and_report_cannot_be_silently_rewritten
+- run_and_material_changes_without_graph_revision_require_fresh_review
+- historical_node_focus_remains_readable_after_the_node_is_deleted
+- invalid_provider_report_and_transport_failure_never_publish_advice
+- real_context_protocol_and_worker_receipt_collection_with_authored_transport
+- request_replay_precedes_revision_guard_and_changed_intent_conflicts
+- scope_rejects_foreign_entities_and_branch_analysis_has_no_scheduler_binding
+
+Supplemental published-contract check:
+.venv/bin/python -m pytest tests/test_api_contracts.py -q -k schema_registry --tb=short
+Initial result: 1 failed, 10 deselected in 1.21s.
+Cause: new analysis GET operation lacked OpenAPI description/tags.
+Contract metadata was repaired. The combined subsequent run in
+analysis-integration-tests.txt passed all API contract scenarios plus these 13
+analysis scenarios, route review and SQLite controller checks: 35 passed,
+2 PostgreSQL variants skipped, 62.95 seconds. The initial failing output is
+retained here as diagnostic history rather than a current schema failure.

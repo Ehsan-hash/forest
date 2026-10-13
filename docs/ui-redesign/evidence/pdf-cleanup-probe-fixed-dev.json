@@ -1,0 +1,5 @@
+{
+  "method": "Read-only browser fixture: actual previously compiled PDF bytes, paper/download GET responses intercepted locally, no backend mutations.",
+  "cycles": 16,
+  "page_errors": []
+}

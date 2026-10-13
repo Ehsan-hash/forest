@@ -13,6 +13,7 @@ from pathlib import Path
 from sqlalchemy import select
 from services.api.db import *
 from services.api.common import *
+from services.api.common import touch_dependents
 from services.api.config import ROOT
 
 def local_command(command, workspace, output, config):
@@ -379,13 +380,17 @@ def execute(run_id):
         output=safe_path(project_dir(pid),run.output_path); root=project_dir(pid)
         source_workspace=safe_path(root,config.get('_workspace_source_snapshot',branch_workspace))
         from services.api.verification import verification_gate
-        gate=verification_gate(s,run)
+        gate=verification_gate(s,run) if kind!='research_analysis' else {'ready':True}
         if not gate['ready']:
             from research.agents.runtime import AgentYield
             run.resource={**run.resource,'blocked_reason':gate['blocked_reason'],'verification_gate':gate}
             s.add(run); s.commit()
             raise AgentYield('waiting_input',reason=gate['message'])
-    output.mkdir(parents=True,exist_ok=True); workspace=output/'workspace'; workspace.mkdir(exist_ok=True)
+    output.mkdir(parents=True,exist_ok=True)
+    if kind=='research_analysis':
+        from research.planning.workspace_analysis import execute_workspace_analysis
+        return execute_workspace_analysis(run_id,config,output)
+    workspace=output/'workspace'; workspace.mkdir(exist_ok=True)
     prepare_task_workspace(root,source_workspace,output,config)
     paired_input=None
     if kind!='verification':
@@ -602,7 +607,6 @@ def execute(run_id):
             **({'verification_input':provenance} if provenance else {}),
         }
         from services.worker.scheduler import _lock_project
-        from services.api.common import touch_dependents
         from services.api.files import file_publication_lock
         # File publishers acquire the publication lock before the project
         # writer lock. Match that order so failed-publication compensation

@@ -3,7 +3,7 @@
 .run-evidence-content { padding: 0 12px 12px; max-height: 360px; overflow: auto; }
 .run-evidence-toolbar, .run-evidence-status, .run-evidence-session, .run-evidence-dependencies { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
 .run-evidence-toolbar { justify-content: space-between; }
-.run-evidence .button { min-height: 26px; padding: 4px 8px; font-size: 11px; }
+.run-evidence .button { min-height: 26px; padding: 4px 8px; font-size: 12px; }
 .run-evidence-select { display: flex; align-items: center; gap: 8px; }
 .run-evidence-select select { min-width: 0; max-width: 100%; flex: 1; padding: 5px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--text); }
 .run-evidence-status, .run-evidence-session { color: var(--muted); }

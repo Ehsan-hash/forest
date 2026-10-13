@@ -38,7 +38,9 @@ test("paper revision ignores repeated clicks while the request is pending", asyn
     await expect(revise).toBeDisabled();
     await revise.dispatchEvent("click");
     expect(attempts).toBe(1);
-    await expect(page.getByText("Temporary revision failure")).toBeVisible();
+    await expect(page.locator(".paper-page .error-box")).toContainText(
+      "Temporary revision failure",
+    );
     await expect(revise).toBeEnabled();
     expect(attempts).toBe(1);
 

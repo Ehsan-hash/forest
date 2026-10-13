@@ -1,0 +1,15 @@
+# FOREST redesign audit
+
+Baseline commit: `ff16c3f656f94d053d1bba65c6b3a07a5feaccde`. Implementation checkout: `codex/frontend-product-redesign`. This audit covers local source, the isolated production frontend/API/worker and explicitly labelled mocked or fault-injected browser cases.
+
+The source inventory identifies 102 frontend features, ten additional API-only capability groups, existing component owners and 57 UI/API groups. [feature-inventory.md](feature-inventory.md), [component-inventory.md](component-inventory.md) and [ui-api-coverage.md](ui-api-coverage.md) retain the baseline mapping and implemented entries. API-only capabilities without baseline UI entries are listed explicitly rather than described as deleted frontend features.
+
+Baseline browser observations reproduced immediate node reselection after Escape, budget text replaced by a project refresh, and a missing Runs route redirected to All projects. Twenty-five before screenshots cover the principal routes in light/dark at 1440px and a compact Workspace. The exact project/node identities and observations are in [baseline-observations.json](baseline-observations.json).
+
+The isolated runtime uses `http://127.0.0.1:18340`, `/tmp/forest-redesign-runtime-20261013`, a separate SQLite database, and the normal scheduler/worker. Provider-free command, numerical integration, paired analysis, CSV integrity checks, repository clone, numerical figure rendering, manuscript compilation and run controls exercise actual server persistence and worker execution. Mock/fault cases exercise deliberately unavailable state presentation and request ordering; they do not establish Agent consumption or scientific validity.
+
+Baseline backend execution recorded 1429 passed, 71 skipped and 63 failed. The failure classification in [backend-baseline-failures.json](backend-baseline-failures.json) confirms missing Linux bubblewrap in 61 cases from logs or retained receipts; one before-tool checkpoint execution failure has the same source-inferred prerequisite with no retained receipt. The skill-discovery assertion was updated to validate the exact four retained research skills plus seven frontend skills and passed. No Linux sandbox failure was converted into a pass by disabling its test.
+
+Subsequent focused backend checks cover actual API/settings defaults, skill catalog, verification and paper layout. Frontend build, unit, full browser, visual and runtime observations are recorded in [test-matrix.md](test-matrix.md) and [final-report.md](final-report.md). Their results are evidence for their stated scope, not a blanket pass of all backend/platform/Agent/scientific behavior.
+
+Known backend limits include non-atomic publication-profile PATCH and stopped-checkpoint PATCH guards, PostgreSQL behavior not exercised by SQLite acceptance, and Linux sandbox prerequisites absent on this macOS host. Provider-backed research planning, active Agent tool decisions and paid execution require separate qualification. Numerical integration verifies the declared computation and provenance, not a publishable research finding.

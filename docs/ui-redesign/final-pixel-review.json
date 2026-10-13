@@ -1,0 +1,30 @@
+{
+  "build": "37500 index-B2cFWwAb.js",
+  "method": "actual local PNG opened using view_image",
+  "scope": [
+    "projects-light-1440.png",
+    "projects-dark-1440.png",
+    "experiments-light-1440.png",
+    "experiments-dark-1440.png",
+    "runs-light-1440.png",
+    "runs-dark-1440.png",
+    "data-light-1440.png",
+    "data-dark-1440.png",
+    "figures-light-1440.png",
+    "figures-dark-1440.png",
+    "files-light-1440.png",
+    "files-dark-1440.png",
+    "settings-light-1440.png",
+    "settings-dark-1440.png",
+    "library-light-1440.png",
+    "library-dark-1440.png"
+  ],
+  "rubric": {
+    "hierarchy": "Primary create/import/configuration actions are explicit; subordinate analytical actions remain under named sections.",
+    "proportions": "Forms and page headings fit; intended vertical page scrolling contains long project/provider lists.",
+    "typography": "File paths, empty-run labels, provider model/URL, form labels and metadata remain readable after semantic-color corrections.",
+    "theme": "Sidebar-collapse surface follows the theme; input and empty-state surfaces remain distinct. Retired test connections display retired state.",
+    "alignment": "No clipped form fields or row controls observed at1440; route-level document overflow is separately measured atall6widths."
+  },
+  "limitations": "This is a16-image pixel review; capture metadata for156 observations is separately recorded. Populated runtime and node-focus states have separate evidence."
+}

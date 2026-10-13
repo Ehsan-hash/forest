@@ -1,0 +1,30 @@
+{
+  "method": "Read-only browser fixture: actual previously compiled PDF bytes, paper/download GET responses intercepted locally, no backend mutations.",
+  "cycles": 16,
+  "page_errors": [
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    },
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    },
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    },
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    },
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    },
+    {
+      "message": "Worker was terminated",
+      "stack": "Error: Worker was terminated\n    at ensureNotTerminated (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1365306)\n    at onFailure (http://127.0.0.1:18340/assets/pdf.worker.min-yatZIOMy.mjs:21:1366133)"
+    }
+  ]
+}

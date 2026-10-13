@@ -1,0 +1,128 @@
+{
+  "figure": {
+    "project_id": "124807c8-4c0d-4a4d-8d73-d6adac6374b9",
+    "title": "Computed trapezoidal integral",
+    "revision": 2,
+    "status": "needs_review",
+    "data": {
+      "kind": "bar",
+      "run_ids": [
+        "736c96c1-41fe-41d5-bb17-30d2e9a9b075"
+      ],
+      "metric": "integral",
+      "data": {
+        "rows": [
+          {
+            "dataset": "x² on [0, 1]",
+            "method": "Trapezoidal, 5,000 intervals",
+            "integral": 0.33333334000000003
+          }
+        ]
+      },
+      "style": {
+        "metric": "integral",
+        "width": 7,
+        "height": 4,
+        "xlabel": "Computed result",
+        "ylabel": "Integral"
+      },
+      "caption": "Trapezoidal integration of x² over [0, 1], 5,000 intervals.",
+      "code": "# Editable figure source; use an installed FOREST environment or keep it inside the source project.\nimport json, sys\nfrom pathlib import Path\np=Path(__file__).resolve().parent\nfor parent in p.parents:\n    if (parent/'research/figures/render.py').is_file():\n        sys.path.insert(0,str(parent)); break\nfrom research.figures.render import render_figure\nstyle=json.loads((p/'style.json').read_text())\nkind=style.pop('kind','bar')\nrender_figure(p,json.loads((p/'figure_data.json').read_text()),style,kind)\n",
+      "purpose": "effectiveness",
+      "image_prompt": "",
+      "visual_review_status": "awaiting_independent_reviews",
+      "outputs": {
+        "svg": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/figure.svg",
+        "pdf": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/figure.pdf",
+        "png": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/figure.png",
+        "source": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/plot.py",
+        "data": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/figure_data.json",
+        "style": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/style.json",
+        "report": "runs/f2a7a97a-cd49-4b1f-b777-2782d973df73/figure/figure_report.json"
+      },
+      "source_run_ids": [
+        "736c96c1-41fe-41d5-bb17-30d2e9a9b075"
+      ],
+      "visual_selection": null,
+      "code_origin": "renderer"
+    },
+    "id": "70d48d0d-c126-4ab6-8003-f8677815a1e5",
+    "created_at": "2026-10-13T15:25:04.650430+00:00",
+    "updated_at": "2026-10-13T15:25:06.683488+00:00"
+  },
+  "sourceRun": {
+    "project_id": "124807c8-4c0d-4a4d-8d73-d6adac6374b9",
+    "node_id": "02083917-517c-505e-aaaf-05da9683c870",
+    "branch_id": "808cb19a-79d2-458c-8a98-e33e9c98c2cc",
+    "request_id": "9ae568b1-5874-4f89-959d-db7f6a1bdd22:02083917-517c-505e-aaaf-05da9683c870",
+    "kind": "experiment",
+    "status": "queued",
+    "config": {
+      "kind": "experiment",
+      "experiment_duty": "effectiveness",
+      "metrics_file": "metrics.json",
+      "command": [
+        "python3",
+        "-c",
+        "import json; from pathlib import Path; n=5000; h=1.0/n; observed=h*(sum((i*h)**2 for i in range(1,n))+0.5); metrics={'integral':observed,'absolute_error':abs(observed-1.0/3.0),'intervals':n}; Path('metrics.json').write_text(json.dumps(metrics)); print(json.dumps(metrics),flush=True)"
+      ],
+      "goal_contract_version_id": "86d7be1f-0154-4032-b3e2-e19a26730bfa",
+      "goal_contract_revision": 1,
+      "goal_contract": {
+        "objective": "",
+        "success_criteria": [],
+        "contract": {}
+      },
+      "timeout": 120,
+      "project_goal": "",
+      "allow_paid": false,
+      "goal_scope": {},
+      "instructions": "Execute the declared numerical computation and retain actual metrics.",
+      "node_type": "experiment",
+      "node_title": "Measure trapezoidal integration error",
+      "context_overrides": {},
+      "input_references": [],
+      "research_task_identity": {
+        "instructions": "Execute the declared numerical computation and retain actual metrics.",
+        "config": {
+          "kind": "experiment",
+          "experiment_duty": "effectiveness",
+          "metrics_file": "metrics.json",
+          "command": [
+            "python3",
+            "-c",
+            "import json; from pathlib import Path; n=5000; h=1.0/n; observed=h*(sum((i*h)**2 for i in range(1,n))+0.5); metrics={'integral':observed,'absolute_error':abs(observed-1.0/3.0),'intervals':n}; Path('metrics.json').write_text(json.dumps(metrics)); print(json.dumps(metrics),flush=True)"
+          ]
+        },
+        "inputs": []
+      }
+    },
+    "node_revision": 0,
+    "priority": 0,
+    "dependencies": [],
+    "worker_id": null,
+    "pid": null,
+    "process_created": null,
+    "started_at": null,
+    "finished_at": null,
+    "exit_code": null,
+    "error": null,
+    "output_path": "runs/736c96c1-41fe-41d5-bb17-30d2e9a9b075",
+    "metrics": {},
+    "resource": {
+      "time_budget": {
+        "requested_task_timeout_seconds": null,
+        "effective_total_timeout_seconds": 120,
+        "project_budget_seconds_at_enqueue": 120,
+        "project_revision_at_enqueue": 1,
+        "reservation_state": "held",
+        "resume_history": []
+      },
+      "rerun_generation_at_enqueue": 1,
+      "verification_status": "unverified"
+    },
+    "id": "736c96c1-41fe-41d5-bb17-30d2e9a9b075",
+    "created_at": "2026-10-13T15:25:02.760231+00:00",
+    "updated_at": "2026-10-13T15:25:02.760794+00:00"
+  }
+}

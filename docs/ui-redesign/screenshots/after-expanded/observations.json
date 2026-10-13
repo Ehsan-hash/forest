@@ -1,0 +1,397 @@
+{
+  "fixture_project_id": "4aa3da8f-fe95-442e-8d78-0b2ffc6badf0",
+  "fixture": true,
+  "scientific_execution": false,
+  "observations": [
+    {
+      "surface": "requirements",
+      "theme": "light",
+      "width": 390,
+      "overflow": {
+        "scrollWidth": 390,
+        "viewport": 390
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 390,
+      "color": "rgb(24, 33, 29)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 122.859375,
+          "scrollWidth": 121,
+          "clientWidth": 121
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 58.734375,
+          "scrollWidth": 57,
+          "clientWidth": 57
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 105.1875,
+          "scrollWidth": 103,
+          "clientWidth": 103
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 94.078125,
+          "scrollWidth": 92,
+          "clientWidth": 92
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 101.90625,
+          "scrollWidth": 100,
+          "clientWidth": 100
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 390,
+        "viewport": 390
+      },
+      "errors": []
+    },
+    {
+      "surface": "requirements",
+      "theme": "light",
+      "width": 768,
+      "overflow": {
+        "scrollWidth": 768,
+        "viewport": 768
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 768,
+      "color": "rgb(24, 33, 29)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 130.859375,
+          "scrollWidth": 129,
+          "clientWidth": 129
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 66.734375,
+          "scrollWidth": 65,
+          "clientWidth": 65
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 112.1875,
+          "scrollWidth": 110,
+          "clientWidth": 110
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 102.078125,
+          "scrollWidth": 100,
+          "clientWidth": 100
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 109.90625,
+          "scrollWidth": 108,
+          "clientWidth": 108
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 768,
+        "viewport": 768
+      },
+      "errors": []
+    },
+    {
+      "surface": "requirements",
+      "theme": "light",
+      "width": 1440,
+      "overflow": {
+        "scrollWidth": 1440,
+        "viewport": 1440
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "light",
+      "width": 1440,
+      "color": "rgb(24, 33, 29)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(89, 103, 94)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 134.859375,
+          "scrollWidth": 133,
+          "clientWidth": 133
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 70.734375,
+          "scrollWidth": 69,
+          "clientWidth": 69
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 116.1875,
+          "scrollWidth": 114,
+          "clientWidth": 114
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 106.078125,
+          "scrollWidth": 104,
+          "clientWidth": 104
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 113.90625,
+          "scrollWidth": 112,
+          "clientWidth": 112
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 1440,
+        "viewport": 1440
+      },
+      "errors": []
+    },
+    {
+      "surface": "requirements",
+      "theme": "dark",
+      "width": 390,
+      "overflow": {
+        "scrollWidth": 390,
+        "viewport": 390
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 390,
+      "color": "rgb(237, 242, 238)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 122.859375,
+          "scrollWidth": 121,
+          "clientWidth": 121
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 58.734375,
+          "scrollWidth": 57,
+          "clientWidth": 57
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 105.1875,
+          "scrollWidth": 103,
+          "clientWidth": 103
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 94.078125,
+          "scrollWidth": 92,
+          "clientWidth": 92
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 101.90625,
+          "scrollWidth": 100,
+          "clientWidth": 100
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 390,
+        "viewport": 390
+      },
+      "errors": []
+    },
+    {
+      "surface": "requirements",
+      "theme": "dark",
+      "width": 768,
+      "overflow": {
+        "scrollWidth": 768,
+        "viewport": 768
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 768,
+      "color": "rgb(237, 242, 238)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 130.859375,
+          "scrollWidth": 129,
+          "clientWidth": 129
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 66.734375,
+          "scrollWidth": 65,
+          "clientWidth": 65
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 112.1875,
+          "scrollWidth": 110,
+          "clientWidth": 110
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 102.078125,
+          "scrollWidth": 100,
+          "clientWidth": 100
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 109.90625,
+          "scrollWidth": 108,
+          "clientWidth": 108
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 768,
+        "viewport": 768
+      },
+      "errors": []
+    },
+    {
+      "surface": "requirements",
+      "theme": "dark",
+      "width": 1440,
+      "overflow": {
+        "scrollWidth": 1440,
+        "viewport": 1440
+      },
+      "errors": []
+    },
+    {
+      "surface": "paper-dirty",
+      "theme": "dark",
+      "width": 1440,
+      "color": "rgb(237, 242, 238)",
+      "fontSize": "13px",
+      "state": {
+        "text": "Unsaved changes",
+        "display": "block",
+        "color": "rgb(176, 188, 180)",
+        "fontSize": "13px"
+      },
+      "actions": [
+        {
+          "text": "Check evidence",
+          "display": "flex",
+          "width": 134.859375,
+          "scrollWidth": 133,
+          "clientWidth": 133
+        },
+        {
+          "text": "Save",
+          "display": "flex",
+          "width": 70.734375,
+          "scrollWidth": 69,
+          "clientWidth": 69
+        },
+        {
+          "text": "Compile PDF",
+          "display": "flex",
+          "width": 116.1875,
+          "scrollWidth": 114,
+          "clientWidth": 114
+        },
+        {
+          "text": "Source ZIP",
+          "display": "flex",
+          "width": 106.078125,
+          "scrollWidth": 104,
+          "clientWidth": 104
+        },
+        {
+          "text": "Current PDF",
+          "display": "flex",
+          "width": 113.90625,
+          "scrollWidth": 112,
+          "clientWidth": 112
+        }
+      ],
+      "overflow": {
+        "scrollWidth": 1440,
+        "viewport": 1440
+      },
+      "errors": []
+    }
+  ]
+}

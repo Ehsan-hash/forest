@@ -1,0 +1,68 @@
+{
+  "observed_at": "2026-10-13T15:45:07.952399+00:00",
+  "method": "READBACK of earlier guarded edit_node on owned isolated fixture; no mutation performed while writing this receipt",
+  "project_id": "d935f3bd-908c-40a5-842d-a7d219a98b16",
+  "purpose": "Separate two existing smoke nodes for final rendered visual review",
+  "graph_revision_before": 2,
+  "graph_revision_after": 3,
+  "node_changes": [
+    {
+      "node_id": "74a59cde-c1bc-5786-9aa0-e527de34610f",
+      "changed_fields": [
+        "position",
+        "updated_at"
+      ],
+      "position_before": {
+        "x": 0,
+        "y": 0
+      },
+      "position_after": {
+        "x": 120,
+        "y": 180
+      },
+      "updated_at_after": "2026-10-13T15:39:52.325308+00:00",
+      "all_other_node_fields_unchanged": true
+    },
+    {
+      "node_id": "6a361ad6-fe29-5d6e-b87c-be723ccfd4a7",
+      "changed_fields": [
+        "position",
+        "updated_at"
+      ],
+      "position_before": {
+        "x": 0,
+        "y": 0
+      },
+      "position_after": {
+        "x": 520,
+        "y": 180
+      },
+      "updated_at_after": "2026-10-13T15:39:52.325301+00:00",
+      "all_other_node_fields_unchanged": true
+    }
+  ],
+  "edges_and_branches_unchanged": true,
+  "scientific_runs_source_fields_unchanged": true,
+  "compared_run_fields": [
+    "status",
+    "metrics",
+    "error",
+    "node_id",
+    "branch_id",
+    "kind",
+    "config",
+    "output_path",
+    "started_at",
+    "completed_at"
+  ],
+  "run_comparison_normalization": "Remove credential_ref key already omitted from sanitized saved analysis context",
+  "scientific_run_ids": [
+    "f45b3e38-163b-4d16-86f2-4869bc14f8e7",
+    "44c4a640-05d3-4fc0-9e4f-229298e2becc"
+  ],
+  "analysis_history_count": 3,
+  "saved_analysis_snapshot_revision": 2,
+  "scope": "Post-smoke visual-only fixture layout. graph_unchanged in original smoke applies during analysis execution. updated_at also changed with the guarded layout edit.",
+  "production_source_changed": false,
+  "provider_requests_added": 0
+}

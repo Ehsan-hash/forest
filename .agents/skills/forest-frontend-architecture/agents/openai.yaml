@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Frontend Architecture"
+  short_description: "React state, API integration, routes and drafts"
+  default_prompt: "Use $forest-frontend-architecture to refactor a FOREST frontend flow without losing identity or unsaved changes."

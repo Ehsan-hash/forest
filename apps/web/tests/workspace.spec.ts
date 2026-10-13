@@ -84,6 +84,7 @@ test("Files folders expand and collapse nested entries", async ({
 
   await page.goto(`/projects/${projectId}/files`);
   const fileTree = page.locator(".file-tree");
+  await expect(fileTree.getByRole("button", { name: filePath })).toBeVisible();
   const rowLabels = await fileTree.locator("button span").allTextContents();
   const archiveIndex = rowLabels.indexOf("archive");
   const recordsIndex = rowLabels.indexOf("records");
@@ -1111,11 +1112,12 @@ test("RunPanel shows an Agent final summary alongside its output log", async ({
   );
   await page.goto(`/projects/${projectId}/workspace`);
 
+  await page.locator(".dock-header").getByRole("button", { name: /Runs/ }).click();
   const panel = page.locator(".run-panel");
   await expect(panel.locator(".run-final-summary")).toContainText(
     "The Agent's final answer is ready.",
   );
-  await expect(panel.locator("pre")).toContainText("Tool response trace");
+  await expect(panel.locator(".run-output > pre")).toContainText("Tool response trace");
 });
 
 test("graph updates remain stable and persist a node created through the inspector UI", async ({
@@ -1326,6 +1328,7 @@ test("another editor changing the node presents a conflict without overwriting s
   ).json();
   const node = created.graph.nodes[0];
   await page.goto(`/projects/${projectId}/workspace`);
+  await page.locator(`.react-flow__node[data-id="${node.id}"]`).click();
   await expect(page.getByLabel("Node title")).toHaveValue("Original question");
   await page.getByLabel("Node title").fill("Local draft");
   graph = await (await request.get(`/api/projects/${projectId}/graph`)).json();
@@ -1404,10 +1407,9 @@ test("guided demonstration follows ordinary project pages without automatically 
   await expect(page).toHaveURL(
     new RegExp(`/projects/${projectId}/workspace\\?demo=1&demo_step=B`),
   );
-  await page
-    .locator(".sidebar nav a")
-    .filter({ hasText: "Data & analysis" })
-    .click();
+  await page.getByRole("link", { name: "Experiments & Results", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace views" })
+    .getByRole("link", { name: "Data & analysis", exact: true }).click();
   await expect(page).toHaveURL(
     new RegExp(`/projects/${projectId}/data\\?demo=1`),
   );
@@ -1473,10 +1475,11 @@ test("search reveals an offscreen node in a large graph and reopens its inspecto
   ).json();
   await page.goto(`/projects/${projectId}/workspace`);
   await expect(page.locator(".research-node").first()).toBeVisible();
+  await page.getByRole("button", { name: "Toggle inspector", exact: true }).click();
   await page
     .getByRole("button", { name: "Close inspector", exact: true })
     .click();
-  await expect(page.locator(".inspector")).toHaveCount(0);
+  await expect(page.locator(".inspector")).toBeHidden();
   await page.getByLabel("Search nodes").fill(title);
   await page
     .locator(".node-search-results")
@@ -1790,7 +1793,7 @@ test("Paper full-manuscript picker lists completed runs from this project", asyn
       exact: true,
     })
     .click();
-  const runLabel = `command 路 ${queued.id.slice(0, 8)}`;
+  const runLabel = `command · ${queued.id.slice(0, 8)}`;
   const runCheckbox = picker.getByRole("checkbox", { name: runLabel });
   const generate = picker.getByRole("button", {
     name: "Generate full manuscript",

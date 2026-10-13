@@ -1610,6 +1610,16 @@ def case_new_projects_inherit_default_run_mode(client, app):
     assert explicit['mode'] == 'assisted'
 
 
+def case_first_settings_patch_preserves_defaults_and_unknown_fields(client, app):
+    initial = ok(client.get('/api/settings'))
+    assert initial == {'language': 'en', 'theme': 'light', 'retention_days': 30, 'default_mode': 'assisted'}
+    saved = ok(client.patch('/api/settings', json={'retention_days': 14, 'extension': {'future': True}}))
+    assert saved == {**initial, 'retention_days': 14, 'extension': {'future': True}}
+    changed = ok(client.patch('/api/settings', json={'theme': 'dark'}))
+    assert changed == {**saved, 'theme': 'dark'}
+    assert ok(client.get('/api/settings')) == changed
+
+
 CASES = [name.removeprefix("case_") for name in list(globals()) if name.startswith("case_")]
 
 

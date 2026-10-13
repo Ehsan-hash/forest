@@ -1,0 +1,130 @@
+Window: "FOREST · Research Workspace", App: Google Chrome for Testing.
+0 标准窗口 FOREST · Research Workspace - Google Chrome for Testing, URL: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace, Secondary Actions: Raise
+	1 container FOREST · Research Workspace - Google Chrome for Testing, URL: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace
+		2 container
+			3 工具栏
+				4 按钮 返回
+				5 按钮 (disabled) 前进
+				6 container chrome://webui-toolbar.top-chrome/
+					7 工具栏
+						8 按钮 重新加载, Help: 重新加载此页
+				9 container
+					10 弹出式按钮 查看网站信息
+					11 文本栏 (settable) 地址和搜索栏, Value: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace, Placeholder: 问问 Google 或输入网址
+					12 按钮 翻译
+					13 按钮 缩放比例：200%
+					14 按钮 为此标签页添加书签
+				15 container
+					16 复选框 密码管理工具 - 已固定, Value: 0
+				17 按钮 您
+				18 弹出式按钮 Chromium
+			19 container
+				20 HTML 内容 FOREST · Research Workspace, URL: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace
+					21 container
+						22 按钮 Open navigation
+							23 图像
+						24 link FOREST, Value: 127.0.0.1:18340/projects
+						25 按钮 Search & commands
+							26 图像
+						27 container
+							28 图像
+							29 文本 Numerical integration workspace
+							30 link Connection settings, Value: 127.0.0.1:18340/settings
+						31 container Workspace views
+							32 link Overview, Value: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/overview
+							33 link Graph, Value: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace
+							34 link Ideas, Value: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/ideas
+							35 link Theory, Value: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/theory
+						36 container
+							37 按钮 Forest
+								38 图像
+								39 文本 Forest
+							40 按钮 Focus
+								41 图像
+								42 文本 Focus
+							43 切换按钮 Paper, Value: 0
+								44 图像
+								45 文本 Paper
+							46 图像
+							47 弹出式按钮 Current branch, Value: All research paths
+								48 (selected) All research paths
+							49 按钮 (disabled) Run branch, Help: Run the current path root and its descendants.
+								50 图像
+								51 文本 Run branch
+							52 按钮 Undo graph edit
+								53 图像
+							54 按钮 Redo graph edit
+								55 图像
+							56 按钮 Add node
+								57 图像
+								58 文本 Add node
+							59 按钮 (disabled) Run node
+								60 图像
+								61 文本 Run node
+							62 按钮 Toggle inspector
+								63 图像
+							64 container
+								65 container
+									66 container
+										67 图像
+										68 文本 Experiment
+										69 文本 r
+										70 文本 0
+										71 标题 Measure trapezoidal integration error, Value: 3
+											72 文本 Measure trapezoidal integration error
+										73 文本 Execute the declared numerical computation and retain actual metrics.
+										74 文本 idle
+										75 文本 Not evaluated
+								76 图像
+								77 container Control Panel
+									78 按钮 Zoom In
+										79 图像
+									80 按钮 Zoom Out
+										81 图像
+									82 按钮 Fit View
+										83 图像
+								84 container
+									85 图像
+									86 文本栏 (settable) Search nodes, Placeholder: Find a node…
+								87 按钮 Auto layout
+									88 图像
+									89 文本 Auto layout
+								90 按钮 (disabled) Collapse
+									91 图像
+									92 文本 Collapse
+								93 text Execution Source / reference rev  2
+							94 按钮 Runs 0
+								95 图像
+								96 文本 Runs
+								97 文本 0
+							98 按钮 Terminal
+								99 图像
+								100 文本 Terminal
+							101 按钮 Toggle run panel
+								102 图像
+			103 container 信息栏容器
+				104 container 信息栏
+					105 文本 Chrome 测试版 v153.0.8010.12 仅适用于自动测试。若要进行常规浏览，请使用可自动更新的标准版 Chrome。
+					106 链接 下载 Chrome
+			107 弹出式按钮 标签页搜索
+			108 container
+				109 标签组
+					110 标签 (selected, settable, boolean) FOREST · Research Workspace, Value: on
+						111 按钮 关闭
+			112 按钮 新标签页
+	113 关闭按钮
+	114 全屏幕按钮 Help: 此按钮也可以执行缩放窗口的操作, Secondary Actions: 缩放窗口
+	115 最小化按钮
+116 menu bar
+	117 Google Chrome for Testing
+	118 文件
+	119 编辑
+	120 显示
+	121 历史记录
+	122 书签
+	123 个人资料
+	124 标签页
+	125 窗口
+	126 帮助
+
+The focused UI element is 20 HTML 内容 FOREST · Research Workspace, URL: 127.0.0.1:18340/projects/9f64a533-f194-439a-891d-332dc2e78775/workspace

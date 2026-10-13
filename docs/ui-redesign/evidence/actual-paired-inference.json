@@ -1,0 +1,141 @@
+{
+  "run": {
+    "project_id": "736a4c74-5587-4fa9-8d80-443a592f7d88",
+    "node_id": null,
+    "branch_id": null,
+    "request_id": "ffebce0f-4de1-40ef-ac1c-18b8903418d6",
+    "kind": "analysis",
+    "status": "completed",
+    "config": {
+      "path": "uploads/paired.csv",
+      "unit_column": "unit",
+      "baseline_column": "baseline",
+      "candidate_column": "candidate",
+      "direction": "higher",
+      "confidence": 0.95,
+      "bootstrap_samples": 2000,
+      "seed": 0,
+      "request_id": "ffebce0f-4de1-40ef-ac1c-18b8903418d6",
+      "analysis_type": "paired",
+      "goal_contract_version_id": "68111918-c99a-412d-b130-d64a71f08752",
+      "goal_contract_revision": 1,
+      "goal_contract": {
+        "objective": "",
+        "success_criteria": [],
+        "contract": {}
+      },
+      "timeout": 120,
+      "project_goal": "",
+      "allow_paid": false,
+      "goal_scope": {},
+      "resolved_inputs": [],
+      "resolved_branch_references": [],
+      "_workspace_source_snapshot": ".",
+      "execution_attempt": {
+        "id": "faee03c9-1f9f-43b3-8492-5e0cd8e5382f",
+        "number": 1,
+        "mode": "initial",
+        "started_at": "2026-10-13T15:24:51.896614+00:00"
+      }
+    },
+    "node_revision": 0,
+    "priority": 0,
+    "dependencies": [],
+    "worker_id": "faf064a4-da09-4dd8-ad24-25774d7fafb2",
+    "pid": 61478,
+    "process_created": 1791905091.89694,
+    "started_at": "2026-10-13T15:24:51.900573+00:00",
+    "finished_at": "2026-10-13T15:24:52.736485+00:00",
+    "exit_code": 0,
+    "error": null,
+    "output_path": "runs/bf00d57f-676c-4a55-9028-d0d36c1b1272",
+    "metrics": {
+      "status": "ANALYZED",
+      "evidence_label": "MEASURED",
+      "method": "paired_unit_cluster_percentile_bootstrap",
+      "source_file": "/private/tmp/forest-redesign-runtime-20261013/projects/736a4c74-5587-4fa9-8d80-443a592f7d88/runs/bf00d57f-676c-4a55-9028-d0d36c1b1272/paired-input.csv",
+      "unit_column": "unit",
+      "unit_count": 3,
+      "observation_count": 4,
+      "baseline_column": "baseline",
+      "candidate_column": "candidate",
+      "baseline_mean": 3.6666666666666665,
+      "candidate_mean": 5.666666666666667,
+      "improvement": 2,
+      "ci_low": 1,
+      "ci_high": 3,
+      "confidence": 0.95,
+      "bootstrap_samples": 2000,
+      "seed": 0,
+      "meaningful_effect": 0,
+      "ci_excludes_no_improvement": true,
+      "ci_exceeds_meaningful_effect": true,
+      "statistical_scope": "Equal-weighted independent unit clusters; conditional on observed fitted models",
+      "assumptions_to_review": [
+        "Units are independently sampled at the declared unit level",
+        "Both methods use the same evaluation units",
+        "Evaluation data was not used for candidate selection"
+      ],
+      "reproducibility_status": "No experiment rerun performed by this analysis",
+      "input_provenance": {
+        "artifact_path": "runs/bf00d57f-676c-4a55-9028-d0d36c1b1272/paired-input.csv",
+        "source_path": "uploads/paired.csv",
+        "input_record_id": "bf00d57f-676c-4a55-9028-d0d36c1b1272:paired-input",
+        "size_bytes": 48
+      }
+    },
+    "resource": {
+      "time_budget": {
+        "requested_task_timeout_seconds": null,
+        "effective_total_timeout_seconds": 120,
+        "project_budget_seconds_at_enqueue": 120,
+        "project_revision_at_enqueue": 0,
+        "reservation_state": "held",
+        "resume_history": []
+      },
+      "rerun_generation_at_enqueue": 0,
+      "verification_status": "unverified",
+      "verification_gate": {
+        "ready": true,
+        "requirements": [],
+        "guarded": false
+      },
+      "elapsed_seconds": 0.410528,
+      "elapsed_before_attempt": 0,
+      "cpu_percent": null,
+      "rss_bytes": null,
+      "cpu_measurement_scope": "host_process_tree",
+      "last_observed_live_attempt_seconds": 0.410528,
+      "cpu_seconds": 0.416347696,
+      "host_process_cpu_seconds": 0.416347696,
+      "observed_host_processes": 1,
+      "attempts": [
+        {
+          "id": "faee03c9-1f9f-43b3-8492-5e0cd8e5382f",
+          "number": 1,
+          "mode": "initial",
+          "started_at": "2026-10-13T15:24:51.896614+00:00",
+          "status": "completed",
+          "exit_code": 0,
+          "error": null,
+          "finished_at": "2026-10-13T15:24:52.736468+00:00",
+          "elapsed_seconds": 0.410528
+        }
+      ],
+      "verification": {
+        "run_id": "bf00d57f-676c-4a55-9028-d0d36c1b1272",
+        "verification_status": "unverified",
+        "checks": [],
+        "check_scope_paths": [],
+        "numerical_scope": [],
+        "verification_scope": "Declared checks of named source artifacts; execution completion does not verify other outputs or scientific claims",
+        "verifications": []
+      }
+    },
+    "id": "bf00d57f-676c-4a55-9028-d0d36c1b1272",
+    "created_at": "2026-10-13T15:24:51.638264+00:00",
+    "updated_at": "2026-10-13T15:24:52.737260+00:00",
+    "tools": []
+  },
+  "fixture": "unit,baseline,candidate\na,1,2\na,3,4\nb,4,6\nc,5,8\n"
+}

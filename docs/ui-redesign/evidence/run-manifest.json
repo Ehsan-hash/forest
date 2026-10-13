@@ -1,0 +1,156 @@
+{
+  "generated_at": "2026-10-13T15:56:59.793689+00:00",
+  "baseline_commit": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "head_at_manifest_generation": "ff16c3f656f94d053d1bba65c6b3a07a5feaccde",
+  "branch": "codex/frontend-product-redesign",
+  "source_state": "Source fingerprint recorded before delivery commit; source-sha256.tsv identifies the included changed source",
+  "source_manifest": "source-sha256.tsv",
+  "source_manifest_sha256": "66b585786c1156aeba67c1c42d420d3d73b1d08822dbd4c3762a1b408f4c6ee2",
+  "changed_files": {
+    "count": 906,
+    "status_counts": {
+      "ADDED": 875,
+      "MODIFIED": 31
+    },
+    "png_count": 655,
+    "index": "changed-files.tsv"
+  },
+  "production_build": {
+    "status": "PASS",
+    "log": "build-delivery.txt",
+    "assets": [
+      {
+        "path": "apps/web/dist/assets/index-BIrSAtO6.js",
+        "bytes": 410121,
+        "sha256": "6a74462af413cb9d1546ceb2b05ffaf84367312b10f8da684d0eb11b55ab1fdd"
+      },
+      {
+        "path": "apps/web/dist/assets/WorkspacePage-BMJxELRb.js",
+        "bytes": 265728,
+        "sha256": "9fcb15b784f177c16bb9064bdb9d9560b6aa41abd5430921e5fd1126647da62c"
+      },
+      {
+        "path": "apps/web/dist/assets/index-CVqPoWfS.css",
+        "bytes": 113655,
+        "sha256": "b21d84e19e0f7d97be0eddf20174dd54d400c4d54f9ae3c7d57a40aa444b8aa8"
+      }
+    ],
+    "condition": "TypeScript + Vite6.4.3; final assets held during all delivery tests"
+  },
+  "runtime": {
+    "origin": "http://127.0.0.1:18340",
+    "data_directory": "/tmp/forest-redesign-runtime-20261013",
+    "condition": "Independent test projects, SQLite, files and ordinary worker on macOS"
+  },
+  "browser": {
+    "result": "PASS",
+    "startTime": "2026-10-13T15:23:22.531Z",
+    "duration": 196297.88700000002,
+    "expected": 108,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0,
+    "cases": "browser-results.md",
+    "json": "e2e-delivery.json",
+    "log": "e2e-delivery.txt",
+    "condition": "Actual API/worker plus explicitly identified authored UI/protocol/transport fixtures; one Chromium project"
+  },
+  "units": {
+    "result": "PASS",
+    "passed": 102,
+    "failed": 0,
+    "pending": 0,
+    "source_files": 20,
+    "reported_duration_ms": 977,
+    "cases": "unit-results.md",
+    "json": "unit-delivery.json",
+    "log": "vitest-delivery.txt"
+  },
+  "targeted_backend": {
+    "passed": 35,
+    "skipped": 2,
+    "failed": 0,
+    "duration_seconds": 64.33,
+    "cases": "../backend-analysis-results.md",
+    "log": "analysis-integration-tests-final.txt",
+    "skip_reason": "FOREST_TEST_POSTGRES unset; dedicated PostgreSQL unavailable"
+  },
+  "analysis_worker": {
+    "completed_scopes": 3,
+    "actual_scientific_runs": 2,
+    "provider_protocol_requests": 3,
+    "evidence": "analysis-worker-smoke.json",
+    "log": "analysis-worker-smoke.txt",
+    "transport": "Actual API/scheduler/worker/ModelClient HTTP; authored loopback provider model prose",
+    "literature": "Actual Crossref metadata retrieval, two catalog records per scope",
+    "provider_cleanup": {
+      "id": "ea387e38-5d35-4c8a-a738-a78f18d304f1",
+      "status": "retired",
+      "method": "POST /providers/{id}/retire followed by actual GET readback",
+      "updated_reference_count": 1,
+      "reports_current_before_provider_retirement": true,
+      "note": "Retirement removes the fixture provider from saved project config; retained reports may then be stale."
+    },
+    "post_smoke_layout": "analysis-visual-layout.json"
+  },
+  "baseline_backend": {
+    "passed": 1429,
+    "skipped": 71,
+    "failed": 63,
+    "duration_seconds": 1572.6,
+    "log": "baseline-pytest.txt",
+    "classification": "../backend-baseline-failures.json",
+    "status": "Not a clean full-backend PASS; host prerequisites and repaired skill-catalog assertion are classified"
+  },
+  "performance": {
+    "initial_js_reduction_percent": 40.935563870142666,
+    "initial_js_gzip_reduction_percent": 41.010121466807206,
+    "evidence": "bundle-comparison.json",
+    "FCP_before_after": "NOT RUN"
+  },
+  "visual_review": {
+    "index": "../visual-comparison.md",
+    "analysis": "../analysis-pixel-review-final.json",
+    "states": [
+      "../state-pixel-review-final.json",
+      "../state-pixel-review-coverage-final.json"
+    ],
+    "capture_counts": {
+      "main_route_observations": 156,
+      "main_additional_panels": 4,
+      "analysis": 48,
+      "expanded": 30,
+      "readability_pages": 36,
+      "path_dialogs": 12,
+      "states": 32
+    },
+    "condition": "Measured browser observations and exact opened-pixel scope remain separately recorded"
+  },
+  "NOT_RUN": [
+    "Live AI scientific quality",
+    "Scientific entailment of full-text citations",
+    "Live arXiv search",
+    "Linux Bubblewrap Agent/human-decision consumption",
+    "Dedicated PostgreSQL variants",
+    "Complete screen-reader/native keyboard/WCAG conformance",
+    "FCP before/after",
+    "Large graph pan/edit frame benchmarks",
+    "Large PDF buffer startup/memory benchmarks"
+  ],
+  "acceptance_matrix": "../test-matrix.md",
+  "acceptance_counts": {
+    "original_56": {
+      "scoped_PASS": 35,
+      "PARTIAL": 18,
+      "MOCK_UI_REAL_NOT_RUN": 2,
+      "NOT_RUN": 1
+    },
+    "analysis_8": {
+      "PASS": 6,
+      "PARTIAL": 1,
+      "NOT_RUN": 1
+    }
+  },
+  "final_report": "../final-report.md",
+  "interpretation": "Counts index executed cases only; repeated targets are not additional unique tests. Integration evidence is not scientific validation."
+}

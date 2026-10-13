@@ -27,7 +27,17 @@ def test_project_skills_are_discoverable_and_link_to_operational_sources():
         'forest-research-judgment',
         'forest-academic-writing',
     }
-    assert {path.name for path in SKILLS.iterdir()} == expected
+    frontend = {
+        'forest-product-ux', 'forest-visual-design', 'forest-frontend-architecture',
+        'forest-research-graph', 'forest-run-lifecycle', 'forest-evidence-integrity',
+        'forest-browser-testing',
+    }
+    assert {path.name for path in SKILLS.iterdir()} == expected | frontend
+    for name in frontend:
+        text = (SKILLS / name / 'SKILL.md').read_text(encoding='utf-8')
+        assert text.startswith('---\nname: ' + name + '\n')
+        assert 'description:' in text.split('---', 2)[1]
+        assert len(text.split('---', 2)[2].strip()) > 300
     for name in expected:
         text = (SKILLS / name / 'SKILL.md').read_text(encoding='utf-8')
         packaged = (Path(__file__).resolve().parents[1] / 'research' / 'agents' / 'skills' / name / 'SKILL.md').read_text(encoding='utf-8')

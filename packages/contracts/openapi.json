@@ -196,6 +196,129 @@
         },
         "type": "object"
       },
+      "AnalysisRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "branch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "expected_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Fingerprint"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "language": {
+            "default": "en",
+            "enum": [
+              "zh",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "literature_limit": {
+            "default": 6,
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Literature Limit",
+            "type": "integer"
+          },
+          "literature_query": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Literature Query",
+            "type": "string"
+          },
+          "literature_sources": {
+            "items": {
+              "enum": [
+                "crossref",
+                "arxiv"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "title": "Literature Sources",
+            "type": "array"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "question": {
+            "default": "",
+            "maxLength": 16000,
+            "title": "Question",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "scope": {
+            "default": "project",
+            "enum": [
+              "project",
+              "node",
+              "branch"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "timeout": {
+            "default": 180,
+            "exclusiveMinimum": 0.0,
+            "maximum": 3600.0,
+            "title": "Timeout",
+            "type": "number"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision"
+        ],
+        "title": "AnalysisRequest",
+        "type": "object"
+      },
       "ApiError": {
         "additionalProperties": true,
         "description": "FastAPI validation failures have an array detail; application failures normally have an object detail. Preserve both shapes.",
@@ -5043,6 +5166,328 @@
           "commit",
           "directory",
           "transport"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisContext": {
+        "additionalProperties": true,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "execution_dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "file_revisions": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "focus": {
+            "$ref": "#/components/schemas/ResearchAnalysisFocus"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/GraphState"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "project": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "route_health": {
+            "$ref": "#/components/schemas/RouteHealth"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchAnalysisSnapshot"
+          },
+          "tool_executions": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "project",
+          "graph",
+          "runs",
+          "resources",
+          "materials",
+          "route_health",
+          "coverage",
+          "focus",
+          "snapshot",
+          "provider",
+          "counts"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisFocus": {
+        "additionalProperties": true,
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "downstream_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "node_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "upstream_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "scope",
+          "node_id",
+          "branch_id",
+          "node_ids",
+          "run_ids",
+          "upstream_node_ids",
+          "downstream_node_ids"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisHistory": {
+        "additionalProperties": true,
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchAnalysisHistoryItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisHistoryItem": {
+        "additionalProperties": true,
+        "properties": {
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_revision": {
+            "type": "integer"
+          },
+          "question": {
+            "type": "string"
+          },
+          "report_available": {
+            "type": "boolean"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "error",
+          "scope",
+          "node_id",
+          "branch_id",
+          "question",
+          "project_revision",
+          "report_available"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisResult": {
+        "additionalProperties": true,
+        "properties": {
+          "artifact_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artifacts": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "focus": {
+            "$ref": "#/components/schemas/ResearchAnalysisFocus"
+          },
+          "literature_searches": {
+            "items": {
+              "$ref": "#/components/schemas/JsonObject"
+            },
+            "type": "array"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "question": {
+            "type": "string"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonObject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ResearchAnalysisSnapshot"
+          },
+          "stale_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "verification_scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "error",
+          "artifact_error",
+          "report",
+          "citations",
+          "literature_searches",
+          "snapshot",
+          "current",
+          "stale_reasons",
+          "artifacts"
+        ],
+        "type": "object"
+      },
+      "ResearchAnalysisSnapshot": {
+        "additionalProperties": true,
+        "properties": {
+          "fingerprint": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "project_revision": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_revision",
+          "fingerprint"
         ],
         "type": "object"
       },
@@ -21289,6 +21734,389 @@
         }
       }
     },
+    "/api/projects/{ident}/research/analysis": {
+      "get": {
+        "description": "Return every analysis receipt in newest-first order, retaining full IDs, requested focus/question, saved project revision, actual status/error and report-file availability. Report availability alone does not establish completed execution or report integrity; read the result endpoint.",
+        "operationId": "analysis_history_api_projects__ident__research_analysis_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ident",
+            "required": true,
+            "schema": {
+              "title": "Ident",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchAnalysisHistory"
+                }
+              }
+            },
+            "description": "Successful response; queued work may still be incomplete."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "UNAUTHORIZED: owner authentication required."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "ORIGIN_DENIED: nonmatching nontrusted Origin denied; PATH_ESCAPE where workspace paths are accepted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request validation or documented domain field validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR: unexpected handler, transport or persistence failure."
+          }
+        },
+        "security": [
+          {
+            "ForestOwnerBearer": []
+          },
+          {
+            "ForestOwnerCookie": []
+          },
+          {}
+        ],
+        "summary": "Read AI analysis request history",
+        "tags": [
+          "Research"
+        ],
+        "x-forest-local-owner-access": {
+          "client_hosts": [
+            "127.0.0.1",
+            "::1",
+            "testclient"
+          ],
+          "effect": "No prior token required only when both conditions match; response sets owner cookie.",
+          "request_hostnames": [
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "testserver"
+          ]
+        }
+      },
+      "post": {
+        "description": "Require a saved request_id and reviewed expected_revision; optional expected_fingerprint also rejects changed results/materials. Save the complete sanitized context snapshot, enqueue research_analysis through the existing provider/time/spending controls, and return Run with provider_snapshot/env omitted. The run has no node/branch execution binding and does not modify the graph/controller. Same request and payload replay the saved receipt before the revision guard; changed intent under the same ID conflicts. Literature retrieval uses selected Crossref/arXiv sources during execution. Only actual retrieved/library citation IDs are accepted. Advice remains a proposed Analysis record and cannot verify science or execute its suggestions.",
+        "operationId": "submit_analysis_api_projects__ident__research_analysis_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ident",
+            "required": true,
+            "schema": {
+              "title": "Ident",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "description": "Successful response; queued work may still be incomplete."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "UNAUTHORIZED: owner authentication required."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "ORIGIN_DENIED: nonmatching nontrusted Origin denied; PATH_ESCAPE where workspace paths are accepted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "REQUEST_ID_CONFLICT, REVISION_CONFLICT, CONTEXT_CHANGED or TIME_BUDGET_EXHAUSTED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "PROVIDER_REQUIRED, invalid scope or request validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR: unexpected handler, transport or persistence failure."
+          }
+        },
+        "security": [
+          {
+            "ForestOwnerBearer": []
+          },
+          {
+            "ForestOwnerCookie": []
+          },
+          {}
+        ],
+        "summary": "Request source-bound read-only AI analysis",
+        "tags": [
+          "Research"
+        ],
+        "x-forest-local-owner-access": {
+          "client_hosts": [
+            "127.0.0.1",
+            "::1",
+            "testclient"
+          ],
+          "effect": "No prior token required only when both conditions match; response sets owner cookie.",
+          "request_hostnames": [
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "testserver"
+          ]
+        }
+      }
+    },
+    "/api/projects/{ident}/research/analysis/context": {
+      "get": {
+        "description": "Return every saved research node/path/dependency, scientific run and linked resource, verification receipt, tool receipt and material locator. scope changes the focus while retaining the full project context. Material text is not loaded in this preview. The snapshot fingerprint includes execution/source changes beyond the graph revision. AI analysis history is separate from scientific source records. Provider availability is configuration readback, not a connection test.",
+        "operationId": "analysis_context_api_projects__ident__research_analysis_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ident",
+            "required": true,
+            "schema": {
+              "title": "Ident",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "project",
+              "enum": [
+                "project",
+                "node",
+                "branch"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "node_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchAnalysisContext"
+                }
+              }
+            },
+            "description": "Successful response; queued work may still be incomplete."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "UNAUTHORIZED: owner authentication required."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "ORIGIN_DENIED: nonmatching nontrusted Origin denied; PATH_ESCAPE where workspace paths are accepted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "NODE_REQUIRED, BRANCH_REQUIRED or SCOPE_CONFLICT"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR: unexpected handler, transport or persistence failure."
+          }
+        },
+        "security": [
+          {
+            "ForestOwnerBearer": []
+          },
+          {
+            "ForestOwnerCookie": []
+          },
+          {}
+        ],
+        "summary": "Inspect saved project, node or path analysis context",
+        "tags": [
+          "Research"
+        ],
+        "x-forest-local-owner-access": {
+          "client_hosts": [
+            "127.0.0.1",
+            "::1",
+            "testclient"
+          ],
+          "effect": "No prior token required only when both conditions match; response sets owner cookie.",
+          "request_hostnames": [
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "testserver"
+          ]
+        }
+      }
+    },
     "/api/projects/{ident}/research/route-health": {
       "get": {
         "description": "Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.",
@@ -25970,7 +26798,7 @@
     },
     "/api/runs/{ident}/configuration": {
       "patch": {
-        "description": "Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result identities. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible.",
+        "description": "Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result/analysis-snapshot identities. For research_analysis only budget, agent_budget, timeout and priority are editable; changed question/scope/literature/provider requires a new analysis intent. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible for other kinds.",
         "operationId": "configure_run_api_runs__ident__configuration_patch",
         "parameters": [
           {
@@ -26033,6 +26861,16 @@
               }
             },
             "description": "NOT_FOUND"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "ANALYSIS_INTENT_BOUND"
           },
           "422": {
             "content": {
@@ -26524,6 +27362,112 @@
         "summary": "Read validated checkout provenance",
         "tags": [
           "Repositories"
+        ],
+        "x-forest-local-owner-access": {
+          "client_hosts": [
+            "127.0.0.1",
+            "::1",
+            "testclient"
+          ],
+          "effect": "No prior token required only when both conditions match; response sets owner cookie.",
+          "request_hostnames": [
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "testserver"
+          ]
+        }
+      }
+    },
+    "/api/runs/{ident}/research-analysis": {
+      "get": {
+        "description": "For a research_analysis run, return actual lifecycle/error, original snapshot identities, current/stale reasons, source citations/search receipts and artifact locators. A report is exposed only after completed execution and matching recorded report SHA256; missing/changed files yield report:null and artifact_error. Graph edits, later scientific run changes and source-file changes make the advice stale while retaining its history. Scientific verification and AI advice remain distinct.",
+        "operationId": "analysis_result_api_runs__ident__research_analysis_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ident",
+            "required": true,
+            "schema": {
+              "title": "Ident",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchAnalysisResult"
+                }
+              }
+            },
+            "description": "Successful response; queued work may still be incomplete."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "UNAUTHORIZED: owner authentication required."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "ORIGIN_DENIED: nonmatching nontrusted Origin denied; PATH_ESCAPE where workspace paths are accepted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "INVALID_RUN_KIND"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR: unexpected handler, transport or persistence failure."
+          }
+        },
+        "security": [
+          {
+            "ForestOwnerBearer": []
+          },
+          {
+            "ForestOwnerCookie": []
+          },
+          {}
+        ],
+        "summary": "Read an actual AI analysis report and source freshness",
+        "tags": [
+          "Research"
         ],
         "x-forest-local-owner-access": {
           "client_hosts": [

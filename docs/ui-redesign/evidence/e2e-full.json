@@ -1,0 +1,3687 @@
+{
+  "config": {
+    "argv": [
+      "/opt/homebrew/Cellar/node@24/24.21.0_1/bin/node",
+      "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/node_modules/.bin/playwright",
+      "test",
+      "--output=test-results/full-redesign",
+      "--trace=retain-on-failure",
+      "--reporter=list,json"
+    ],
+    "configFile": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/playwright.config.ts",
+    "rootDir": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "data-analysis.spec.ts",
+      "file": "data-analysis.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "recomputing analysis ignores repeated clicks while the request is pending",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5071,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:34.878Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4a3c5af4829ee2c938bd-57cd31aca59ecbdf02e9",
+          "file": "data-analysis.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "experiment-launch.spec.ts",
+      "file": "experiment-launch.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "experiment launch ignores repeated clicks until its request finishes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2143,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:40.249Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1fc5aae6d04d0b364bca-1cae19c37ed513e89585",
+          "file": "experiment-launch.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "failed-literature-search-clears-results.spec.ts",
+      "file": "failed-literature-search-clears-results.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "a failed literature search clears results from the previous query",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 578,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:42.406Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "951c4c910498b4bea848-da8880e53f4ad5f55f2c",
+          "file": "failed-literature-search-clears-results.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "figure-switch-confirms-unsaved-draft.spec.ts",
+      "file": "figure-switch-confirms-unsaved-draft.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "switching figures warns before discarding unsaved edits",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 533,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:42.998Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "02b926e917de78b0eeae-03bd0ecf0643cb65f887",
+          "file": "figure-switch-confirms-unsaved-draft.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "reordering figures does not replace the selected unsaved draft",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5484,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.figure-selector button').first()\nExpected substring: \u001b[32m\"\u001b[7mReorder\u001b[27med figure\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7mFig. 1Pinn\u001b[27med figure\u001b[7mdraft\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.figure-selector button').first() with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.figure-selector button').first()\u001b[22m\n\u001b[2m    14 × locator resolved to <button class=\"active\">…</button>\u001b[22m\n\u001b[2m       - unexpected value \"Fig. 1Pinned figuredraft\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.figure-selector button').first()\nExpected substring: \u001b[32m\"\u001b[7mReorder\u001b[27med figure\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7mFig. 1Pinn\u001b[27med figure\u001b[7mdraft\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.figure-selector button').first() with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.figure-selector button').first()\u001b[22m\n\u001b[2m    14 × locator resolved to <button class=\"active\">…</button>\u001b[22m\n\u001b[2m       - unexpected value \"Fig. 1Pinned figuredraft\"\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts:123:67",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts",
+                      "column": 67,
+                      "line": 123
+                    },
+                    "snippet": "  121 |     await expect(caption).toHaveValue(\"Unsaved pinned draft\");\n  122 |     await expect(pinned).toHaveClass(/active/);\n> 123 |     await expect(page.locator(\".figure-selector button\").first()).toContainText(\n      |                                                                   ^\n  124 |       \"Reordered figure\",\n  125 |     );\n  126 |   } finally {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts",
+                        "column": 67,
+                        "line": 123
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.figure-selector button').first()\nExpected substring: \u001b[32m\"\u001b[7mReorder\u001b[27med figure\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7mFig. 1Pinn\u001b[27med figure\u001b[7mdraft\u001b[27m\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.figure-selector button').first() with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.figure-selector button').first()\u001b[22m\n\u001b[2m    14 × locator resolved to <button class=\"active\">…</button>\u001b[22m\n\u001b[2m       - unexpected value \"Fig. 1Pinned figuredraft\"\u001b[22m\n\n\n  121 |     await expect(caption).toHaveValue(\"Unsaved pinned draft\");\n  122 |     await expect(pinned).toHaveClass(/active/);\n> 123 |     await expect(page.locator(\".figure-selector button\").first()).toContainText(\n      |                                                                   ^\n  124 |       \"Reordered figure\",\n  125 |     );\n  126 |   } finally {\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts:123:67"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:43.538Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/figure-switch-confirms-uns-4064c--the-selected-unsaved-draft/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/figure-switch-confirms-uns-4064c--the-selected-unsaved-draft/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/figure-switch-confirms-unsaved-draft.spec.ts",
+                    "column": 67,
+                    "line": 123
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "02b926e917de78b0eeae-cd861514242431805a06",
+          "file": "figure-switch-confirms-unsaved-draft.spec.ts",
+          "line": 69,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "file-preview-preserves-csv-draft.spec.ts",
+      "file": "file-preview-preserves-csv-draft.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "switching from saved CSV preview back to editing keeps the unsaved draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1351,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:49.455Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8809c42872391e8b1412-cb9c6b581a8c59b7dc5e",
+          "file": "file-preview-preserves-csv-draft.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "instruction-reliability.spec.ts",
+      "file": "instruction-reliability.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "formal instruction lost-response retry retains one actual saved receipt and request identity",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 594,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:51.074Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-b356a7fe777cad95e0c2",
+          "file": "instruction-reliability.spec.ts",
+          "line": 16,
+          "column": 1
+        },
+        {
+          "title": "editing a failed instruction allocates a new intent while retaining the reviewed revision",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 629,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:51.617Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-f664a034b9184faaeca3",
+          "file": "instruction-reliability.spec.ts",
+          "line": 85,
+          "column": 1
+        },
+        {
+          "title": "a concurrent project change requires explicit instruction re-review and preserves the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 675,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:52.253Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-587b4aec185e0481f545",
+          "file": "instruction-reliability.spec.ts",
+          "line": 148,
+          "column": 1
+        },
+        {
+          "title": "run instruction choices use only current active Agent state and force next_request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 555,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:52.937Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-e1d9b7006f3d1aeeeb43",
+          "file": "instruction-reliability.spec.ts",
+          "line": 233,
+          "column": 1
+        },
+        {
+          "title": "an older-history refresh cannot append into another project or a later visit to the same project",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 708,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:53.500Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-decc4ab80f7ea85b751b",
+          "file": "instruction-reliability.spec.ts",
+          "line": 320,
+          "column": 1
+        },
+        {
+          "title": "failed and stale decision answers retain the edited action and reason",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 563,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:54.217Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "405f8bd575f80c6ba505-8f553dec4d83229633b3",
+          "file": "instruction-reliability.spec.ts",
+          "line": 427,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "interventions.spec.ts",
+      "file": "interventions.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "two live tabs preserve reviewed subtree scope and a dirty node draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2755,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:54.792Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "33d22d0485d46e9ae92b-4bc684904f611f256215",
+          "file": "interventions.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "manual-autonomy-default.spec.ts",
+      "file": "manual-autonomy-default.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "a new Manual project defaults autonomy off until explicitly enabled",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 501,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:57.559Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d01be21429c3fe9ca8d9-7b627aa8cc67139db74d",
+          "file": "manual-autonomy-default.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "switching an unset Assisted project to Manual turns autonomy off",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 512,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:58.066Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d01be21429c3fe9ca8d9-a0f8952acf7a4abc17ff",
+          "file": "manual-autonomy-default.spec.ts",
+          "line": 78,
+          "column": 1
+        },
+        {
+          "title": "an explicitly saved Manual autonomy setting remains enabled on Overview load",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1126,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:58.585Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d01be21429c3fe9ca8d9-0ce9eb88e8e387010f17",
+          "file": "manual-autonomy-default.spec.ts",
+          "line": 139,
+          "column": 1
+        },
+        {
+          "title": "a failed research-state load keeps autonomy controls disabled",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 427,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:55:59.718Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d01be21429c3fe9ca8d9-8e564ac76c290438d3cc",
+          "file": "manual-autonomy-default.spec.ts",
+          "line": 189,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "numerical-workflow.spec.ts",
+      "file": "numerical-workflow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "owner executes a numerical graph node and exports actual measurements and source artifact",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3314,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:00.156Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "actual-numerical-run",
+                      "contentType": "application/json",
+                      "body": "ewogICJwcm9qZWN0SWQiOiAiYTdmNjg1ZTItZWRmMi00NTdkLWEwOGQtZjhmOGNkMmM2NzhiIiwKICAibm9kZUlkIjogImYwYjA5YTUxLTY1YTktNTU1Ny1iZmY1LTg5YWQ1MTAwYTg2MCIsCiAgInJ1bklkIjogImRkMGU5ZmZkLTlhNTgtNDcwMS1iOWVkLTczMGJhNGY2N2M1YiIsCiAgIm5vZGVSZXZpc2lvbiI6IDEsCiAgIm1ldHJpY3MiOiB7CiAgICAiaW50ZWdyYWwiOiAwLjMzMzMzMzM0MDAwMDAwMDAzLAogICAgImFic29sdXRlX2Vycm9yIjogNi42NjY2NjY3MTg2Njg3NzllLTksCiAgICAiaW50ZXJ2YWxzIjogNTAwMAogIH0sCiAgInZlcmlmaWNhdGlvbiI6IHsKICAgICJydW5faWQiOiAiZGQwZTlmZmQtOWE1OC00NzAxLWI5ZWQtNzMwYmE0ZjY3YzViIiwKICAgICJ2ZXJpZmljYXRpb25fc3RhdHVzIjogInVudmVyaWZpZWQiLAogICAgImNoZWNrcyI6IFtdLAogICAgImNoZWNrX3Njb3BlX3BhdGhzIjogW10sCiAgICAibnVtZXJpY2FsX3Njb3BlIjogW10sCiAgICAidmVyaWZpY2F0aW9uX3Njb3BlIjogIkRlY2xhcmVkIGNoZWNrcyBvZiBuYW1lZCBzb3VyY2UgYXJ0aWZhY3RzOyBleGVjdXRpb24gY29tcGxldGlvbiBkb2VzIG5vdCB2ZXJpZnkgb3RoZXIgb3V0cHV0cyBvciBzY2llbnRpZmljIGNsYWltcyIsCiAgICAidmVyaWZpY2F0aW9ucyI6IFtdCiAgfSwKICAib3V0cHV0UGF0aCI6ICJydW5zL2RkMGU5ZmZkLTlhNTgtNDcwMS1iOWVkLTczMGJhNGY2N2M1YiIKfQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "57d1fe30c8d5d2cf6866-1d663e6b1b1ef31069ef",
+          "file": "numerical-workflow.spec.ts",
+          "line": 4,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "paper-evidence-eligibility.spec.ts",
+      "file": "paper-evidence-eligibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Paper only offers completed runs with actual numeric metrics",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10539,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:03.483Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b7eece935c70b339f8fd-f2fd7c4ee71716c94136",
+          "file": "paper-evidence-eligibility.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "paper-revise.spec.ts",
+      "file": "paper-revise.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "paper revision ignores repeated clicks while the request is pending",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2237,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:14.031Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "0043cd831acfbcb78089-de4204dad0d628c78ae6",
+          "file": "paper-revise.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "paper-session.spec.ts",
+      "file": "paper-session.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "manuscript draft keeps source, references, layout, instruction and revision through panel/full-page/reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2920,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:16.282Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "141abb7adff61d5edda0-71f24dc17ac6c79c1292",
+          "file": "paper-session.spec.ts",
+          "line": 17,
+          "column": 1
+        },
+        {
+          "title": "an accepted save from the hidden panel keeps newer typing in the full editor",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1094,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "Manuscript console: Failed to load resource: the server responded with a status of 404 (Not Found)\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:19.209Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "141abb7adff61d5edda0-4ebe651652ebf0e9724f",
+          "file": "paper-session.spec.ts",
+          "line": 136,
+          "column": 1
+        },
+        {
+          "title": "paper saves real source, compiles through the worker, downloads current PDF and rejects the actual stale PDF",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3217,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)\n"
+                    },
+                    {
+                      "text": "{\"observed\":\"real worker PDF\",\"project_id\":\"9dd366b1-6de4-42bf-a4af-60f6181eef40\",\"run_id\":\"0dcfee78-94c5-47cf-aa50-207573406037\",\"paper_revision\":1,\"compiled_revision\":1,\"pdf_path\":\"runs/0dcfee78-94c5-47cf-aa50-207573406037/paper/paper.pdf\",\"downloaded_bytes\":3815}\n"
+                    },
+                    {
+                      "text": "Manuscript console: Failed to load resource: the server responded with a status of 409 (Conflict)\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:20.311Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "141abb7adff61d5edda0-8c938ca40225c23c5b1c",
+          "file": "paper-session.spec.ts",
+          "line": 233,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "progress.spec.ts",
+      "file": "progress.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "owner creates a project, runs silent success/failure, and follows a scoped UTF-8 source",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13536,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:23.542Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ca3a771848969cb77bf6-cd339b62b91702ca5d11",
+          "file": "progress.spec.ts",
+          "line": 4,
+          "column": 1
+        },
+        {
+          "title": "a delayed real progress response cannot cross a project switch",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 30240,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/progress.spec.ts",
+                        "column": 25,
+                        "line": 122
+                      },
+                      "message": "Error: apiRequestContext.delete: Target page, context or browser has been closed\n\n  120 |   } finally {\n  121 |     release();\n> 122 |     await request.delete(`/api/projects/${a.id}`);\n      |                         ^\n  123 |     await request.delete(`/api/projects/${b.id}`);\n  124 |   }\n  125 | });\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/progress.spec.ts:122:25"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:56:37.085Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/progress-a-delayed-real-pr-ee3c2-nnot-cross-a-project-switch/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/progress-a-delayed-real-pr-ee3c2-nnot-cross-a-project-switch/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "ca3a771848969cb77bf6-6d905d306ba9fa829d69",
+          "file": "progress.spec.ts",
+          "line": 91,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "project-description-search.spec.ts",
+      "file": "project-description-search.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "projects search matches a description when the goal is empty",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 429,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:07.957Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1f2ec3274bab649aa257-2331b72a5739ce7d20f8",
+          "file": "project-description-search.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "project-duplicate-double-submit.spec.ts",
+      "file": "project-duplicate-double-submit.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "a repeated in-flight Duplicate click creates only one copy",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 685,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:08.753Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "0b7717ede7b8f21d432b-4916277f0f0beb2e76a5",
+          "file": "project-duplicate-double-submit.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "project-requirements.spec.ts",
+      "file": "project-requirements.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "publication edits preserve unknown fields and concurrent untouched requirements, while a conflict keeps the complete draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 829,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:09.454Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f60eb8643a601fc7bbc3-09e212480406e41db02b",
+          "file": "project-requirements.spec.ts",
+          "line": 32,
+          "column": 1
+        },
+        {
+          "title": "actual structural protocol validation creates no run; guarded protocol revisions preserve drafts and original history",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1032,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:10.290Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f60eb8643a601fc7bbc3-e38fa9127f85d194cf1c",
+          "file": "project-requirements.spec.ts",
+          "line": 152,
+          "column": 1
+        },
+        {
+          "title": "real literal writing review applies Unicode source spans to the draft while evidence judgments remain with the author",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 797,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:11.329Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f60eb8643a601fc7bbc3-c61f8a0e4f28e235e3ba",
+          "file": "project-requirements.spec.ts",
+          "line": 301,
+          "column": 1
+        },
+        {
+          "title": "fresh protocol reload reads an external version and structural checks become stale when publication scope changes",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5951,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Protocol structure result' })\nExpected substring: \u001b[32m\"The draft or publication requirements changed. Validate again.\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Protocol structure result' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Protocol structure result' })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Protocol structure result\">…</section>\u001b[22m\n\u001b[2m    - unexpected value \"structurally_checkedProtocol structure only; real execution, source verification and independent review remain required.{\u001b[22m\n\u001b[2m  \"protocol\": {\u001b[22m\n\u001b[2m    \"research_question\": \"Does the declared candidate improve the paired numerical outcome?\",\u001b[22m\n\u001b[2m    \"hypothesis\": \"The candidate's paired effect exceeds the declared meaningful threshold.\",\u001b[22m\n\u001b[2m    \"baseline\": \"The fixed declared comparator\",\u001b[22m\n\u001b[2m    \"candidate\": \"The explicitly declared candidate\",\u001b[22m\n\u001b[2m    \"metric\": \"Paired mean outcome difference\",\u001b[22m\n\u001b[2m    \"statistical_unit\": \"Independent subject\",\u001b[22m\n\u001b[2m    \"split_policy\": \"Hold out confirmation subjects before exploratory selection\",\u001b[22m\n\u001b[2m    \"selection_policy\": \"Choose parameters using exploratory subjects only\",\u001b[22m\n\u001b[2m    \"decision_rule\": \"Report the paired interval and compare it to the declared threshold\",\u001b[22m\n\u001b[2m    \"argumentative_duty\": \"effectiveness\",\u001b[22m\n\u001b[2m    \"meaningful_effect\": 0.4,\u001b[22m\n\u001b[2m    \"phase\": \"exploratory\",\u001b[22m\n\u001b[2m    \"future_definition\": {\u001b[22m\n\u001b[2m      \"untouched\": [\u001b[22m\n\u001b[2m        1,\u001b[22m\n\u001b[2m        2,\u001b[22m\n\u001b[2m        3\u001b[22m\n\u001b[2m      ]\u001b[22m\n\u001b[2m    },\u001b[22m\n\u001b[2m    \"editing_policy\": \"Editable; record changed decisions and their affected evidence\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"status\": \"structurally_checked\",\u001b[22m\n\u001b[2m  \"publication_profile\": {\u001b[22m\n\u001b[2m    \"id\": \"operational\",\u001b[22m\n\u001b[2m    \"version\": 1,\u001b[22m\n\u001b[2m    \"target\": \"Explicitly requested operational task\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"verification_scope\": \"Protocol structure only; real execution, source verification and independent review remain required.\"\u001b[22m\n\u001b[2m}\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Protocol structure result' })\nExpected substring: \u001b[32m\"The draft or publication requirements changed. Validate again.\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Protocol structure result' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Protocol structure result' })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Protocol structure result\">…</section>\u001b[22m\n\u001b[2m    - unexpected value \"structurally_checkedProtocol structure only; real execution, source verification and independent review remain required.{\u001b[22m\n\u001b[2m  \"protocol\": {\u001b[22m\n\u001b[2m    \"research_question\": \"Does the declared candidate improve the paired numerical outcome?\",\u001b[22m\n\u001b[2m    \"hypothesis\": \"The candidate's paired effect exceeds the declared meaningful threshold.\",\u001b[22m\n\u001b[2m    \"baseline\": \"The fixed declared comparator\",\u001b[22m\n\u001b[2m    \"candidate\": \"The explicitly declared candidate\",\u001b[22m\n\u001b[2m    \"metric\": \"Paired mean outcome difference\",\u001b[22m\n\u001b[2m    \"statistical_unit\": \"Independent subject\",\u001b[22m\n\u001b[2m    \"split_policy\": \"Hold out confirmation subjects before exploratory selection\",\u001b[22m\n\u001b[2m    \"selection_policy\": \"Choose parameters using exploratory subjects only\",\u001b[22m\n\u001b[2m    \"decision_rule\": \"Report the paired interval and compare it to the declared threshold\",\u001b[22m\n\u001b[2m    \"argumentative_duty\": \"effectiveness\",\u001b[22m\n\u001b[2m    \"meaningful_effect\": 0.4,\u001b[22m\n\u001b[2m    \"phase\": \"exploratory\",\u001b[22m\n\u001b[2m    \"future_definition\": {\u001b[22m\n\u001b[2m      \"untouched\": [\u001b[22m\n\u001b[2m        1,\u001b[22m\n\u001b[2m        2,\u001b[22m\n\u001b[2m        3\u001b[22m\n\u001b[2m      ]\u001b[22m\n\u001b[2m    },\u001b[22m\n\u001b[2m    \"editing_policy\": \"Editable; record changed decisions and their affected evidence\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"status\": \"structurally_checked\",\u001b[22m\n\u001b[2m  \"publication_profile\": {\u001b[22m\n\u001b[2m    \"id\": \"operational\",\u001b[22m\n\u001b[2m    \"version\": 1,\u001b[22m\n\u001b[2m    \"target\": \"Explicitly requested operational task\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"verification_scope\": \"Protocol structure only; real execution, source verification and independent review remain required.\"\u001b[22m\n\u001b[2m}\"\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts:534:29",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts",
+                      "column": 29,
+                      "line": 534
+                    },
+                    "snippet": "  532 |       .getByRole(\"button\", { name: \"Refresh audit\", exact: true })\n  533 |       .click();\n> 534 |     await expect(structure).toContainText(\n      |                             ^\n  535 |       \"The draft or publication requirements changed. Validate again.\",\n  536 |     );\n  537 |     const history = await ("
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts",
+                        "column": 29,
+                        "line": 534
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Protocol structure result' })\nExpected substring: \u001b[32m\"The draft or publication requirements changed. Validate again.\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Protocol structure result' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Protocol structure result' })\u001b[22m\n\u001b[2m    - locator resolved to <section aria-label=\"Protocol structure result\">…</section>\u001b[22m\n\u001b[2m    - unexpected value \"structurally_checkedProtocol structure only; real execution, source verification and independent review remain required.{\u001b[22m\n\u001b[2m  \"protocol\": {\u001b[22m\n\u001b[2m    \"research_question\": \"Does the declared candidate improve the paired numerical outcome?\",\u001b[22m\n\u001b[2m    \"hypothesis\": \"The candidate's paired effect exceeds the declared meaningful threshold.\",\u001b[22m\n\u001b[2m    \"baseline\": \"The fixed declared comparator\",\u001b[22m\n\u001b[2m    \"candidate\": \"The explicitly declared candidate\",\u001b[22m\n\u001b[2m    \"metric\": \"Paired mean outcome difference\",\u001b[22m\n\u001b[2m    \"statistical_unit\": \"Independent subject\",\u001b[22m\n\u001b[2m    \"split_policy\": \"Hold out confirmation subjects before exploratory selection\",\u001b[22m\n\u001b[2m    \"selection_policy\": \"Choose parameters using exploratory subjects only\",\u001b[22m\n\u001b[2m    \"decision_rule\": \"Report the paired interval and compare it to the declared threshold\",\u001b[22m\n\u001b[2m    \"argumentative_duty\": \"effectiveness\",\u001b[22m\n\u001b[2m    \"meaningful_effect\": 0.4,\u001b[22m\n\u001b[2m    \"phase\": \"exploratory\",\u001b[22m\n\u001b[2m    \"future_definition\": {\u001b[22m\n\u001b[2m      \"untouched\": [\u001b[22m\n\u001b[2m        1,\u001b[22m\n\u001b[2m        2,\u001b[22m\n\u001b[2m        3\u001b[22m\n\u001b[2m      ]\u001b[22m\n\u001b[2m    },\u001b[22m\n\u001b[2m    \"editing_policy\": \"Editable; record changed decisions and their affected evidence\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"status\": \"structurally_checked\",\u001b[22m\n\u001b[2m  \"publication_profile\": {\u001b[22m\n\u001b[2m    \"id\": \"operational\",\u001b[22m\n\u001b[2m    \"version\": 1,\u001b[22m\n\u001b[2m    \"target\": \"Explicitly requested operational task\"\u001b[22m\n\u001b[2m  },\u001b[22m\n\u001b[2m  \"verification_scope\": \"Protocol structure only; real execution, source verification and independent review remain required.\"\u001b[22m\n\u001b[2m}\"\u001b[22m\n\n\n  532 |       .getByRole(\"button\", { name: \"Refresh audit\", exact: true })\n  533 |       .click();\n> 534 |     await expect(structure).toContainText(\n      |                             ^\n  535 |       \"The draft or publication requirements changed. Validate again.\",\n  536 |     );\n  537 |     const history = await (\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts:534:29"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:12.134Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/project-requirements-fresh-79a95-n-publication-scope-changes/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/project-requirements-fresh-79a95-n-publication-scope-changes/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/project-requirements.spec.ts",
+                    "column": 29,
+                    "line": 534
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "f60eb8643a601fc7bbc3-167967cab8ae5277ef41",
+          "file": "project-requirements.spec.ts",
+          "line": 398,
+          "column": 1
+        },
+        {
+          "title": "an accepted protocol version with a lost response replays the same persisted request after reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 994,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:18.575Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f60eb8643a601fc7bbc3-5e0fd73f6c78519cfff2",
+          "file": "project-requirements.spec.ts",
+          "line": 551,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "raw-data-freshness.spec.ts",
+      "file": "raw-data-freshness.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "delayed raw rows cannot replace a later A to B to A run selection",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 514,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:19.832Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a60ca96c118f9e92849d-608fb5d64c97058fd886",
+          "file": "raw-data-freshness.spec.ts",
+          "line": 59,
+          "column": 1
+        },
+        {
+          "title": "a stale path failure cannot clear the current pending read or show an obsolete error",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 507,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:20.353Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a60ca96c118f9e92849d-4b0b55dd40784c5bbfd9",
+          "file": "raw-data-freshness.spec.ts",
+          "line": 117,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "redesign-accessibility.spec.ts",
+      "file": "redesign-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "system appearance follows actual media changes and reduced transparency removes chrome blur",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 399,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"none\"\u001b[39m\nReceived: \u001b[31m\"blur(16px) saturate(1.35)\"\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"none\"\u001b[39m\nReceived: \u001b[31m\"blur(16px) saturate(1.35)\"\u001b[39m\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts:23:5",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts",
+                      "column": 5,
+                      "line": 23
+                    },
+                    "snippet": "  21 |       .locator(\".sidebar\")\n  22 |       .evaluate((el) => getComputedStyle(el).backdropFilter),\n> 23 |   ).toBe(\"none\");\n     |     ^\n  24 |   await page.reload();\n  25 |   await expect(page.getByLabel(\"Reduce transparency\")).toBeChecked();\n  26 | });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts",
+                        "column": 5,
+                        "line": 23
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"none\"\u001b[39m\nReceived: \u001b[31m\"blur(16px) saturate(1.35)\"\u001b[39m\n\n  21 |       .locator(\".sidebar\")\n  22 |       .evaluate((el) => getComputedStyle(el).backdropFilter),\n> 23 |   ).toBe(\"none\");\n     |     ^\n  24 |   await page.reload();\n  25 |   await expect(page.getByLabel(\"Reduce transparency\")).toBeChecked();\n  26 | });\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts:23:5"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:20.877Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/redesign-accessibility-sys-66835-parency-removes-chrome-blur/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/redesign-accessibility-sys-66835-parency-removes-chrome-blur/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/redesign-accessibility.spec.ts",
+                    "column": 5,
+                    "line": 23
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "6e5780a76df65e554b14-1837525b13c6031605f2",
+          "file": "redesign-accessibility.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "compact manuscript panel keeps keyboard focus and Escape returns to the selected graph node",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 699,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:22.005Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6e5780a76df65e554b14-5a1c392edaa164bd2d5a",
+          "file": "redesign-accessibility.spec.ts",
+          "line": 28,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "redesign-shell.spec.ts",
+      "file": "redesign-shell.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "five main entries retain all project pages and global settings at every requested width",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1925,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:22.965Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6ad8361cf03bcc71a1aa-f9c9f62d0b37b1c6451d",
+          "file": "redesign-shell.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "budget draft survives real SSE, route changes and reload with a retained revision conflict",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1164,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:24.899Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6ad8361cf03bcc71a1aa-54c1e83f185b5cbc213f",
+          "file": "redesign-shell.spec.ts",
+          "line": 31,
+          "column": 1
+        },
+        {
+          "title": "palette searches actual projects and nodes, supports keyboard selection and missing routes recover",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 512,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:26.069Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6ad8361cf03bcc71a1aa-ac49ccf9bc94e8a972df",
+          "file": "redesign-shell.spec.ts",
+          "line": 59,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "research-tools.spec.ts",
+      "file": "research-tools.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "paired inference uses the uploaded table and retains its exact input artifact",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2502,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:26.594Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "actual-paired-inference",
+                      "contentType": "application/json",
+                      "body": "ewogICJydW4iOiB7CiAgICAicHJvamVjdF9pZCI6ICI4ZmE3Yjk4Ni1hYzQ2LTRjYzAtOTI1OC1kYmNlYWIxZWJkZDMiLAogICAgIm5vZGVfaWQiOiBudWxsLAogICAgImJyYW5jaF9pZCI6IG51bGwsCiAgICAicmVxdWVzdF9pZCI6ICIxZWM2ZmZlYi1mYzJiLTQwMTQtOWQ4My02ZmJkMmFlMDNkNzQiLAogICAgImtpbmQiOiAiYW5hbHlzaXMiLAogICAgInN0YXR1cyI6ICJjb21wbGV0ZWQiLAogICAgImNvbmZpZyI6IHsKICAgICAgInBhdGgiOiAidXBsb2Fkcy9wYWlyZWQuY3N2IiwKICAgICAgInVuaXRfY29sdW1uIjogInVuaXQiLAogICAgICAiYmFzZWxpbmVfY29sdW1uIjogImJhc2VsaW5lIiwKICAgICAgImNhbmRpZGF0ZV9jb2x1bW4iOiAiY2FuZGlkYXRlIiwKICAgICAgImRpcmVjdGlvbiI6ICJoaWdoZXIiLAogICAgICAiY29uZmlkZW5jZSI6IDAuOTUsCiAgICAgICJib290c3RyYXBfc2FtcGxlcyI6IDIwMDAsCiAgICAgICJzZWVkIjogMCwKICAgICAgInJlcXVlc3RfaWQiOiAiMWVjNmZmZWItZmMyYi00MDE0LTlkODMtNmZiZDJhZTAzZDc0IiwKICAgICAgImFuYWx5c2lzX3R5cGUiOiAicGFpcmVkIiwKICAgICAgImdvYWxfY29udHJhY3RfdmVyc2lvbl9pZCI6ICJkMGUwZTQ2Ni0xMTQxLTRmNzAtODhjNi01YTI2YjJlNzM5YzgiLAogICAgICAiZ29hbF9jb250cmFjdF9yZXZpc2lvbiI6IDEsCiAgICAgICJnb2FsX2NvbnRyYWN0IjogewogICAgICAgICJvYmplY3RpdmUiOiAiIiwKICAgICAgICAic3VjY2Vzc19jcml0ZXJpYSI6IFtdLAogICAgICAgICJjb250cmFjdCI6IHt9CiAgICAgIH0sCiAgICAgICJ0aW1lb3V0IjogMTIwLAogICAgICAicHJvamVjdF9nb2FsIjogIiIsCiAgICAgICJhbGxvd19wYWlkIjogZmFsc2UsCiAgICAgICJnb2FsX3Njb3BlIjoge30sCiAgICAgICJyZXNvbHZlZF9pbnB1dHMiOiBbXSwKICAgICAgInJlc29sdmVkX2JyYW5jaF9yZWZlcmVuY2VzIjogW10sCiAgICAgICJfd29ya3NwYWNlX3NvdXJjZV9zbmFwc2hvdCI6ICIuIiwKICAgICAgImV4ZWN1dGlvbl9hdHRlbXB0IjogewogICAgICAgICJpZCI6ICIyOGI0NDE1ZS1lMTAwLTQ0MWYtODZmMS1mZjU5MWNlMjkxYzAiLAogICAgICAgICJudW1iZXIiOiAxLAogICAgICAgICJtb2RlIjogImluaXRpYWwiLAogICAgICAgICJzdGFydGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MjcuMjc3MDYzKzAwOjAwIgogICAgICB9CiAgICB9LAogICAgIm5vZGVfcmV2aXNpb24iOiAwLAogICAgInByaW9yaXR5IjogMCwKICAgICJkZXBlbmRlbmNpZXMiOiBbXSwKICAgICJ3b3JrZXJfaWQiOiAiM2JlMjhmMzUtZmY3Ni00ZTMwLTgzZTEtZDYwNWEzMGQzMzY1IiwKICAgICJwaWQiOiAzMjMwOSwKICAgICJwcm9jZXNzX2NyZWF0ZWQiOiAxNzkxODk2MjQ3LjI3NzM1NiwKICAgICJzdGFydGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MjcuMjgwNDA5KzAwOjAwIiwKICAgICJmaW5pc2hlZF9hdCI6ICIyMDI2LTEwLTEzVDEyOjU3OjI4LjExMDAwOCswMDowMCIsCiAgICAiZXhpdF9jb2RlIjogMCwKICAgICJlcnJvciI6IG51bGwsCiAgICAib3V0cHV0X3BhdGgiOiAicnVucy82MTlhYTA3YS05NjlmLTRjNWYtYjJmYy0wZTdlY2E0NWE1ZWQiLAogICAgIm1ldHJpY3MiOiB7CiAgICAgICJzdGF0dXMiOiAiQU5BTFlaRUQiLAogICAgICAiZXZpZGVuY2VfbGFiZWwiOiAiTUVBU1VSRUQiLAogICAgICAibWV0aG9kIjogInBhaXJlZF91bml0X2NsdXN0ZXJfcGVyY2VudGlsZV9ib290c3RyYXAiLAogICAgICAic291cmNlX2ZpbGUiOiAiL3ByaXZhdGUvdG1wL2ZvcmVzdC1yZWRlc2lnbi1ydW50aW1lLTIwMjYxMDEzL3Byb2plY3RzLzhmYTdiOTg2LWFjNDYtNGNjMC05MjU4LWRiY2VhYjFlYmRkMy9ydW5zLzYxOWFhMDdhLTk2OWYtNGM1Zi1iMmZjLTBlN2VjYTQ1YTVlZC9wYWlyZWQtaW5wdXQuY3N2IiwKICAgICAgInVuaXRfY29sdW1uIjogInVuaXQiLAogICAgICAidW5pdF9jb3VudCI6IDMsCiAgICAgICJvYnNlcnZhdGlvbl9jb3VudCI6IDQsCiAgICAgICJiYXNlbGluZV9jb2x1bW4iOiAiYmFzZWxpbmUiLAogICAgICAiY2FuZGlkYXRlX2NvbHVtbiI6ICJjYW5kaWRhdGUiLAogICAgICAiYmFzZWxpbmVfbWVhbiI6IDMuNjY2NjY2NjY2NjY2NjY2NSwKICAgICAgImNhbmRpZGF0ZV9tZWFuIjogNS42NjY2NjY2NjY2NjY2NjcsCiAgICAgICJpbXByb3ZlbWVudCI6IDIsCiAgICAgICJjaV9sb3ciOiAxLAogICAgICAiY2lfaGlnaCI6IDMsCiAgICAgICJjb25maWRlbmNlIjogMC45NSwKICAgICAgImJvb3RzdHJhcF9zYW1wbGVzIjogMjAwMCwKICAgICAgInNlZWQiOiAwLAogICAgICAibWVhbmluZ2Z1bF9lZmZlY3QiOiAwLAogICAgICAiY2lfZXhjbHVkZXNfbm9faW1wcm92ZW1lbnQiOiB0cnVlLAogICAgICAiY2lfZXhjZWVkc19tZWFuaW5nZnVsX2VmZmVjdCI6IHRydWUsCiAgICAgICJzdGF0aXN0aWNhbF9zY29wZSI6ICJFcXVhbC13ZWlnaHRlZCBpbmRlcGVuZGVudCB1bml0IGNsdXN0ZXJzOyBjb25kaXRpb25hbCBvbiBvYnNlcnZlZCBmaXR0ZWQgbW9kZWxzIiwKICAgICAgImFzc3VtcHRpb25zX3RvX3JldmlldyI6IFsKICAgICAgICAiVW5pdHMgYXJlIGluZGVwZW5kZW50bHkgc2FtcGxlZCBhdCB0aGUgZGVjbGFyZWQgdW5pdCBsZXZlbCIsCiAgICAgICAgIkJvdGggbWV0aG9kcyB1c2UgdGhlIHNhbWUgZXZhbHVhdGlvbiB1bml0cyIsCiAgICAgICAgIkV2YWx1YXRpb24gZGF0YSB3YXMgbm90IHVzZWQgZm9yIGNhbmRpZGF0ZSBzZWxlY3Rpb24iCiAgICAgIF0sCiAgICAgICJyZXByb2R1Y2liaWxpdHlfc3RhdHVzIjogIk5vIGV4cGVyaW1lbnQgcmVydW4gcGVyZm9ybWVkIGJ5IHRoaXMgYW5hbHlzaXMiLAogICAgICAiaW5wdXRfcHJvdmVuYW5jZSI6IHsKICAgICAgICAiYXJ0aWZhY3RfcGF0aCI6ICJydW5zLzYxOWFhMDdhLTk2OWYtNGM1Zi1iMmZjLTBlN2VjYTQ1YTVlZC9wYWlyZWQtaW5wdXQuY3N2IiwKICAgICAgICAic291cmNlX3BhdGgiOiAidXBsb2Fkcy9wYWlyZWQuY3N2IiwKICAgICAgICAiaW5wdXRfcmVjb3JkX2lkIjogIjYxOWFhMDdhLTk2OWYtNGM1Zi1iMmZjLTBlN2VjYTQ1YTVlZDpwYWlyZWQtaW5wdXQiLAogICAgICAgICJzaXplX2J5dGVzIjogNDgKICAgICAgfQogICAgfSwKICAgICJyZXNvdXJjZSI6IHsKICAgICAgInRpbWVfYnVkZ2V0IjogewogICAgICAgICJyZXF1ZXN0ZWRfdGFza190aW1lb3V0X3NlY29uZHMiOiBudWxsLAogICAgICAgICJlZmZlY3RpdmVfdG90YWxfdGltZW91dF9zZWNvbmRzIjogMTIwLAogICAgICAgICJwcm9qZWN0X2J1ZGdldF9zZWNvbmRzX2F0X2VucXVldWUiOiAxMjAsCiAgICAgICAgInByb2plY3RfcmV2aXNpb25fYXRfZW5xdWV1ZSI6IDAsCiAgICAgICAgInJlc2VydmF0aW9uX3N0YXRlIjogImhlbGQiLAogICAgICAgICJyZXN1bWVfaGlzdG9yeSI6IFtdCiAgICAgIH0sCiAgICAgICJyZXJ1bl9nZW5lcmF0aW9uX2F0X2VucXVldWUiOiAwLAogICAgICAidmVyaWZpY2F0aW9uX3N0YXR1cyI6ICJ1bnZlcmlmaWVkIiwKICAgICAgInZlcmlmaWNhdGlvbl9nYXRlIjogewogICAgICAgICJyZWFkeSI6IHRydWUsCiAgICAgICAgInJlcXVpcmVtZW50cyI6IFtdLAogICAgICAgICJndWFyZGVkIjogZmFsc2UKICAgICAgfSwKICAgICAgImVsYXBzZWRfc2Vjb25kcyI6IDAuNDExOTQxLAogICAgICAiZWxhcHNlZF9iZWZvcmVfYXR0ZW1wdCI6IDAsCiAgICAgICJjcHVfcGVyY2VudCI6IG51bGwsCiAgICAgICJyc3NfYnl0ZXMiOiBudWxsLAogICAgICAiY3B1X21lYXN1cmVtZW50X3Njb3BlIjogImhvc3RfcHJvY2Vzc190cmVlIiwKICAgICAgImxhc3Rfb2JzZXJ2ZWRfbGl2ZV9hdHRlbXB0X3NlY29uZHMiOiAwLjQxMTk0MSwKICAgICAgImNwdV9zZWNvbmRzIjogMC40MjA3OTMzMjQsCiAgICAgICJob3N0X3Byb2Nlc3NfY3B1X3NlY29uZHMiOiAwLjQyMDc5MzMyNCwKICAgICAgIm9ic2VydmVkX2hvc3RfcHJvY2Vzc2VzIjogMSwKICAgICAgImF0dGVtcHRzIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICIyOGI0NDE1ZS1lMTAwLTQ0MWYtODZmMS1mZjU5MWNlMjkxYzAiLAogICAgICAgICAgIm51bWJlciI6IDEsCiAgICAgICAgICAibW9kZSI6ICJpbml0aWFsIiwKICAgICAgICAgICJzdGFydGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MjcuMjc3MDYzKzAwOjAwIiwKICAgICAgICAgICJzdGF0dXMiOiAiY29tcGxldGVkIiwKICAgICAgICAgICJleGl0X2NvZGUiOiAwLAogICAgICAgICAgImVycm9yIjogbnVsbCwKICAgICAgICAgICJmaW5pc2hlZF9hdCI6ICIyMDI2LTEwLTEzVDEyOjU3OjI4LjEwOTk5NCswMDowMCIsCiAgICAgICAgICAiZWxhcHNlZF9zZWNvbmRzIjogMC40MTE5NDEKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJ2ZXJpZmljYXRpb24iOiB7CiAgICAgICAgInJ1bl9pZCI6ICI2MTlhYTA3YS05NjlmLTRjNWYtYjJmYy0wZTdlY2E0NWE1ZWQiLAogICAgICAgICJ2ZXJpZmljYXRpb25fc3RhdHVzIjogInVudmVyaWZpZWQiLAogICAgICAgICJjaGVja3MiOiBbXSwKICAgICAgICAiY2hlY2tfc2NvcGVfcGF0aHMiOiBbXSwKICAgICAgICAibnVtZXJpY2FsX3Njb3BlIjogW10sCiAgICAgICAgInZlcmlmaWNhdGlvbl9zY29wZSI6ICJEZWNsYXJlZCBjaGVja3Mgb2YgbmFtZWQgc291cmNlIGFydGlmYWN0czsgZXhlY3V0aW9uIGNvbXBsZXRpb24gZG9lcyBub3QgdmVyaWZ5IG90aGVyIG91dHB1dHMgb3Igc2NpZW50aWZpYyBjbGFpbXMiLAogICAgICAgICJ2ZXJpZmljYXRpb25zIjogW10KICAgICAgfQogICAgfSwKICAgICJpZCI6ICI2MTlhYTA3YS05NjlmLTRjNWYtYjJmYy0wZTdlY2E0NWE1ZWQiLAogICAgImNyZWF0ZWRfYXQiOiAiMjAyNi0xMC0xM1QxMjo1NzoyNy4wMzI3ODcrMDA6MDAiLAogICAgInVwZGF0ZWRfYXQiOiAiMjAyNi0xMC0xM1QxMjo1NzoyOC4xMTA3NjArMDA6MDAiLAogICAgInRvb2xzIjogW10KICB9LAogICJmaXh0dXJlIjogInVuaXQsYmFzZWxpbmUsY2FuZGlkYXRlXG5hLDEsMlxuYSwzLDRcbmIsNCw2XG5jLDUsOFxuIgp9"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9fd797e0cfe8524e479d-28084b818e1f48422b91",
+          "file": "research-tools.spec.ts",
+          "line": 31,
+          "column": 1
+        },
+        {
+          "title": "independent CSV integrity checks bind to the actual producer and declared file scope",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4302,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:29.102Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "actual-source-bound-check",
+                      "contentType": "application/json",
+                      "body": "ewogICJwcm9kdWNlclJ1bklkIjogIjM4ZTY0Y2U3LTg4YjktNDZmMC04ZTVjLWZiY2RhMDI3OTA5YiIsCiAgInZlcmlmaWNhdGlvblJ1bklkIjogIjgwMTBjMmE5LTQzYjUtNDQ0OC1hNzczLWQyYWNmMzc2OTM1YyIsCiAgInZlcmRpY3QiOiB7CiAgICAicnVuX2lkIjogIjM4ZTY0Y2U3LTg4YjktNDZmMC04ZTVjLWZiY2RhMDI3OTA5YiIsCiAgICAidmVyaWZpY2F0aW9uX3N0YXR1cyI6ICJhY2NlcHRlZCIsCiAgICAiY2hlY2tzIjogWwogICAgICB7CiAgICAgICAgImlkIjogImFjdHVhbC1yb3dzIiwKICAgICAgICAia2luZCI6ICJjc3ZfaW50ZWdyaXR5IiwKICAgICAgICAic2NvcGUiOiBudWxsLAogICAgICAgICJzdGF0dXMiOiAiYWNjZXB0ZWQiLAogICAgICAgICJzb3VyY2UiOiAib2JzZXJ2YXRpb25zLmNzdiIsCiAgICAgICAgIndvcmtzcGFjZSI6ICJwcm9kdWNlciIsCiAgICAgICAgImNvbHVtbnMiOiBbCiAgICAgICAgICAidW5pdCIsCiAgICAgICAgICAidmFsdWUiCiAgICAgICAgXSwKICAgICAgICAicmVxdWlyZWRfY29sdW1ucyI6IFsKICAgICAgICAgICJ1bml0IiwKICAgICAgICAgICJ2YWx1ZSIKICAgICAgICBdLAogICAgICAgICJ1bmlxdWVfYnkiOiBbCiAgICAgICAgICAidW5pdCIKICAgICAgICBdLAogICAgICAgICJudW1lcmljX2NvbHVtbnMiOiBbCiAgICAgICAgICAidmFsdWUiCiAgICAgICAgXSwKICAgICAgICAicm93X2NvdW50IjogMiwKICAgICAgICAidW5pcXVlX3VuaXRzIjogMiwKICAgICAgICAiZXhwZWN0ZWRfY2VsbHMiOiAwLAogICAgICAgICJtaXNzaW5nIjogW10sCiAgICAgICAgInVuZXhwZWN0ZWQiOiBbXSwKICAgICAgICAiaW5jb21wYXRpYmxlIjogW10sCiAgICAgICAgImlzc3VlcyI6IFtdLAogICAgICAgICJ2ZXJpZmljYXRpb25fc2NvcGUiOiAiQWxsIGFjdHVhbCBDU1Ygcm93cyBjaGVja2VkIGZvciBkZWNsYXJlZCBjb2x1bW5zLCBmaW5pdGUgdmFsdWVzLCB1bml0IGlkZW50aXR5IGFuZCBjb25maWd1cmVkIG1hdHJpeDsgcm93IGNvdW50IGlzIG5vdCBhIHRyYWluaW5nLXJlcGxpY2F0aW9uIGNvdW50IgogICAgICB9CiAgICBdLAogICAgImNoZWNrX3Njb3BlX3BhdGhzIjogWwogICAgICAib2JzZXJ2YXRpb25zLmNzdiIKICAgIF0sCiAgICAibnVtZXJpY2FsX3Njb3BlIjogW10sCiAgICAidmVyaWZpY2F0aW9uX3Njb3BlIjogIkRlY2xhcmVkIGNoZWNrcyBvZiBuYW1lZCBzb3VyY2UgYXJ0aWZhY3RzOyBleGVjdXRpb24gY29tcGxldGlvbiBkb2VzIG5vdCB2ZXJpZnkgb3RoZXIgb3V0cHV0cyBvciBzY2llbnRpZmljIGNsYWltcyIsCiAgICAidmVyaWZpY2F0aW9ucyI6IFsKICAgICAgewogICAgICAgICJydW5faWQiOiAiODAxMGMyYTktNDNiNS00NDQ4LWE3NzMtZDJhY2YzNzY5MzVjIiwKICAgICAgICAidmVyaWZpY2F0aW9uX3J1bl9pZCI6ICI4MDEwYzJhOS00M2I1LTQ0NDgtYTc3My1kMmFjZjM3NjkzNWMiLAogICAgICAgICJ2ZXJpZmllcl9ub2RlX2lkIjogbnVsbCwKICAgICAgICAidmVyaWZpY2F0aW9uX3N0YXR1cyI6ICJhY2NlcHRlZCIsCiAgICAgICAgInJlYXNvbiI6ICJEZWNsYXJlZCBjaGVja3MgcGFzc2VkIGFnYWluc3QgdGhlIGN1cnJlbnQgYm91bmQgYXJ0aWZhY3RzIiwKICAgICAgICAiY2hlY2tzIjogWwogICAgICAgICAgewogICAgICAgICAgICAiaWQiOiAiYWN0dWFsLXJvd3MiLAogICAgICAgICAgICAia2luZCI6ICJjc3ZfaW50ZWdyaXR5IiwKICAgICAgICAgICAgInNjb3BlIjogbnVsbCwKICAgICAgICAgICAgInN0YXR1cyI6ICJhY2NlcHRlZCIsCiAgICAgICAgICAgICJzb3VyY2UiOiAib2JzZXJ2YXRpb25zLmNzdiIsCiAgICAgICAgICAgICJ3b3Jrc3BhY2UiOiAicHJvZHVjZXIiLAogICAgICAgICAgICAiY29sdW1ucyI6IFsKICAgICAgICAgICAgICAidW5pdCIsCiAgICAgICAgICAgICAgInZhbHVlIgogICAgICAgICAgICBdLAogICAgICAgICAgICAicmVxdWlyZWRfY29sdW1ucyI6IFsKICAgICAgICAgICAgICAidW5pdCIsCiAgICAgICAgICAgICAgInZhbHVlIgogICAgICAgICAgICBdLAogICAgICAgICAgICAidW5pcXVlX2J5IjogWwogICAgICAgICAgICAgICJ1bml0IgogICAgICAgICAgICBdLAogICAgICAgICAgICAibnVtZXJpY19jb2x1bW5zIjogWwogICAgICAgICAgICAgICJ2YWx1ZSIKICAgICAgICAgICAgXSwKICAgICAgICAgICAgInJvd19jb3VudCI6IDIsCiAgICAgICAgICAgICJ1bmlxdWVfdW5pdHMiOiAyLAogICAgICAgICAgICAiZXhwZWN0ZWRfY2VsbHMiOiAwLAogICAgICAgICAgICAibWlzc2luZyI6IFtdLAogICAgICAgICAgICAidW5leHBlY3RlZCI6IFtdLAogICAgICAgICAgICAiaW5jb21wYXRpYmxlIjogW10sCiAgICAgICAgICAgICJpc3N1ZXMiOiBbXSwKICAgICAgICAgICAgInZlcmlmaWNhdGlvbl9zY29wZSI6ICJBbGwgYWN0dWFsIENTViByb3dzIGNoZWNrZWQgZm9yIGRlY2xhcmVkIGNvbHVtbnMsIGZpbml0ZSB2YWx1ZXMsIHVuaXQgaWRlbnRpdHkgYW5kIGNvbmZpZ3VyZWQgbWF0cml4OyByb3cgY291bnQgaXMgbm90IGEgdHJhaW5pbmctcmVwbGljYXRpb24gY291bnQiCiAgICAgICAgICB9CiAgICAgICAgXSwKICAgICAgICAiY2hlY2tfc2NvcGVfcGF0aHMiOiBbCiAgICAgICAgICAib2JzZXJ2YXRpb25zLmNzdiIKICAgICAgICBdLAogICAgICAgICJ2ZXJpZmljYXRpb25fc2NvcGUiOiAiT25seSBjb25maWd1cmVkIGNoZWNrcyBvbiBjdXJyZW50IGFjdHVhbCBmaWxlcyBhbmQgZXhwbGljaXRseSBzZWxlY3RlZCBhcml0aG1ldGljOyBleGVjdXRpb24sIGluZGVwZW5kZW5jZSBhbmQgc2NpZW50aWZpYyBpbnRlcnByZXRhdGlvbiByZXF1aXJlIHNlcGFyYXRlIGV2aWRlbmNlIiwKICAgICAgICAicHJvZHVjZXJfbm9kZV9pZCI6ICI1ZWM1Nzg2ZS03NWI3LTVkYzMtOWU2ZC02MWI1Yzg5ODhmNzQiLAogICAgICAgICJwcm9kdWNlcl9ydW5faWQiOiAiMzhlNjRjZTctODhiOS00NmYwLThlNWMtZmJjZGEwMjc5MDliIiwKICAgICAgICAicHJvZHVjZXJfcmV2aXNpb24iOiAwLAogICAgICAgICJwcm9kdWNlcl9hcnRpZmFjdF9zY29wZSI6ICJ3b3Jrc3BhY2UiLAogICAgICAgICJjb250cmFjdCI6IHsKICAgICAgICAgICJwcm9kdWNlcl9ub2RlX2lkIjogIjVlYzU3ODZlLTc1YjctNWRjMy05ZTZkLTYxYjVjODk4OGY3NCIsCiAgICAgICAgICAiY2hlY2tzIjogWwogICAgICAgICAgICB7CiAgICAgICAgICAgICAgImlkIjogImFjdHVhbC1yb3dzIiwKICAgICAgICAgICAgICAia2luZCI6ICJjc3ZfaW50ZWdyaXR5IiwKICAgICAgICAgICAgICAic291cmNlIjogIm9ic2VydmF0aW9ucy5jc3YiLAogICAgICAgICAgICAgICJyZXF1aXJlZF9jb2x1bW5zIjogWwogICAgICAgICAgICAgICAgInVuaXQiLAogICAgICAgICAgICAgICAgInZhbHVlIgogICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgInVuaXF1ZV9ieSI6IFsKICAgICAgICAgICAgICAgICJ1bml0IgogICAgICAgICAgICAgIF0sCiAgICAgICAgICAgICAgIm51bWVyaWNfY29sdW1ucyI6IFsKICAgICAgICAgICAgICAgICJ2YWx1ZSIKICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICJ3b3Jrc3BhY2UiOiAicHJvZHVjZXIiCiAgICAgICAgICAgIH0KICAgICAgICAgIF0KICAgICAgICB9LAogICAgICAgICJudW1lcmljYWxfc2NvcGUiOiBbXSwKICAgICAgICAiYXNzdW1wdGlvbnMiOiBbCiAgICAgICAgICAiV29ya2VyIGJpbmRzIHRoZSBhY3R1YWwgcHJvZHVjZXIgYW5kIHZlcmlmaWVyIHJ1bnMgdG8gdGhlIGN1cnJlbnQgZWRpdGFibGUgY29udHJhY3QgYW5kIG5vZGUgcmV2aXNpb25zIiwKICAgICAgICAgICJOdW1lcmljYWwgb3IgYnl0ZSBhZ3JlZW1lbnQgZG9lcyBub3QgZXN0YWJsaXNoIGFuIGluZGVwZW5kZW50IGltcGxlbWVudGF0aW9uIG9yIHNjaWVudGlmaWMgdHJ1dGgiCiAgICAgICAgXQogICAgICB9CiAgICBdCiAgfQp9"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9fd797e0cfe8524e479d-be352378e7a1813649fa",
+          "file": "research-tools.spec.ts",
+          "line": 99,
+          "column": 1
+        },
+        {
+          "title": "repository preparation retains the actual GitHub commit in its run manifest",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2309,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:33.411Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "actual-repository-manifest",
+                      "contentType": "application/json",
+                      "body": "ewogICJydW5faWQiOiAiZTJiYjk3YzYtNzFjMS00NWJlLWEzOGMtN2RmMDg3ZWNhNDk3IiwKICAicHJvamVjdF9pZCI6ICI4ZDJiNjAxMy02MzUzLTRiNDAtYjk4Mi0yNTAyZmFiNDYzYjIiLAogICJzdGF0dXMiOiAiY29tcGxldGVkIiwKICAicmVwb3NpdG9yeSI6IHsKICAgICJ1cmwiOiAiaHR0cHM6Ly9naXRodWIuY29tL29jdG9jYXQvSGVsbG8tV29ybGQuZ2l0IiwKICAgICJyZXF1ZXN0ZWRfcmVmIjogIkhFQUQiLAogICAgImNvbW1pdCI6ICI3ZmQxYTYwYjAxZjkxYjMxNGY1OTk1NWE0ZTRkNGU4MGQ4ZWRmMTFkIiwKICAgICJkaXJlY3RvcnkiOiAic291cmNlIiwKICAgICJ0cmFuc3BvcnQiOiAiaHR0cHMiCiAgfQp9"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9fd797e0cfe8524e479d-d8b9b2282f2957f2f9ad",
+          "file": "research-tools.spec.ts",
+          "line": 186,
+          "column": 1
+        },
+        {
+          "title": "figure render and exported SVG and PDF use the actual numerical run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4391,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:35.727Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "actual-figure-source",
+                      "contentType": "application/json",
+                      "body": "ewogICJmaWd1cmUiOiB7CiAgICAicHJvamVjdF9pZCI6ICIxNWJjOWZhZS01YWUwLTQxYjktYjdkMS05ZGM5NmZkYzc1ZDMiLAogICAgInRpdGxlIjogIkNvbXB1dGVkIHRyYXBlem9pZGFsIGludGVncmFsIiwKICAgICJyZXZpc2lvbiI6IDIsCiAgICAic3RhdHVzIjogIm5lZWRzX3JldmlldyIsCiAgICAiZGF0YSI6IHsKICAgICAgImtpbmQiOiAiYmFyIiwKICAgICAgInJ1bl9pZHMiOiBbCiAgICAgICAgImFlNmRiYTE1LWZmM2MtNGQyMS04NmU5LWIzY2I1YTEzZWMzNyIKICAgICAgXSwKICAgICAgIm1ldHJpYyI6ICJpbnRlZ3JhbCIsCiAgICAgICJkYXRhIjogewogICAgICAgICJyb3dzIjogWwogICAgICAgICAgewogICAgICAgICAgICAiZGF0YXNldCI6ICJ4wrIgb24gWzAsIDFdIiwKICAgICAgICAgICAgIm1ldGhvZCI6ICJUcmFwZXpvaWRhbCwgNSwwMDAgaW50ZXJ2YWxzIiwKICAgICAgICAgICAgImludGVncmFsIjogMC4zMzMzMzMzNDAwMDAwMDAwMwogICAgICAgICAgfQogICAgICAgIF0KICAgICAgfSwKICAgICAgInN0eWxlIjogewogICAgICAgICJtZXRyaWMiOiAiaW50ZWdyYWwiLAogICAgICAgICJ3aWR0aCI6IDcsCiAgICAgICAgImhlaWdodCI6IDQsCiAgICAgICAgInhsYWJlbCI6ICJDb21wdXRlZCByZXN1bHQiLAogICAgICAgICJ5bGFiZWwiOiAiSW50ZWdyYWwiCiAgICAgIH0sCiAgICAgICJjYXB0aW9uIjogIlRyYXBlem9pZGFsIGludGVncmF0aW9uIG9mIHjCsiBvdmVyIFswLCAxXSwgNSwwMDAgaW50ZXJ2YWxzLiIsCiAgICAgICJjb2RlIjogIiMgRWRpdGFibGUgZmlndXJlIHNvdXJjZTsgdXNlIGFuIGluc3RhbGxlZCBGT1JFU1QgZW52aXJvbm1lbnQgb3Iga2VlcCBpdCBpbnNpZGUgdGhlIHNvdXJjZSBwcm9qZWN0LlxuaW1wb3J0IGpzb24sIHN5c1xuZnJvbSBwYXRobGliIGltcG9ydCBQYXRoXG5wPVBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRcbmZvciBwYXJlbnQgaW4gcC5wYXJlbnRzOlxuICAgIGlmIChwYXJlbnQvJ3Jlc2VhcmNoL2ZpZ3VyZXMvcmVuZGVyLnB5JykuaXNfZmlsZSgpOlxuICAgICAgICBzeXMucGF0aC5pbnNlcnQoMCxzdHIocGFyZW50KSk7IGJyZWFrXG5mcm9tIHJlc2VhcmNoLmZpZ3VyZXMucmVuZGVyIGltcG9ydCByZW5kZXJfZmlndXJlXG5zdHlsZT1qc29uLmxvYWRzKChwLydzdHlsZS5qc29uJykucmVhZF90ZXh0KCkpXG5raW5kPXN0eWxlLnBvcCgna2luZCcsJ2JhcicpXG5yZW5kZXJfZmlndXJlKHAsanNvbi5sb2FkcygocC8nZmlndXJlX2RhdGEuanNvbicpLnJlYWRfdGV4dCgpKSxzdHlsZSxraW5kKVxuIiwKICAgICAgInB1cnBvc2UiOiAiZWZmZWN0aXZlbmVzcyIsCiAgICAgICJpbWFnZV9wcm9tcHQiOiAiIiwKICAgICAgInZpc3VhbF9yZXZpZXdfc3RhdHVzIjogImF3YWl0aW5nX2luZGVwZW5kZW50X3Jldmlld3MiLAogICAgICAib3V0cHV0cyI6IHsKICAgICAgICAic3ZnIjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9maWd1cmUuc3ZnIiwKICAgICAgICAicGRmIjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9maWd1cmUucGRmIiwKICAgICAgICAicG5nIjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9maWd1cmUucG5nIiwKICAgICAgICAic291cmNlIjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9wbG90LnB5IiwKICAgICAgICAiZGF0YSI6ICJydW5zLzRjMmUyMGFmLTk3NTMtNDFhMC1iYzI0LTBmMThlNWY4MDI3Mi9maWd1cmUvZmlndXJlX2RhdGEuanNvbiIsCiAgICAgICAgInN0eWxlIjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9zdHlsZS5qc29uIiwKICAgICAgICAicmVwb3J0IjogInJ1bnMvNGMyZTIwYWYtOTc1My00MWEwLWJjMjQtMGYxOGU1ZjgwMjcyL2ZpZ3VyZS9maWd1cmVfcmVwb3J0Lmpzb24iCiAgICAgIH0sCiAgICAgICJzb3VyY2VfcnVuX2lkcyI6IFsKICAgICAgICAiYWU2ZGJhMTUtZmYzYy00ZDIxLTg2ZTktYjNjYjVhMTNlYzM3IgogICAgICBdLAogICAgICAidmlzdWFsX3NlbGVjdGlvbiI6IG51bGwsCiAgICAgICJjb2RlX29yaWdpbiI6ICJyZW5kZXJlciIKICAgIH0sCiAgICAiaWQiOiAiNTczZTk0OTQtNjFkMi00NDA5LTgyZjgtYjliMDI4OWVkMjdlIiwKICAgICJjcmVhdGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MzcuNzg3MjIxKzAwOjAwIiwKICAgICJ1cGRhdGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MzkuMzU5MTQwKzAwOjAwIgogIH0sCiAgInNvdXJjZVJ1biI6IHsKICAgICJwcm9qZWN0X2lkIjogIjE1YmM5ZmFlLTVhZTAtNDFiOS1iN2QxLTlkYzk2ZmRjNzVkMyIsCiAgICAibm9kZV9pZCI6ICIzZWNjNGZmZi1jNmEzLTUxNTAtOGU4Ni0xNDczNWFiYTY0MTUiLAogICAgImJyYW5jaF9pZCI6ICI1YmY5ZjJlNy1hNGU3LTRlOTAtODI4MC05MmU2ZDdlMTE0NTMiLAogICAgInJlcXVlc3RfaWQiOiAiOWI2YzlkNzktMmM2OS00NjRkLTg0ZWItNGJlZTM5MzYxZGM2OjNlY2M0ZmZmLWM2YTMtNTE1MC04ZTg2LTE0NzM1YWJhNjQxNSIsCiAgICAia2luZCI6ICJleHBlcmltZW50IiwKICAgICJzdGF0dXMiOiAicXVldWVkIiwKICAgICJjb25maWciOiB7CiAgICAgICJraW5kIjogImV4cGVyaW1lbnQiLAogICAgICAiZXhwZXJpbWVudF9kdXR5IjogImVmZmVjdGl2ZW5lc3MiLAogICAgICAibWV0cmljc19maWxlIjogIm1ldHJpY3MuanNvbiIsCiAgICAgICJjb21tYW5kIjogWwogICAgICAgICJweXRob24zIiwKICAgICAgICAiLWMiLAogICAgICAgICJpbXBvcnQganNvbjsgZnJvbSBwYXRobGliIGltcG9ydCBQYXRoOyBuPTUwMDA7IGg9MS4wL247IG9ic2VydmVkPWgqKHN1bSgoaSpoKSoqMiBmb3IgaSBpbiByYW5nZSgxLG4pKSswLjUpOyBtZXRyaWNzPXsnaW50ZWdyYWwnOm9ic2VydmVkLCdhYnNvbHV0ZV9lcnJvcic6YWJzKG9ic2VydmVkLTEuMC8zLjApLCdpbnRlcnZhbHMnOm59OyBQYXRoKCdtZXRyaWNzLmpzb24nKS53cml0ZV90ZXh0KGpzb24uZHVtcHMobWV0cmljcykpOyBwcmludChqc29uLmR1bXBzKG1ldHJpY3MpLGZsdXNoPVRydWUpIgogICAgICBdLAogICAgICAiZ29hbF9jb250cmFjdF92ZXJzaW9uX2lkIjogImFiZjdiMzYxLTZjZTAtNGYwMy1iNDFhLTUxMmZjYmVhMDk3YiIsCiAgICAgICJnb2FsX2NvbnRyYWN0X3JldmlzaW9uIjogMSwKICAgICAgImdvYWxfY29udHJhY3QiOiB7CiAgICAgICAgIm9iamVjdGl2ZSI6ICIiLAogICAgICAgICJzdWNjZXNzX2NyaXRlcmlhIjogW10sCiAgICAgICAgImNvbnRyYWN0Ijoge30KICAgICAgfSwKICAgICAgInRpbWVvdXQiOiAxMjAsCiAgICAgICJwcm9qZWN0X2dvYWwiOiAiIiwKICAgICAgImFsbG93X3BhaWQiOiBmYWxzZSwKICAgICAgImdvYWxfc2NvcGUiOiB7fSwKICAgICAgImluc3RydWN0aW9ucyI6ICJFeGVjdXRlIHRoZSBkZWNsYXJlZCBudW1lcmljYWwgY29tcHV0YXRpb24gYW5kIHJldGFpbiBhY3R1YWwgbWV0cmljcy4iLAogICAgICAibm9kZV90eXBlIjogImV4cGVyaW1lbnQiLAogICAgICAibm9kZV90aXRsZSI6ICJNZWFzdXJlIHRyYXBlem9pZGFsIGludGVncmF0aW9uIGVycm9yIiwKICAgICAgImNvbnRleHRfb3ZlcnJpZGVzIjoge30sCiAgICAgICJpbnB1dF9yZWZlcmVuY2VzIjogW10sCiAgICAgICJyZXNlYXJjaF90YXNrX2lkZW50aXR5IjogewogICAgICAgICJpbnN0cnVjdGlvbnMiOiAiRXhlY3V0ZSB0aGUgZGVjbGFyZWQgbnVtZXJpY2FsIGNvbXB1dGF0aW9uIGFuZCByZXRhaW4gYWN0dWFsIG1ldHJpY3MuIiwKICAgICAgICAiY29uZmlnIjogewogICAgICAgICAgImtpbmQiOiAiZXhwZXJpbWVudCIsCiAgICAgICAgICAiZXhwZXJpbWVudF9kdXR5IjogImVmZmVjdGl2ZW5lc3MiLAogICAgICAgICAgIm1ldHJpY3NfZmlsZSI6ICJtZXRyaWNzLmpzb24iLAogICAgICAgICAgImNvbW1hbmQiOiBbCiAgICAgICAgICAgICJweXRob24zIiwKICAgICAgICAgICAgIi1jIiwKICAgICAgICAgICAgImltcG9ydCBqc29uOyBmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGg7IG49NTAwMDsgaD0xLjAvbjsgb2JzZXJ2ZWQ9aCooc3VtKChpKmgpKioyIGZvciBpIGluIHJhbmdlKDEsbikpKzAuNSk7IG1ldHJpY3M9eydpbnRlZ3JhbCc6b2JzZXJ2ZWQsJ2Fic29sdXRlX2Vycm9yJzphYnMob2JzZXJ2ZWQtMS4wLzMuMCksJ2ludGVydmFscyc6bn07IFBhdGgoJ21ldHJpY3MuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyhtZXRyaWNzKSk7IHByaW50KGpzb24uZHVtcHMobWV0cmljcyksZmx1c2g9VHJ1ZSkiCiAgICAgICAgICBdCiAgICAgICAgfSwKICAgICAgICAiaW5wdXRzIjogW10KICAgICAgfQogICAgfSwKICAgICJub2RlX3JldmlzaW9uIjogMCwKICAgICJwcmlvcml0eSI6IDAsCiAgICAiZGVwZW5kZW5jaWVzIjogW10sCiAgICAid29ya2VyX2lkIjogbnVsbCwKICAgICJwaWQiOiBudWxsLAogICAgInByb2Nlc3NfY3JlYXRlZCI6IG51bGwsCiAgICAic3RhcnRlZF9hdCI6IG51bGwsCiAgICAiZmluaXNoZWRfYXQiOiBudWxsLAogICAgImV4aXRfY29kZSI6IG51bGwsCiAgICAiZXJyb3IiOiBudWxsLAogICAgIm91dHB1dF9wYXRoIjogInJ1bnMvYWU2ZGJhMTUtZmYzYy00ZDIxLTg2ZTktYjNjYjVhMTNlYzM3IiwKICAgICJtZXRyaWNzIjoge30sCiAgICAicmVzb3VyY2UiOiB7CiAgICAgICJ0aW1lX2J1ZGdldCI6IHsKICAgICAgICAicmVxdWVzdGVkX3Rhc2tfdGltZW91dF9zZWNvbmRzIjogbnVsbCwKICAgICAgICAiZWZmZWN0aXZlX3RvdGFsX3RpbWVvdXRfc2Vjb25kcyI6IDEyMCwKICAgICAgICAicHJvamVjdF9idWRnZXRfc2Vjb25kc19hdF9lbnF1ZXVlIjogMTIwLAogICAgICAgICJwcm9qZWN0X3JldmlzaW9uX2F0X2VucXVldWUiOiAxLAogICAgICAgICJyZXNlcnZhdGlvbl9zdGF0ZSI6ICJoZWxkIiwKICAgICAgICAicmVzdW1lX2hpc3RvcnkiOiBbXQogICAgICB9LAogICAgICAicmVydW5fZ2VuZXJhdGlvbl9hdF9lbnF1ZXVlIjogMSwKICAgICAgInZlcmlmaWNhdGlvbl9zdGF0dXMiOiAidW52ZXJpZmllZCIKICAgIH0sCiAgICAiaWQiOiAiYWU2ZGJhMTUtZmYzYy00ZDIxLTg2ZTktYjNjYjVhMTNlYzM3IiwKICAgICJjcmVhdGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MzUuOTAyODg5KzAwOjAwIiwKICAgICJ1cGRhdGVkX2F0IjogIjIwMjYtMTAtMTNUMTI6NTc6MzUuOTAzNDc3KzAwOjAwIgogIH0KfQ=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "9fd797e0cfe8524e479d-4a0d8c606d357f4dc782",
+          "file": "research-tools.spec.ts",
+          "line": 233,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "run-list-refresh.spec.ts",
+      "file": "run-list-refresh.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Data and Figure Studio refresh run statuses on project updates",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 515,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:40.129Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "005463a4a18aad0145e7-fecc01d45f5b58eada39",
+          "file": "run-list-refresh.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "settings-draft.spec.ts",
+      "file": "settings-draft.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "invalid connection configuration remains editable with a durable form error",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 433,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:40.663Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b8bc1b62a7e82c0f5e36-6650282a43e3a47c1490",
+          "file": "settings-draft.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "global settings draft survives real refresh and navigation, saving only changed keys",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 666,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:41.102Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b8bc1b62a7e82c0f5e36-6dd7814191516d825015",
+          "file": "settings-draft.spec.ts",
+          "line": 36,
+          "column": 1
+        },
+        {
+          "title": "changing the default provider preserves valid unknown settings and invalid JSON drafts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 638,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:41.775Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b8bc1b62a7e82c0f5e36-872fb1e62a21f246cdf1",
+          "file": "settings-draft.spec.ts",
+          "line": 121,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "storage-cleanup-retention.spec.ts",
+      "file": "storage-cleanup-retention.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "storage cleanup uses the saved retention period",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 603,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:42.423Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d154c052f1602f14ba3b-042829a9f7129ecba5bb",
+          "file": "storage-cleanup-retention.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "cleanup stays disabled for invalid saved retention until corrected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 619,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:43.033Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d154c052f1602f14ba3b-8468a819988d1f9d59c2",
+          "file": "storage-cleanup-retention.spec.ts",
+          "line": 14,
+          "column": 1
+        },
+        {
+          "title": "cleanup requires an explicit value when saved settings fail to load",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 624,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:43.660Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d154c052f1602f14ba3b-33cd2b706f95637f69b6",
+          "file": "storage-cleanup-retention.spec.ts",
+          "line": 30,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "succeeded-run-filter.spec.ts",
+      "file": "succeeded-run-filter.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Succeeded filter includes completed runs in the table and CSV export",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 333,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:44.293Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "0c3dff53b400cb61070f-e3e054ce02c27d66bddc",
+          "file": "succeeded-run-filter.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "web-page-import-double-submit.spec.ts",
+      "file": "web-page-import-double-submit.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "a repeated in-flight web-page import submits only once",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 480,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:44.639Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a37fc68496d99bc91fd0-55e688d0b18411a07453",
+          "file": "web-page-import-double-submit.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "workspace-navigation.spec.ts",
+      "file": "workspace-navigation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "workspace branch and node URL state survives reload and history without editing the graph",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1021,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:45.133Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62ee0100868f01d700c4-aad40b1fffcd52d42197",
+          "file": "workspace-navigation.spec.ts",
+          "line": 65,
+          "column": 1
+        },
+        {
+          "title": "temporary inspector keeps complete dirty drafts through dismissal, focus, reload and resize",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 806,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:46.163Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62ee0100868f01d700c4-5eac17fc7573020525b0",
+          "file": "workspace-navigation.spec.ts",
+          "line": 141,
+          "column": 1
+        },
+        {
+          "title": "full-ID run links show actual worker output, history and recoverable missing or cross-project selections",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3373,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:46.975Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62ee0100868f01d700c4-7a29b1248bcd8d6d5384",
+          "file": "workspace-navigation.spec.ts",
+          "line": 218,
+          "column": 1
+        },
+        {
+          "title": "explicit branch execution uses the branch receipt and can skip a queued descendant",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7563,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:50.356Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "62ee0100868f01d700c4-4a26ddc967ccb943a6d4",
+          "file": "workspace-navigation.spec.ts",
+          "line": 349,
+          "column": 1
+        },
+        {
+          "title": "configuration acknowledgment retains a patch edited during the actual pending save",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7576,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\nExpected: \u001b[32m\"{\u001b[7m\\\"priority\\\":44,\\\"late_unsaved_key\\\":{\\\"kept\\\":true}\u001b[27m}\"\u001b[39m\nReceived: \u001b[31m\"{}\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"6\" class=\"code-input\">{}</textarea>\u001b[22m\n\u001b[2m       - unexpected value \"{}\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\nExpected: \u001b[32m\"{\u001b[7m\\\"priority\\\":44,\\\"late_unsaved_key\\\":{\\\"kept\\\":true}\u001b[27m}\"\u001b[39m\nReceived: \u001b[31m\"{}\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"6\" class=\"code-input\">{}</textarea>\u001b[22m\n\u001b[2m       - unexpected value \"{}\"\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts:521:26",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts",
+                      "column": 26,
+                      "line": 521
+                    },
+                    "snippet": "  519 |       }),\n  520 |     ).toBeEnabled();\n> 521 |     await expect(editor).toHaveValue(lateText);\n      |                          ^\n  522 |     expect(\n  523 |       (await (await request.get(`/api/runs/${run.id}`)).json()).config\n  524 |         .late_unsaved_key,"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts",
+                        "column": 26,
+                        "line": 521
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\nExpected: \u001b[32m\"{\u001b[7m\\\"priority\\\":44,\\\"late_unsaved_key\\\":{\\\"kept\\\":true}\u001b[27m}\"\u001b[39m\nReceived: \u001b[31m\"{}\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Run controls and diagnostics' }).getByLabel('Configuration update (JSON patch)')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"6\" class=\"code-input\">{}</textarea>\u001b[22m\n\u001b[2m       - unexpected value \"{}\"\u001b[22m\n\n\n  519 |       }),\n  520 |     ).toBeEnabled();\n> 521 |     await expect(editor).toHaveValue(lateText);\n      |                          ^\n  522 |     expect(\n  523 |       (await (await request.get(`/api/runs/${run.id}`)).json()).config\n  524 |         .late_unsaved_key,\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts:521:26"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:57:57.926Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-navigation-confi-d0359-ing-the-actual-pending-save/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-navigation-confi-d0359-ing-the-actual-pending-save/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace-navigation.spec.ts",
+                    "column": 26,
+                    "line": 521
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "62ee0100868f01d700c4-2bc5afb2466c88979d2b",
+          "file": "workspace-navigation.spec.ts",
+          "line": 460,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "workspace.spec.ts",
+      "file": "workspace.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "queued approved actions do not offer an invalid continuation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 544,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:06.020Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-de94cc95b063f5918db2",
+          "file": "workspace.spec.ts",
+          "line": 23,
+          "column": 1
+        },
+        {
+          "title": "Files folders expand and collapse nested entries",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 394,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 4\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[32m- Array [\u001b[39m\n\u001b[32m-   \"archive\",\u001b[39m\n\u001b[32m-   \"archive/summary.txt\",\u001b[39m\n\u001b[32m- ]\u001b[39m\n\u001b[31m+ Array []\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 4\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[32m- Array [\u001b[39m\n\u001b[32m-   \"archive\",\u001b[39m\n\u001b[32m-   \"archive/summary.txt\",\u001b[39m\n\u001b[32m- ]\u001b[39m\n\u001b[31m+ Array []\u001b[39m\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:90:59",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 59,
+                      "line": 90
+                    },
+                    "snippet": "  88 |   const archiveIndex = rowLabels.indexOf(\"archive\");\n  89 |   const recordsIndex = rowLabels.indexOf(\"records\");\n> 90 |   expect(rowLabels.slice(archiveIndex, archiveIndex + 2)).toEqual([\n     |                                                           ^\n  91 |     \"archive\",\n  92 |     otherFilePath,\n  93 |   ]);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 59,
+                        "line": 90
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 4\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[32m- Array [\u001b[39m\n\u001b[32m-   \"archive\",\u001b[39m\n\u001b[32m-   \"archive/summary.txt\",\u001b[39m\n\u001b[32m- ]\u001b[39m\n\u001b[31m+ Array []\u001b[39m\n\n  88 |   const archiveIndex = rowLabels.indexOf(\"archive\");\n  89 |   const recordsIndex = rowLabels.indexOf(\"records\");\n> 90 |   expect(rowLabels.slice(archiveIndex, archiveIndex + 2)).toEqual([\n     |                                                           ^\n  91 |     \"archive\",\n  92 |     otherFilePath,\n  93 |   ]);\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:90:59"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:06.930Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Files-folders-expand-and-collapse-nested-entries/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Files-folders-expand-and-collapse-nested-entries/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 59,
+                    "line": 90
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-495eb78bb4ca6701a632",
+          "file": "workspace.spec.ts",
+          "line": 70,
+          "column": 1
+        },
+        {
+          "title": "keyboard node movement persists its position",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 30089,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:07.724Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-keyboard-node-movement-persists-its-position/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-keyboard-node-movement-persists-its-position/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-d567713808acc67e5f4f",
+          "file": "workspace.spec.ts",
+          "line": 132,
+          "column": 1
+        },
+        {
+          "title": "keyboard position saves recover from a graph revision conflict",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 7,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5665,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[32m-   \"x\": 205,\u001b[39m\n\u001b[31m+   \"x\": 200,\u001b[39m\n\u001b[2m    \"y\": 160,\u001b[22m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[32m-   \"x\": 205,\u001b[39m\n\u001b[31m+   \"x\": 200,\u001b[39m\n\u001b[2m    \"y\": 160,\u001b[22m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:315:6",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 6,
+                      "line": 315
+                    },
+                    "snippet": "  313 |         ?.position;\n  314 |     })\n> 315 |     .toEqual({ x: 205, y: 160 });\n      |      ^\n  316 |   expect(batchRevisions).toEqual([1, 2]);\n  317 |   await page.reload();\n  318 |   await expect"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 6,
+                        "line": 315
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 1\u001b[39m\n\n\u001b[2m  Object {\u001b[22m\n\u001b[32m-   \"x\": 205,\u001b[39m\n\u001b[31m+   \"x\": 200,\u001b[39m\n\u001b[2m    \"y\": 160,\u001b[22m\n\u001b[2m  }\u001b[22m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate\n\n  313 |         ?.position;\n  314 |     })\n> 315 |     .toEqual({ x: 205, y: 160 });\n      |      ^\n  316 |   expect(batchRevisions).toEqual([1, 2]);\n  317 |   await page.reload();\n  318 |   await expect\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:315:6"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:38.502Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-keyboard-positio-b19da-m-a-graph-revision-conflict/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-keyboard-positio-b19da-m-a-graph-revision-conflict/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 6,
+                    "line": 315
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-e7e9baaa18d09c628d62",
+          "file": "workspace.spec.ts",
+          "line": 231,
+          "column": 1
+        },
+        {
+          "title": "a lost position-save response replays the original command receipt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 8,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 947,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:44.971Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-4b0477400b3eb9a84d0f",
+          "file": "workspace.spec.ts",
+          "line": 325,
+          "column": 1
+        },
+        {
+          "title": "discard position retries for nodes deleted by a concurrent edit",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 8,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5378,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:467:6",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 6,
+                      "line": 467
+                    },
+                    "snippet": "  465 |       return current.nodes.some((item: { id: string }) => item.id === nodeId);\n  466 |     })\n> 467 |     .toBe(false);\n      |      ^\n  468 |\n  469 |   await page.keyboard.press(process.platform === \"darwin\" ? \"Meta+z\" : \"Control+z\");\n  470 |   await expect"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 6,
+                        "line": 467
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate\n\n  465 |       return current.nodes.some((item: { id: string }) => item.id === nodeId);\n  466 |     })\n> 467 |     .toBe(false);\n      |      ^\n  468 |\n  469 |   await page.keyboard.press(process.platform === \"darwin\" ? \"Meta+z\" : \"Control+z\");\n  470 |   await expect\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:467:6"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:46.178Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-discard-position-a93cc-eleted-by-a-concurrent-edit/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-discard-position-a93cc-eleted-by-a-concurrent-edit/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 6,
+                    "line": 467
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-2a746fd0b004a26a4b81",
+          "file": "workspace.spec.ts",
+          "line": 396,
+          "column": 1
+        },
+        {
+          "title": "Workspace edges expose their relationship and support keyboard deletion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 796,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:51.989Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-1a611e74b367047bc820",
+          "file": "workspace.spec.ts",
+          "line": 481,
+          "column": 1
+        },
+        {
+          "title": "filtering an edge off the canvas prevents its keyboard deletion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 485,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:53.045Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-ab0afb7a92f4ec93a61c",
+          "file": "workspace.spec.ts",
+          "line": 618,
+          "column": 1
+        },
+        {
+          "title": "a stale editor cannot overwrite a file recreated after deletion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 969,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:53.547Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-cd55ae576a63dc198ea6",
+          "file": "workspace.spec.ts",
+          "line": 717,
+          "column": 1
+        },
+        {
+          "title": "Files page navigates bounded file-list pages",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 9,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5417,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.file-tree')\nExpected substring: \u001b[32m\"\u001b[7mzeta.t\u001b[27mxt\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7malpha.txt1 BPage 1 · Search covers this page onlyPreviousNe\u001b[27mxt\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.file-tree') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.file-tree')\u001b[22m\n\u001b[2m    2 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m      - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousLoading…\"\u001b[22m\n\u001b[2m    12 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousNext\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.file-tree')\nExpected substring: \u001b[32m\"\u001b[7mzeta.t\u001b[27mxt\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7malpha.txt1 BPage 1 · Search covers this page onlyPreviousNe\u001b[27mxt\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.file-tree') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.file-tree')\u001b[22m\n\u001b[2m    2 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m      - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousLoading…\"\u001b[22m\n\u001b[2m    12 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousNext\"\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:809:22",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 22,
+                      "line": 809
+                    },
+                    "snippet": "  807 |     .getByRole(\"button\", { name: \"Next\", exact: true })\n  808 |     .click();\n> 809 |   await expect(tree).toContainText(\"zeta.txt\");\n      |                      ^\n  810 |   await expect(tree).not.toContainText(\"alpha.txt\");\n  811 |   await expect(tree.locator(\".file-tree-pagination\")).toContainText(\"Page 2\");\n  812 | });"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 22,
+                        "line": 809
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.file-tree')\nExpected substring: \u001b[32m\"\u001b[7mzeta.t\u001b[27mxt\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7malpha.txt1 BPage 1 · Search covers this page onlyPreviousNe\u001b[27mxt\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.file-tree') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.file-tree')\u001b[22m\n\u001b[2m    2 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m      - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousLoading…\"\u001b[22m\n\u001b[2m    12 × locator resolved to <aside class=\"file-tree\">…</aside>\u001b[22m\n\u001b[2m       - unexpected value \"alpha.txt1 BPage 1 · Search covers this page onlyPreviousNext\"\u001b[22m\n\n\n  807 |     .getByRole(\"button\", { name: \"Next\", exact: true })\n  808 |     .click();\n> 809 |   await expect(tree).toContainText(\"zeta.txt\");\n      |                      ^\n  810 |   await expect(tree).not.toContainText(\"alpha.txt\");\n  811 |   await expect(tree.locator(\".file-tree-pagination\")).toContainText(\"Page 2\");\n  812 | });\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:809:22"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:58:54.525Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Files-page-navigates-bounded-file-list-pages/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Files-page-navigates-bounded-file-list-pages/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 22,
+                    "line": 809
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-90a39a43ba6615068a75",
+          "file": "workspace.spec.ts",
+          "line": 772,
+          "column": 1
+        },
+        {
+          "title": "Files page discards an in-flight page after switching projects",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1001,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:00.417Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-3957addbb5f740d24e57",
+          "file": "workspace.spec.ts",
+          "line": 814,
+          "column": 1
+        },
+        {
+          "title": "Files upload preflight detects conflicts outside the visible page",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 408,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:01.671Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-43eb81d21f8789a3d901",
+          "file": "workspace.spec.ts",
+          "line": 876,
+          "column": 1
+        },
+        {
+          "title": "the newest CSV text read wins when preview toggles overlap",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 896,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:02.088Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-14dc08aca2227f6b863c",
+          "file": "workspace.spec.ts",
+          "line": 910,
+          "column": 1
+        },
+        {
+          "title": "a failed CSV text read shows an error with a retry action",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 498,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:02.993Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-a80d4e0addfba24532d8",
+          "file": "workspace.spec.ts",
+          "line": 960,
+          "column": 1
+        },
+        {
+          "title": "mounted Workspace refreshes after silent success",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4569,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:03.501Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-932b0ef2e4c66663db46",
+          "file": "workspace.spec.ts",
+          "line": 1000,
+          "column": 3
+        },
+        {
+          "title": "mounted Workspace refreshes after failure traceback progress",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4658,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:08.078Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-55dd766c10463d3f609e",
+          "file": "workspace.spec.ts",
+          "line": 1000,
+          "column": 3
+        },
+        {
+          "title": "mounted Workspace refreshes after stdout progress",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4552,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:12.744Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-56bf865773f710a9a959",
+          "file": "workspace.spec.ts",
+          "line": 1000,
+          "column": 3
+        },
+        {
+          "title": "RunPanel shows an Agent final summary alongside its output log",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 10,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 604,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.run-panel').locator('pre')\nExpected substring: \u001b[32m\"Tool response trace\"\u001b[39m\nError: strict mode violation: locator('.run-panel').locator('pre') resolved to 2 elements:\n    1) <pre class=\"json-view\">{↵  \"summary\": \"The Agent's final answer is ready…</pre> aka getByText('{ \"summary\": \"The Agent\\'s')\n    2) <pre>Tool response trace</pre> aka getByText('Tool response trace')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.run-panel').locator('pre') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.run-panel').locator('pre')\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.run-panel').locator('pre')\nExpected substring: \u001b[32m\"Tool response trace\"\u001b[39m\nError: strict mode violation: locator('.run-panel').locator('pre') resolved to 2 elements:\n    1) <pre class=\"json-view\">{↵  \"summary\": \"The Agent's final answer is ready…</pre> aka getByText('{ \"summary\": \"The Agent\\'s')\n    2) <pre>Tool response trace</pre> aka getByText('Tool response trace')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.run-panel').locator('pre') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.run-panel').locator('pre')\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1119:38",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 38,
+                      "line": 1119
+                    },
+                    "snippet": "  1117 |     \"The Agent's final answer is ready.\",\n  1118 |   );\n> 1119 |   await expect(panel.locator(\"pre\")).toContainText(\"Tool response trace\");\n       |                                      ^\n  1120 | });\n  1121 |\n  1122 | test(\"graph updates remain stable and persist a node created through the inspector UI\", async ({"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 38,
+                        "line": 1119
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.run-panel').locator('pre')\nExpected substring: \u001b[32m\"Tool response trace\"\u001b[39m\nError: strict mode violation: locator('.run-panel').locator('pre') resolved to 2 elements:\n    1) <pre class=\"json-view\">{↵  \"summary\": \"The Agent's final answer is ready…</pre> aka getByText('{ \"summary\": \"The Agent\\'s')\n    2) <pre>Tool response trace</pre> aka getByText('Tool response trace')\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" locator('.run-panel').locator('pre') with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.run-panel').locator('pre')\u001b[22m\n\n\n  1117 |     \"The Agent's final answer is ready.\",\n  1118 |   );\n> 1119 |   await expect(panel.locator(\"pre\")).toContainText(\"Tool response trace\");\n       |                                      ^\n  1120 | });\n  1121 |\n  1122 | test(\"graph updates remain stable and persist a node created through the inspector UI\", async ({\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1119:38"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:17.303Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-RunPanel-shows-a-3a1e7-ry-alongside-its-output-log/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-RunPanel-shows-a-3a1e7-ry-alongside-its-output-log/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 38,
+                    "line": 1119
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-e4d363d9812ed3981dc4",
+          "file": "workspace.spec.ts",
+          "line": 1081,
+          "column": 1
+        },
+        {
+          "title": "graph updates remain stable and persist a node created through the inspector UI",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 821,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:18.346Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-56ac040b94439a0fa327",
+          "file": "workspace.spec.ts",
+          "line": 1122,
+          "column": 1
+        },
+        {
+          "title": "a stale editor cannot recreate an untracked file after another tab renames it",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1751,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:19.455Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-868b8a75994f97217665",
+          "file": "workspace.spec.ts",
+          "line": 1162,
+          "column": 1
+        },
+        {
+          "title": "Overview reload and continue preserve the saved autonomous-planning setting",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 688,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:21.215Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-1a1f38fa3027f16e3054",
+          "file": "workspace.spec.ts",
+          "line": 1261,
+          "column": 1
+        },
+        {
+          "title": "another editor changing the node presents a conflict without overwriting server content",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1865,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:21.912Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-1758fc37ea8030ad577b",
+          "file": "workspace.spec.ts",
+          "line": 1309,
+          "column": 1
+        },
+        {
+          "title": "saved CSV preview reads real file rows and paginates without altering the file",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 517,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:23.786Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-0242b444f15486a995e8",
+          "file": "workspace.spec.ts",
+          "line": 1359,
+          "column": 1
+        },
+        {
+          "title": "guided demonstration follows ordinary project pages without automatically executing research",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 11,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 30088,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 6,
+                        "line": 1412
+                      },
+                      "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.sidebar nav a').filter({ hasText: 'Data & analysis' })\u001b[22m\n\n\n  1410 |     .locator(\".sidebar nav a\")\n  1411 |     .filter({ hasText: \"Data & analysis\" })\n> 1412 |     .click();\n       |      ^\n  1413 |   await expect(page).toHaveURL(\n  1414 |     new RegExp(`/projects/${projectId}/data\\\\?demo=1`),\n  1415 |   );\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1412:6"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:24.311Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-guided-demonstra-a90c2-atically-executing-research/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-guided-demonstra-a90c2-atically-executing-research/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-81fee02e33796302a3fc",
+          "file": "workspace.spec.ts",
+          "line": 1391,
+          "column": 1
+        },
+        {
+          "title": "search reveals an offscreen node in a large graph and reopens its inspector",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 12,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5954,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T12:59:54.847Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-93b4cbc4701bc20678fb",
+          "file": "workspace.spec.ts",
+          "line": 1432,
+          "column": 1
+        },
+        {
+          "title": "search reveals nodes hidden by the current branch or a collapsed ancestor",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 12,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 936,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T13:00:01.155Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-29df69eb4685eb173799",
+          "file": "workspace.spec.ts",
+          "line": 1500,
+          "column": 1
+        },
+        {
+          "title": "narrow workspace opens a dismissible inspector and keeps the searched node visible after closing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 12,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6162,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T13:00:02.113Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-65c898abae4b4b116f57",
+          "file": "workspace.spec.ts",
+          "line": 1576,
+          "column": 1
+        },
+        {
+          "title": "Paper full-manuscript picker lists completed runs from this project",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 12,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 7553,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\u001b[22m\n\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1802:29",
+                    "location": {
+                      "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                      "column": 29,
+                      "line": 1802
+                    },
+                    "snippet": "  1800 |     exact: true,\n  1801 |   });\n> 1802 |   await expect(runCheckbox).toBeVisible();\n       |                             ^\n  1803 |   await expect(generate).toBeDisabled();\n  1804 |   await runCheckbox.check();\n  1805 |   await expect(generate).toBeEnabled();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                        "column": 29,
+                        "line": 1802
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('details.paper-layout').filter({ hasText: 'Generate a full manuscript from actual experiments' }).getByRole('checkbox', { name: 'command 路 c0ee4510' })\u001b[22m\n\n\n  1800 |     exact: true,\n  1801 |   });\n> 1802 |   await expect(runCheckbox).toBeVisible();\n       |                             ^\n  1803 |   await expect(generate).toBeDisabled();\n  1804 |   await runCheckbox.check();\n  1805 |   await expect(generate).toBeEnabled();\n    at /Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts:1802:29"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T13:00:08.283Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Paper-full-manus-47851-eted-runs-from-this-project/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/test-results/full-redesign/workspace-Paper-full-manus-47851-eted-runs-from-this-project/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/mac/Documents/ChatGPT/forestagent/FOREST/apps/web/tests/workspace.spec.ts",
+                    "column": 29,
+                    "line": 1802
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-70ff5f20ce69ab14dc62",
+          "file": "workspace.spec.ts",
+          "line": 1681,
+          "column": 1
+        },
+        {
+          "title": "Paper full-manuscript picker keeps the empty-project control",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 13,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 724,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T13:00:16.308Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b163ed09f68681248ada-43334d7f9aff8347114b",
+          "file": "workspace.spec.ts",
+          "line": 1827,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-13T12:55:33.729Z",
+    "duration": 283719.994,
+    "expected": 73,
+    "skipped": 0,
+    "unexpected": 13,
+    "flaky": 0
+  }
+}

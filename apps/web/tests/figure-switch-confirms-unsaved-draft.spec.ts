@@ -92,7 +92,11 @@ test("reordering figures does not replace the selected unsaved draft", async ({
     `/api/figures?project_id=${project.id}`,
   );
   expect(recordsResponse.ok()).toBeTruthy();
-  const records = await recordsResponse.json();
+  const records = (await recordsResponse.json()).sort(
+    (left: { title: string }, right: { title: string }) =>
+      Number(right.title === "Pinned figure") -
+      Number(left.title === "Pinned figure"),
+  );
   let reverseOrder = false;
   await page.route(`**/api/figures?project_id=${project.id}`, async (route) => {
     await route.fulfill({
@@ -112,10 +116,12 @@ test("reordering figures does not replace the selected unsaved draft", async ({
     await caption.fill("Unsaved pinned draft");
 
     reverseOrder = true;
-    const refreshed = page.waitForResponse((response) =>
-      new URL(response.url()).pathname === "/api/figures",
+    const refreshed = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/figures",
     );
-    await page.evaluate(() => window.dispatchEvent(new Event("forest-refresh")));
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event("forest-refresh")),
+    );
     await refreshed;
 
     await expect(caption).toHaveValue("Unsaved pinned draft");

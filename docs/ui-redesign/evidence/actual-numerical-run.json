@@ -1,0 +1,21 @@
+{
+  "projectId": "e56ae19a-effb-45a7-9333-c8bd65acf6b4",
+  "nodeId": "0ee276ba-ca65-577c-9fc0-d7d8ff107fd0",
+  "runId": "8d495d32-69f4-4e4d-86ea-6c260c7c0ed5",
+  "nodeRevision": 1,
+  "metrics": {
+    "integral": 0.33333334000000003,
+    "absolute_error": 6.666666718668779e-9,
+    "intervals": 5000
+  },
+  "verification": {
+    "run_id": "8d495d32-69f4-4e4d-86ea-6c260c7c0ed5",
+    "verification_status": "unverified",
+    "checks": [],
+    "check_scope_paths": [],
+    "numerical_scope": [],
+    "verification_scope": "Declared checks of named source artifacts; execution completion does not verify other outputs or scientific claims",
+    "verifications": []
+  },
+  "outputPath": "runs/8d495d32-69f4-4e4d-86ea-6c260c7c0ed5"
+}

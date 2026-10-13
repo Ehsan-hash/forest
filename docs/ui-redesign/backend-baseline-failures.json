@@ -1,0 +1,404 @@
+[
+  {
+    "test": "test_edited_action_attribution_and_replay[json]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_edited_action_attribution_and_replay[native]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_actual_file_reads_remain_visible_across_compaction",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_read_cycle_feedback_uses_actual_unchanged_values",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_optional_observation_ledger_cannot_crowd_out_native_exchange",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_tool_text_excerpt_is_explicit_and_does_not_mutate_observation",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_actual_wait_control_does_not_become_process_success_receipt",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_restart[normal]",
+    "bubblewrap_unavailable": true,
+    "reason": "E           AssertionError: {'edited': False, 'status': 'failed', 'enqueue_goal': 'GOAL_ADD: compute 2 + 3 using an actual Python process.', 'persisted_goal': 'GOAL_ADD: compute 2 + 3 using an actual Python process.', ...}"
+  },
+  {
+    "test": "test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_restart[queued_edit]",
+    "bubblewrap_unavailable": true,
+    "reason": "E           AssertionError: {'edited': True, 'status': 'failed', 'enqueue_goal': 'GOAL_ADD: compute 2 + 3 using an actual Python process.', 'persisted_goal': 'GOAL_ADD: compute 2 + 3 using an actual Python process.', ...}"
+  },
+  {
+    "test": "test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_restart[continuation]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 30s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_actual_worker_retains_consumed_goal_context_across_edit_resume_and_api_restart[continuation_unchanged]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 30s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_actual_transport_failure_and_paging_keep_distinct_delivery_receipts[failed_turn]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_actual_transport_failure_and_paging_keep_distinct_delivery_receipts[paged_goal]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_actual_recovery_components[chunks]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_actual_recovery_components[transport]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_actual_recovery_components[dynamic-steps]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_agent_finish_waits_for_child_through_real_worker",
+    "bubblewrap_unavailable": false,
+    "reason": "E           AssertionError: {'project_id': 'b043e2b9-0108-44cf-b0ae-66c9844f4199', 'node_id': '9a8cfa00-9fa7-4c4f-8e94-24269f2efffd', 'branch_id':...943-9452-59c40ef904b4', 'request_id': 'c514a4c5-1ccd-4d6d-9bdd-4e40842a9618:9a8cfa00-9fa7-4",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_metric_file_written_by_agent_requires_successful_real_process",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_nonmetric_research_output_does_not_require_process_execution",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_redundant_read_detection_ignores_limits_but_respects_changed_evidence",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_actual_process_summary_and_task_survive_large_read_compaction",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_required_original_controls_are_fully_retrievable_before_other_actions",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_large_actual_tool_output_and_native_exchange_are_retained_in_full",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_actual_worker_reconciliation_hold_enforces_original_hard_timeout[hard_timeout]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 15s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_actual_worker_reconciliation_hold_enforces_original_hard_timeout[receipt_recovered]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 15s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-live_instruction]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-revoke_tool]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_edit]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_reject]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_stale]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_cancel_pending]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_cancel_accepted]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_crosses_actual_worker_and_transport_boundaries[sqlite-review_cancel_rejected]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           assert False",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_project_instruction_survives_an_unconsumed_cancelled_target[sqlite]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           AssertionError: {'project_id': '3106d146-495a-4753-94dc-1cdd09eb5729', 'node_id': '31706067-7e0b-43cb-83d7-25d7401b7337', 'branch_id':...754-b122-7ad165f6e47e', 'request_id': '8ad1c38a-e4b9-4680-841b-9d6a2ba63ac9:31706067-7e0b-4",
+    "retained_run_errors": [
+      "Cancelled by owner",
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_intervention_contract[rejected_consumption]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stale_agent]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[tools]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[dependencies]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[layout_dependencies]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[portable_history]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[resume_visibility]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_single_queued]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_single_paused]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_single_running]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_batch_queued]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_batch_paused]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_batch_running]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_proposal_queued]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_proposal_paused]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_intervention_contract[stop_proposal_running]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: "
+  },
+  {
+    "test": "test_paper_publication_and_export[agent_workspace_compile_publishes_actual_bundle_and_exports]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: /Users/mac/Documents/ChatGPT/forestagent/FOREST/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` inste"
+  },
+  {
+    "test": "test_paper_publication_and_export[agent_workspace_compile_protects_edits_and_rejects_wrong_scope]",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: /Users/mac/Documents/ChatGPT/forestagent/FOREST/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` inste"
+  },
+  {
+    "test": "test_project_skills_are_discoverable_and_link_to_operational_sources",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: assert {'forest-acad...tecture', ...} == {'forest-acad...rch-judgment'}",
+    "retained_run_errors": [],
+    "bubblewrap_receipt_found": false,
+    "resolution": "Exact four research plus seven frontend skills validated; targeted test PASS."
+  },
+  {
+    "test": "test_bubblewrap_cannot_write_or_forge_supervisor_records",
+    "bubblewrap_unavailable": true,
+    "reason": "E           RuntimeError: bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+  },
+  {
+    "test": "test_permission_recovery_settles_source_reservation_before_real_alternate[none]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 40s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_permission_recovery_settles_source_reservation_before_real_alternate[worker_restart]",
+    "bubblewrap_unavailable": false,
+    "reason": "E           AssertionError: assert 'failed' == 'waiting_input'",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_permission_recovery_settles_source_reservation_before_real_alternate[executor_crash]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: Condition did not become true in 40s; last=None",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_actual_controller_rejects_submission_completion_and_honors_explicit_operational_scope",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: /Users/mac/Documents/ChatGPT/forestagent/FOREST/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` inste"
+  },
+  {
+    "test": "test_experiment_submission_keeps_parent_and_shared_actual_budget[sandbox]",
+    "bubblewrap_unavailable": false,
+    "reason": "E               AssertionError: {'project_id': '96d27b7a-70b2-4af8-b067-4277f67f1ad9', 'node_id': 'a619ed28-b221-4e5d-98a4-bc1df6be07c1', 'branch_id':...3ba-9f57-2ed5471a46d4', 'request_id': '240f74da-b552-40ac-9320-6483f3e22fce:a619ed28-b2",
+    "retained_run_errors": [
+      "Project time budget exhausted before this run could start",
+      "Task exceeded its 5.58368s budget",
+      "Cancelled by owner",
+      "Task exceeded its 1.5s budget",
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_verification_submission_uses_actual_independent_receipt",
+    "bubblewrap_unavailable": false,
+    "reason": "E           AssertionError: {'project_id': '24283e91-0d7c-4d68-b3b6-73961c736123', 'node_id': '2aa1d4ed-a7cf-4f26-919c-98df4b6cb006', 'branch_id':...35e-851c-b0b05da5305d', 'request_id': 'dafe3da8-f50d-4884-bef7-6d187c56cbcb:2aa1d4ed-a7cf-4",
+    "retained_run_errors": [
+      "bubblewrap execution was requested but /usr/bin/bwrap is unavailable"
+    ],
+    "bubblewrap_receipt_found": true
+  },
+  {
+    "test": "test_delegate_without_task_timeout_retains_real_child_dispatch",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_delegate_research_schedules_and_runs_a_policy_inheriting_child",
+    "bubblewrap_unavailable": true,
+    "reason": "E       AssertionError: Traceback (most recent call last):"
+  },
+  {
+    "test": "test_real_debug_checkpoint_can_edit_payload_then_resume[before_tool]",
+    "bubblewrap_unavailable": false,
+    "reason": "E       AssertionError: {'project_id': '2b83c17a-fbf0-45c9-a831-ba6779c76c36', 'node_id': 'a6506ffc-e8bc-434b-a66a-8a20cce70f1e', 'branch_id':...152-840d-4c19ab67413f', 'request_id': '08ef43f4-b27d-4e09-a0bf-34202c683728:a6506ffc-e8bc-434b-",
+    "retained_run_errors": [],
+    "bubblewrap_receipt_found": false,
+    "classification": "Observed failed execution; missing bubblewrap inferred from before_tool ToolRuntime default, retained receipt unavailable."
+  }
+]

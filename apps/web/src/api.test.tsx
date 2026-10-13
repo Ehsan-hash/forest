@@ -93,11 +93,11 @@ describe("compute host payload", () => {
       name: "Test host",
       kind: "remote",
       config: {
-      hostname: "127.0.0.1",
-      username: "codex-test",
-      port: 2222,
-      workdir: "/tmp/forest",
-      allow_shell: true,
+        hostname: "127.0.0.1",
+        username: "codex-test",
+        port: 2222,
+        workdir: "/tmp/forest",
+        allow_shell: true,
       },
     };
     const config = hostEditorConfig(item);
@@ -118,11 +118,13 @@ afterEach(() => {
 describe("provider default draft refresh", () => {
   it("updates only the provider field and keeps unrelated unsaved defaults", () => {
     const draft = JSON.stringify({ temperature: 0.2, custom_default: "draft" });
-    expect(JSON.parse(updateDefaultProviderDraft(draft, "provider-2"))).toEqual({
-      temperature: 0.2,
-      custom_default: "draft",
-      default_provider_id: "provider-2",
-    });
+    expect(JSON.parse(updateDefaultProviderDraft(draft, "provider-2"))).toEqual(
+      {
+        temperature: 0.2,
+        custom_default: "draft",
+        default_provider_id: "provider-2",
+      },
+    );
   });
 
   it("preserves an invalid in-progress JSON draft", () => {
@@ -206,13 +208,11 @@ describe("API transport compatibility", () => {
   });
   it("dispatches the existing authentication event once and never retries a mutation", async () => {
     const dispatchEvent = vi.fn();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('{"detail":{"code":"UNAUTHORIZED","message":"Sign in"}}', {
-          status: 401,
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('{"detail":{"code":"UNAUTHORIZED","message":"Sign in"}}', {
+        status: 401,
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("window", { dispatchEvent });
     await expect(
@@ -336,9 +336,11 @@ describe("generated-contract JSON client", () => {
 describe("binary download compatibility", () => {
   it("preserves GET/POST exports, filename priority and delayed object URL cleanup", async () => {
     vi.useFakeTimers();
-    const anchor = { href: "", download: "", click: vi.fn() };
+    const anchor = { href: "", download: "", click: vi.fn(), remove: vi.fn() };
+    const appendChild = vi.fn();
     vi.stubGlobal("document", {
       createElement: vi.fn().mockReturnValue(anchor),
+      body: { appendChild },
     });
     const createUrl = vi
       .spyOn(URL, "createObjectURL")
@@ -364,6 +366,8 @@ describe("binary download compatibility", () => {
     expect(createUrl).toHaveBeenCalledTimes(1);
     expect(anchor.download).toBe("paper.pdf");
     expect(anchor.click).toHaveBeenCalledTimes(1);
+    expect(appendChild).toHaveBeenCalledWith(anchor);
+    expect(anchor.remove).toHaveBeenCalledTimes(1);
     expect(revokeUrl).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1000);
     expect(revokeUrl).toHaveBeenCalledWith("blob:forest-test");

@@ -441,6 +441,32 @@ SCHEMAS["PaperGenerationRequest"]["properties"].update({"title": S, "template": 
     "layout": ref("PaperLayout"), "instructions": S, "figure_ids": STRINGS,
     "saved_response_run_id": S, "saved_response_path": S, "draft_revision_path": S})
 
+SCHEMAS.update({
+    "ResearchAnalysisSnapshot": obj({"project_revision": I, "fingerprint": S, "path": S, "sha256": S},
+                                    ("project_revision", "fingerprint")),
+    "ResearchAnalysisFocus": obj({"scope": S, "node_id": field("string", nullable=True),
+        "branch_id": field("string", nullable=True), "node_ids": STRINGS, "run_ids": STRINGS,
+        "upstream_node_ids": STRINGS, "downstream_node_ids": STRINGS},
+        ("scope", "node_id", "branch_id", "node_ids", "run_ids", "upstream_node_ids", "downstream_node_ids")),
+    "ResearchAnalysisContext": obj({"project": J, "graph": ref("GraphState"), "runs": array(J),
+        "resources": J, "materials": array(J), "route_health": ref("RouteHealth"), "coverage": J,
+        "focus": ref("ResearchAnalysisFocus"), "snapshot": ref("ResearchAnalysisSnapshot"),
+        "provider": J, "counts": J, "execution_dependencies": array(J), "tool_executions": array(J),
+        "events": array(J), "file_revisions": array(J)},
+        ("project", "graph", "runs", "resources", "materials", "route_health", "coverage", "focus", "snapshot", "provider", "counts")),
+    "ResearchAnalysisHistoryItem": obj({"id": S, "status": S, "created_at": S,
+        "error": field("string", nullable=True), "scope": S, "node_id": field("string", nullable=True),
+        "branch_id": field("string", nullable=True), "question": S, "project_revision": I, "report_available": B},
+        ("id", "status", "created_at", "error", "scope", "node_id", "branch_id", "question", "project_revision", "report_available")),
+    "ResearchAnalysisHistory": obj({"runs": array(ref("ResearchAnalysisHistoryItem"))}, ("runs",)),
+    "ResearchAnalysisResult": obj({"run_id": S, "status": S, "error": field("string", nullable=True),
+        "artifact_error": field("string", nullable=True), "report": {"anyOf": [J, {"type": "null"}]},
+        "citations": array(J), "literature_searches": array(J), "snapshot": ref("ResearchAnalysisSnapshot"),
+        "current": B, "stale_reasons": STRINGS, "artifacts": J, "model": field("string", nullable=True),
+        "usage": J, "focus": ref("ResearchAnalysisFocus"), "question": S, "verification_scope": S},
+        ("run_id", "status", "error", "artifact_error", "report", "citations", "literature_searches", "snapshot", "current", "stale_reasons", "artifacts")),
+})
+
 
 OPERATION_CONTRACTS: dict[tuple[str, str], dict[str, Any]] = {}
 
@@ -697,6 +723,18 @@ operation("get", "/api/projects/{ident}/research/route-health", "Research", "Ins
     "Calculate actual repeated current-revision failures, unchanged repeated counterexample checks and planning without execution. Return editable diagnostic thresholds, signals and reviewed run IDs. New counterexample evidence is progress. This deterministic view does not judge semantic goal drift; enqueue the full route review for that.", ref("RouteHealth"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/research/route-review", "Research", "Enqueue a full recorded-route review",
     "Enqueue research_route_review with extensible body/request_id and record its trigger/covered run IDs in controller.route_review. Return Run; the review output is saved after execution and does not directly verify experimental results.", ref("Run"), body="JsonObject", errors={404: "NOT_FOUND"})
+operation("get", "/api/projects/{ident}/research/analysis/context", "Research", "Inspect saved project, node or path analysis context",
+    "Return every saved research node/path/dependency, scientific run and linked resource, verification receipt, tool receipt and material locator. scope changes the focus while retaining the full project context. Material text is not loaded in this preview. The snapshot fingerprint includes execution/source changes beyond the graph revision. AI analysis history is separate from scientific source records. Provider availability is configuration readback, not a connection test.",
+    ref("ResearchAnalysisContext"), errors={404: "NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND", 422: "NODE_REQUIRED, BRANCH_REQUIRED or SCOPE_CONFLICT"})
+operation("post", "/api/projects/{ident}/research/analysis", "Research", "Request source-bound read-only AI analysis",
+    "Require a saved request_id and reviewed expected_revision; optional expected_fingerprint also rejects changed results/materials. Save the complete sanitized context snapshot, enqueue research_analysis through the existing provider/time/spending controls, and return Run with provider_snapshot/env omitted. The run has no node/branch execution binding and does not modify the graph/controller. Same request and payload replay the saved receipt before the revision guard; changed intent under the same ID conflicts. Literature retrieval uses selected Crossref/arXiv sources during execution. Only actual retrieved/library citation IDs are accepted. Advice remains a proposed Analysis record and cannot verify science or execute its suggestions.",
+    ref("Run"), errors={404: "NOT_FOUND, NODE_NOT_FOUND or BRANCH_NOT_FOUND", 409: "REQUEST_ID_CONFLICT, REVISION_CONFLICT, CONTEXT_CHANGED or TIME_BUDGET_EXHAUSTED", 422: "PROVIDER_REQUIRED, invalid scope or request validation"})
+operation("get", "/api/projects/{ident}/research/analysis", "Research", "Read AI analysis request history",
+    "Return every analysis receipt in newest-first order, retaining full IDs, requested focus/question, saved project revision, actual status/error and report-file availability. Report availability alone does not establish completed execution or report integrity; read the result endpoint.",
+    ref("ResearchAnalysisHistory"), errors={404: "NOT_FOUND"})
+operation("get", "/api/runs/{ident}/research-analysis", "Research", "Read an actual AI analysis report and source freshness",
+    "For a research_analysis run, return actual lifecycle/error, original snapshot identities, current/stale reasons, source citations/search receipts and artifact locators. A report is exposed only after completed execution and matching recorded report SHA256; missing/changed files yield report:null and artifact_error. Graph edits, later scientific run changes and source-file changes make the advice stale while retaining its history. Scientific verification and AI advice remain distinct.",
+    ref("ResearchAnalysisResult"), errors={404: "NOT_FOUND", 422: "INVALID_RUN_KIND"})
 operation("get", "/api/writing-policy", "Manuscripts", "Read scientific writing and revision policies",
     "Return extensible writing profile plus manuscript_contract and revision_contract strings.", obj({"manuscript_contract": S, "revision_contract": S}, ("manuscript_contract", "revision_contract")))
 operation("get", "/api/publication-profile", "Research", "Read default publication requirements",
@@ -714,7 +752,7 @@ operation("get", "/api/runs/{ident}/lineage", "Runs", "Inspect run dependencies 
 operation("get", "/api/runs/{ident}/session", "Runs", "Read the saved Agent session",
     "Return {run_id,status,session}. Missing agent_session.json means session:null. Full session is extensible scientific state and excludes cumulative resource accounting. For a cancelled run, session status follows the authoritative cancelled run. summary=true includes lifecycle, round, recovery, goal_contract, status/wait_for/updated_at/budget_reason/reconciliation_reason and transcript_count; selected fields can be null for legacy checkpoints. summary usage reads totals/active_seconds/completeness explicitly from the separate matching agent_usage.json resource ledger, or is null when unavailable. Invalid or unreadable ledgers return usage:null with usage_error diagnostics, never zero consumption. waiting with wait_for.type=work_round is automatic checkpoint continuation under the same Run ID and resource ledger.", ref("RunSession"), errors={404: "NOT_FOUND"})
 operation("patch", "/api/runs/{ident}/configuration", "Runs", "Merge editable execution configuration",
-    "Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result identities. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible.", ref("RunConfiguration"), body="JsonObject", errors={404: "NOT_FOUND", 422: "INVALID_CONFIGURATION or INVALID_REPOSITORY"})
+    "Shallow-merge task parameters; reject service-managed provider_snapshot/execution_attempt/resolved_inputs/project_goal/repository-source/verification-binding/result/analysis-snapshot identities. For research_analysis only budget, agent_budget, timeout and priority are editable; changed question/scope/literature/provider requires a new analysis intent. Validate supplied repository for eligible run kinds. Scientific changes after execution mark verification unverified. Return config with provider_snapshot/env omitted. No revision guard; unknown editable keys remain extensible for other kinds.", ref("RunConfiguration"), body="JsonObject", errors={404: "NOT_FOUND", 409: "ANALYSIS_INTENT_BOUND", 422: "INVALID_CONFIGURATION or INVALID_REPOSITORY"})
 operation("get", "/api/projects/{ident}/graph/page", "Graph", "Read a node page with incident edges",
     "Filter optional branch_id and case-insensitive title query; order created_at/id. Clamp offset>=0 and limit 1..500 for selection, but echo the original offset. edges includes any edge incident to a displayed node, so its other endpoint may be outside this page. next_offset is null on a short page; a full final page may require one empty follow-up.", ref("GraphPage"), errors={404: "NOT_FOUND"})
 operation("post", "/api/projects/{ident}/protocol/validate", "Experiments", "Validate an editable experimental protocol",

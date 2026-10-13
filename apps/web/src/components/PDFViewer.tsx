@@ -4,7 +4,13 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { IconButton, ErrorBox } from "../ui";
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
-export default function PDFViewer({ url, initialPage = 1 }: { url: string; initialPage?: number }) {
+export default function PDFViewer({
+  url,
+  initialPage = 1,
+}: {
+  url: string;
+  initialPage?: number;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(1);
@@ -14,23 +20,42 @@ export default function PDFViewer({ url, initialPage = 1 }: { url: string; initi
     let current = true;
     setError("");
     setPdf(null);
-    const loading = pdfjs.getDocument({ url, withCredentials: true });
-    loading.promise
-      .then((doc) => {
+    const controller = new AbortController();
+    let loading: pdfjs.PDFDocumentLoadingTask | undefined;
+    // Cancel the HTTP read before creating a PDF worker. Passing complete bytes
+    // also avoids PDF.js terminating a worker while its URL loader is pending.
+    void (async () => {
+      try {
+        const response = await fetch(url, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok)
+          throw new Error(`PDF request failed (${response.status})`);
+        const data = new Uint8Array(await response.arrayBuffer());
+        if (!current) return;
+        loading = pdfjs.getDocument({ data });
+        const doc = await loading.promise;
         if (current) {
           setPdf(doc);
           setPage(Math.max(1, Math.min(initialPage, doc.numPages)));
         }
-      })
-      .catch((e) => {
-        if (current) setError(e.message);
-      });
+      } catch (e) {
+        if (current) setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
     return () => {
       current = false;
-      void loading.destroy();
+      controller.abort();
+      if (loading)
+        void loading.destroy().catch((e) => {
+          console.error("PDF cleanup failed", e);
+        });
     };
   }, [url]);
-  useEffect(() => { if (pdf) setPage(Math.max(1, Math.min(initialPage, pdf.numPages))); }, [initialPage, pdf]);
+  useEffect(() => {
+    if (pdf) setPage(Math.max(1, Math.min(initialPage, pdf.numPages)));
+  }, [initialPage, pdf]);
   useEffect(() => {
     let cancelled = false;
     let task: pdfjs.RenderTask | undefined;

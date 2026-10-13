@@ -9,7 +9,7 @@ from pathlib import Path
 
 DEFAULTS = {'enabled': True, 'window': 12, 'repeated_failures': 3,
             'unchanged_counterexample_repeats': 2, 'planning_without_execution': 4, 'review_every_runs': 6}
-CONTROL_KINDS = {'research_plan', 'research_route_review', 'ideas', 'suggest_paths'}
+CONTROL_KINDS = {'research_plan', 'research_route_review', 'research_analysis', 'ideas', 'suggest_paths'}
 PRIVATE_MATERIALS = {'stdout.txt', 'stderr.txt', 'agent_session.json', 'agent_transcript.json',
                      'task_config.json', 'container_task.json', 'remote_task.json',
                      'secrets.json', 'credentials.json', 'tokens.json'}
@@ -29,7 +29,14 @@ def review_context_value(value):
                     'private_key', 'identity_file'} or name.endswith(('_api_key', '_password', '_secret', '_token')):
             continue
         if name == 'env':
-            result[key] = {'variable_names': sorted(item)} if isinstance(item, dict) else {'values_excluded': True}
+            if (isinstance(item, dict) and set(item) == {'variable_names'}
+                    and isinstance(item['variable_names'], list)
+                    and all(isinstance(v, str) for v in item['variable_names'])):
+                result[key] = deepcopy(item)
+            elif isinstance(item, dict) and item == {'values_excluded': True}:
+                result[key] = deepcopy(item)
+            else:
+                result[key] = {'variable_names': sorted(item)} if isinstance(item, dict) else {'values_excluded': True}
         else:
             result[key] = review_context_value(item)
     return result
@@ -56,7 +63,8 @@ def review_settings(config=None):
 def route_health(graph, runs, config=None):
     """Detect concrete repetition, without scoring novelty or inventing progress."""
     settings = review_settings(config)
-    ordered = sorted(runs, key=lambda r: (r.get('created_at', ''), r['id']))
+    ordered = sorted((r for r in runs if r.get('kind') != 'research_analysis'),
+                     key=lambda r: (r.get('created_at', ''), r['id']))
     terminal = [r for r in ordered if r.get('status') in ('completed', 'failed', 'interrupted', 'cancelled')]
     recent = terminal[-settings['window']:]
     nodes = {n['id']: n for n in graph.get('nodes', [])}
@@ -128,7 +136,7 @@ def route_health(graph, runs, config=None):
             'scope': 'Observed repetition only; semantic goal drift and scientific value require the full route review.'}
 
 
-def route_context(session, project):
+def route_context(session, project, *, include_materials=True, excluded_run_kinds=(), excluded_resource_origins=()):
     """Retain every recorded node, run and research resource, with file locators."""
     from sqlalchemy import select
     from services.api.db import (TaskRun, Hypothesis, ResearchClaim, SourcePaper, DatasetAsset,
@@ -138,6 +146,7 @@ def route_context(session, project):
     graph = graph_from_db(session, project)
     graph.pop('_history', None)
     runs = list(session.scalars(select(TaskRun).where(TaskRun.project_id == project.id).order_by(TaskRun.created_at)))
+    runs = [run for run in runs if run.kind not in excluded_run_kinds]
     root = project_dir(project.id)
     records = []
     for run in runs:
@@ -150,7 +159,8 @@ def route_context(session, project):
     resources = {}
     for model in (Hypothesis, ResearchClaim, SourcePaper, DatasetAsset, ExperimentSpec, Analysis,
                   Figure, PaperDocument, Review, Derivation):
-        resources[model.__tablename__] = [asdict(item) for item in session.scalars(select(model).where(model.project_id == project.id))]
+        resources[model.__tablename__] = [asdict(item) for item in session.scalars(select(model).where(model.project_id == project.id))
+                                        if item.data.get('origin') not in excluded_resource_origins]
     # The reviewer sees the actual editable method and result text, not only
     # an earlier agent's description. Large data/binary files retain locators.
     text_limit = project.config.get('route_review', {}).get('material_preview_bytes', 262144)
@@ -171,6 +181,10 @@ def route_context(session, project):
     for relative in sorted(material_paths):
         path = safe_path(root, relative)
         try:
+            if not include_materials:
+                materials.append({'path': relative, 'bytes': path.stat().st_size,
+                                  'content_loaded': False, 'trust': 'untrusted_source_material'})
+                continue
             with path.open('rb') as stream:
                 content = stream.read(text_limit + 1)
             materials.append({'path': relative, 'content': content[:text_limit].decode('utf-8', errors='replace'),

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FOREST Evidence Integrity"
+  short_description: "Artifact provenance and scientific result integrity"
+  default_prompt: "Use $forest-evidence-integrity to improve result or manuscript UI while preserving evidence lineage."
