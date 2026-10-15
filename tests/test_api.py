@@ -122,6 +122,100 @@ def case_library_reindex_replaces_passage_rows(client, app):
         monkeypatch.undo()
 
 
+def case_library_stable_identifiers_preserve_distinct_sources(client, app):
+    project = create(client)
+    title = "Shared editorial title"
+
+    doi_alpha = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "doi": "10.9999/forest94-alpha",
+                  "passages": [{"text": "ALPHA PASSAGE", "page": 1}]},
+    }))
+    doi_beta = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "doi": "10.9999/forest94-beta",
+                  "passages": [{"text": "BETA PASSAGE", "page": 2}]},
+    }))
+    assert doi_alpha["id"] != doi_beta["id"]
+    assert [row["data"]["text"] for row in ok(
+        client.get(f"/api/library/{doi_alpha['id']}/passages"))] == ["ALPHA PASSAGE"]
+    assert [row["data"]["text"] for row in ok(
+        client.get(f"/api/library/{doi_beta['id']}/passages"))] == ["BETA PASSAGE"]
+
+    doi_repeat = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": "Updated alpha title", "doi": doi_alpha["data"]["doi"],
+                  "passages": [{"text": "REPLACEMENT MUST NOT WIN", "page": 3}]},
+    }))
+    assert doi_repeat["id"] == doi_alpha["id"]
+
+    arxiv_v1 = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "arxiv_id": "2401.12345v1",
+                  "passages": [{"text": "ARXIV V1 PASSAGE", "page": 4}]},
+    }))
+    arxiv_v2 = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": "Version two title", "arxiv_id": "2401.12345v2",
+                  "passages": [{"text": "ARXIV V2 MUST NOT WIN", "page": 5}]},
+    }))
+    assert arxiv_v2["id"] == arxiv_v1["id"]
+    arxiv_distinct = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "arxiv_id": "2401.67890",
+                  "passages": [{"text": "DISTINCT ARXIV PASSAGE", "page": 6}]},
+    }))
+    assert arxiv_distinct["id"] != arxiv_v1["id"]
+    assert len(ok(client.get("/api/library", params={"project_id": project["id"]}))) == 4
+    assert [row["data"]["text"] for row in ok(
+        client.get(f"/api/library/{arxiv_v1['id']}/passages"))] == ["ARXIV V1 PASSAGE"]
+
+
+def case_library_title_fallback_requires_unidentified_records(client, app):
+    project = create(client)
+    title = "Title fallback control"
+
+    unidentified = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "passages": [{"text": "TITLE ONLY", "page": 1}]},
+    }))
+    identified_doi = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "doi": "10.9999/forest94-identified",
+                  "passages": [{"text": "DOI SOURCE", "page": 2}]},
+    }))
+    identified_arxiv = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": title, "arxiv_id": "2401.54321",
+                  "passages": [{"text": "ARXIV SOURCE", "page": 3}]},
+    }))
+    assert len({unidentified["id"], identified_doi["id"], identified_arxiv["id"]}) == 3
+
+    unidentified_repeat = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": "  TITLE FALLBACK CONTROL  ",
+                  "passages": [{"text": "REPLACEMENT MUST NOT WIN", "page": 4}]},
+    }))
+    assert unidentified_repeat["id"] == unidentified["id"]
+    assert [row["data"]["text"] for row in ok(
+        client.get(f"/api/library/{unidentified['id']}/passages"))] == ["TITLE ONLY"]
+
+    other_project = create(client)
+    isolated = ok(client.post("/api/library/import", json={
+        "project_id": other_project["id"],
+        "paper": {"title": title, "doi": identified_doi["data"]["doi"],
+                  "passages": [{"text": "OTHER PROJECT", "page": 5}]},
+    }))
+    assert isolated["id"] != identified_doi["id"]
+    isolated_unidentified = ok(client.post("/api/library/import", json={
+        "project_id": other_project["id"],
+        "paper": {"title": title, "passages": [{"text": "IDENTIFIED FIRST", "page": 6}]},
+    }))
+    assert isolated_unidentified["id"] != isolated["id"]
+    assert len(ok(client.get("/api/library", params={"project_id": project["id"]}))) == 3
+    assert len(ok(client.get("/api/library", params={"project_id": other_project["id"]}))) == 2
+
+
 def case_graph_receipts_cycles_and_schema(client, app):
     p = create(client)
     path = f"/api/projects/{p['id']}/graph/commands"
