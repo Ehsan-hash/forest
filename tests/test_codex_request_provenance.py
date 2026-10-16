@@ -3,6 +3,8 @@ import json
 from types import SimpleNamespace
 from pathlib import Path
 
+import pytest
+
 from research.agents.schemas import json_action_schema, decode_tool_call
 
 from research.agents.provider import ModelClient
@@ -55,3 +57,45 @@ def test_codex_action_schema_follows_effective_permissions(monkeypatch):
     monkeypatch.setattr(codex_transport.shutil, 'which', lambda value: '/verified/test/codex')
     monkeypatch.setattr(codex_transport.subprocess, 'run', child)
     client.complete(messages)
+
+
+_MISSING = object()
+
+
+@pytest.mark.parametrize(
+    'reported_reasoning,expected_reasoning',
+    [(42, 42), (0, 0), (_MISSING, None)],
+    ids=['reported', 'explicit-zero', 'absent-unknown'],
+)
+def test_codex_usage_preserves_reported_reasoning_tokens(monkeypatch, reported_reasoning, expected_reasoning):
+    from research.agents import codex_transport
+
+    provider = {'id': 'test-only', 'kind': 'codex_cli', 'base_url': 'http://127.0.0.1',
+                'model': 'gpt-6-luna', 'config': {'reasoning_effort': 'high'}}
+    events = []
+
+    def record(event):
+        events.append(event)
+        return len(events)
+
+    client = ModelClient(provider, request_guard=record)
+    usage = {'input_tokens': 100, 'cached_input_tokens': 20, 'output_tokens': 50}
+    if reported_reasoning is not _MISSING:
+        usage['reasoning_output_tokens'] = reported_reasoning
+
+    def child(argv, **kwargs):
+        return SimpleNamespace(returncode=0, stdout='\n'.join(json.dumps(event) for event in [
+            {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': '{"tool":"finish","arguments":{}}'}},
+            {'type': 'turn.completed', 'usage': usage},
+        ]), stderr='')
+
+    monkeypatch.setattr(codex_transport.shutil, 'which', lambda value: '/verified/test/codex')
+    monkeypatch.setattr(codex_transport.subprocess, 'run', child)
+
+    result = client.complete([{'role': 'user', 'content': 'Return the finish action'}])
+
+    expected = {'input_tokens': 100, 'cached_input_tokens': 20, 'output_tokens': 50,
+                'reasoning_tokens': expected_reasoning, 'cost': None,
+                'cost_source': 'codex_subscription_unpriced'}
+    assert result['usage'] == expected
+    assert events[-1]['usage'] == expected

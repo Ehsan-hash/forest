@@ -90,6 +90,7 @@ def complete(client, messages, json_mode=True, max_output_tokens=None):
                             details.get('reason')=='max_output_tokens')
         if usage is not None:
             normalized={k:usage.get(k) for k in ('input_tokens','cached_input_tokens','output_tokens')}
+            normalized['reasoning_tokens'] = usage.get('reasoning_output_tokens')
             normalized.update(cost=None,cost_source='codex_subscription_unpriced')
             client._event('after',reservation=reservation,usage=normalized,status='completed' if result.returncode==0 else 'failed',outcome='response_received')
         else:
