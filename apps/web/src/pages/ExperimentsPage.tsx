@@ -84,7 +84,14 @@ export function ExperimentsPage() {
                 </span>
               </div>
               <code className="command-preview">
-                {e.data.command || t("Python 代码执行", "Python execution")}
+                {e.data.command ||
+                  e.data.entrypoint ||
+                  (e.data.example === "class_weight_calibration"
+                    ? e.data.example
+                    : t(
+                        "请配置执行命令；保存的代码仅供参考。",
+                        "Configure an execution command; saved code is reference only.",
+                      ))}
               </code>
               <div className="record-footer">
                 <RecordActions
@@ -417,7 +424,12 @@ function ExperimentForm({
             placeholder="python experiment.py"
           />
         </Field>
-        <Field label={t("Python 代码（可选）", "Python code (optional)")}>
+        <Field
+          label={t(
+            "Python 参考代码（可选，不会自动执行）",
+            "Python reference code (optional, not executed automatically)",
+          )}
+        >
           <div className="bounded-editor">
             <CodeEditor value={code} onChange={setCode} />
           </div>

@@ -275,7 +275,16 @@ def review(body:dict=Body(...)):
 def launch(ident:str,body:dict=Body(default={})):
     with Session.begin() as s:
         e=get(s,ExperimentSpec,ident); n=s.get(Node,e.data.get('node_id')) if e.data.get('node_id') else None
-        return asdict(enqueue(s,e.project_id,'experiment',{**e.data,**body,'experiment_id':ident,'experiment_revision':e.revision},body.get('request_id'),n))
+        config={**e.data,**body,'experiment_id':ident,'experiment_revision':e.revision}
+        project=get(s,Project,e.project_id)
+        effective={**project.config.get('agent_execution',{}),**(n.config if n else {}),**config}
+        replay=s.scalar(select(TaskRun.id).where(TaskRun.project_id==e.project_id,
+                                                TaskRun.request_id==body.get('request_id'))) if body.get('request_id') else None
+        if not replay and not (effective.get('command') or effective.get('entrypoint')
+                               or effective.get('example')=='class_weight_calibration'):
+            error('INVALID_EXPERIMENT_CONFIG',
+                  'Saved code is reference source only; configure an execution command, entrypoint or supported example before launching.')
+        return asdict(enqueue(s,e.project_id,'experiment',config,body.get('request_id'),n))
 @router.post('/api/experiments/compare')
 def compare_experiments(body:dict=Body(...)):
     from research.validation.comparability import assess_comparability

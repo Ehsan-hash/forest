@@ -100,6 +100,14 @@ project ID. Use the generated contract for complete parameters and defaults.
 | Owner login and read-only sharing | `GET /auth/status`; `POST /auth/login`; `POST /projects/{ident}/share`; `GET/DELETE /shares/{token}` | Authentication state, selected share scope, share URL/token and revocation result. |
 | Project events and live terminal | `GET /projects/{ident}/events`; WebSocket `/ws/projects/{ident}/terminal` | Event connection and sequence cursor (`Last-Event-ID`); terminal connection lifecycle, raw input/output. |
 
+Saved experiment `code` is reference source, not an execution command. Launch merges
+saved data with request overrides and honors inherited node/project execution
+configuration. Without a command, entrypoint, or the supported
+`class_weight_calibration` example, launch returns `400 INVALID_EXPERIMENT_CONFIG`
+before creating a run. Saving reference-only experiments remains supported; configure
+their actual execution before launching. Existing backend isolation and required
+metrics checks still apply to executable configurations.
+
 Generic record resources are `library`, `experiments`, `datasets`, `ideas`,
 `theories`, `claims`, `figures`, `analyses` and `reviews`. Their lists require
 `project_id`; pagination is `limit`/`offset`. Reviews are created through the
