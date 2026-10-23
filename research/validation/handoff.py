@@ -20,7 +20,7 @@ from pathlib import Path, PurePosixPath
 
 import numpy as np
 
-from research.validation.statistics import compare_result_files, paired_csv
+from research.validation.statistics import compare_result_files, numeric_difference, numeric_isclose, paired_csv
 
 
 KINDS = {'numeric_compare', 'byte_compare', 'csv_integrity', 'csv_coverage', 'paired_recompute', 'data_contract'}
@@ -319,11 +319,12 @@ def _compare_values(check, pointers, original, repeated):
             values.append(measurement if present else None)
         finite = all(present and math.isfinite(value) for present, value in zip(available, values))
         nonfinite = any(present and not math.isfinite(value) for present, value in zip(available, values))
-        matches = finite and math.isclose(*values, abs_tol=check['absolute_tolerance'], rel_tol=check['relative_tolerance'])
+        matches = finite and numeric_isclose(*values, absolute_tolerance=check['absolute_tolerance'],
+                                            relative_tolerance=check['relative_tolerance'])
         status = 'rejected' if nonfinite or finite and not matches else 'accepted' if matches else 'inconclusive'
         receipts.append({'pointer': pointer, 'original': _safe_value(values[0]), 'repeated': _safe_value(values[1]),
                          'present_in_both': all(available), 'finite_in_both': finite,
-                         'absolute_difference': abs(values[0] - values[1]) if finite else None,
+                         'absolute_difference': numeric_difference(*values) if finite else None,
                          'absolute_tolerance': check['absolute_tolerance'], 'relative_tolerance': check['relative_tolerance'],
                          'matches': matches, 'status': status})
     return receipts
@@ -576,8 +577,8 @@ def _paired(check, producer, verifier):
         except (KeyError, IndexError, TypeError, ValueError):
             value, present = None, False
         finite = present and math.isfinite(value)
-        matches = finite and math.isclose(measured[field], value,
-            abs_tol=check['absolute_tolerance'], rel_tol=check['relative_tolerance'])
+        matches = finite and numeric_isclose(measured[field], value,
+            absolute_tolerance=check['absolute_tolerance'], relative_tolerance=check['relative_tolerance'])
         status = 'accepted' if matches else 'rejected' if present else 'inconclusive'
         receipts.append({'field': field, 'pointer': pointer, 'original': _safe_value(value) if present else None,
                          'recomputed': measured[field], 'present': present, 'matches': matches, 'status': status,

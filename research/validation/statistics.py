@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 from contextlib import nullcontext
+from fractions import Fraction
 import io
 import json
 import math
@@ -78,6 +79,26 @@ def paired_csv(path, *, unit_column, baseline_column, candidate_column,
     return result
 
 
+def numeric_isclose(a, b, *, absolute_tolerance=0.0, relative_tolerance=0.0):
+    """Compare finite measurements without rounding JSON integers to floats."""
+    if isinstance(a, int) or isinstance(b, int):
+        left, right = Fraction(a), Fraction(b)
+        tolerance = max(Fraction(absolute_tolerance),
+                        Fraction(relative_tolerance) * max(abs(left), abs(right)))
+        return abs(left - right) <= tolerance
+    return math.isclose(a, b, abs_tol=absolute_tolerance, rel_tol=relative_tolerance)
+
+
+def numeric_difference(a, b):
+    """Keep integer precision before rendering a mixed numeric difference."""
+    if isinstance(a, int) != isinstance(b, int):
+        try:
+            return float(abs(Fraction(a) - Fraction(b)))
+        except OverflowError:
+            pass  # Preserve the existing infinite-float difference on overflow.
+    return abs(a - b)
+
+
 def compare_result_files(original, repeated, *, absolute_tolerance=0.0, relative_tolerance=0.0,
                          pointers=None, output=None):
     """Compare actual result files without content digests or locked artifacts.
@@ -96,9 +117,10 @@ def compare_result_files(original, repeated, *, absolute_tolerance=0.0, relative
     for pointer in selected:
         a, b = left.get(pointer), right.get(pointer)
         present = pointer in left and pointer in right
-        match = present and math.isclose(a, b, abs_tol=absolute_tolerance, rel_tol=relative_tolerance)
+        match = present and numeric_isclose(a, b, absolute_tolerance=absolute_tolerance,
+                                           relative_tolerance=relative_tolerance)
         comparisons.append({'pointer': pointer, 'original': a, 'repeated': b,
-                            'absolute_difference': abs(a - b) if present else None,
+                            'absolute_difference': numeric_difference(a, b) if present else None,
                             'matches': match, 'present_in_both': present})
     result = {'status': 'NUMERIC_MATCH' if all(c['matches'] for c in comparisons) else 'NUMERIC_DIFFERENCE',
               'original_file': str(Path(original).resolve()), 'repeated_file': str(Path(repeated).resolve()),
