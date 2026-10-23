@@ -36,7 +36,7 @@ export function InterventionPanel({ projectId }: { projectId: string }) {
     [],
   );
   const decisions = useLoad<Decision[]>(
-    `/projects/${projectId}/decisions?limit=50`,
+    `/projects/${projectId}/decisions?status=actionable&limit=50`,
     [],
   );
   const scope = useRef({ projectId, generation: 0 });

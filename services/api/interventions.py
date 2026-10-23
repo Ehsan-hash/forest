@@ -64,7 +64,12 @@ def decisions(ident: str, limit: int = Query(50, ge=1, le=200), status: str | No
     with Session() as session:
         get(session, Project, ident)
         query = select(ActionDecision).where(ActionDecision.project_id == ident)
-        if status: query = query.where(ActionDecision.status == status)
+        if status == 'actionable':
+            query = query.where(or_(ActionDecision.status == 'pending', and_(
+                ActionDecision.status.in_(['accepted', 'rejected']),
+                or_(ActionDecision.consumed_at.is_(None), ActionDecision.consumed_at == ''))))
+        elif status:
+            query = query.where(ActionDecision.status == status)
         rows = list(session.scalars(query.order_by(ActionDecision.created_at.desc()).limit(limit)))
         runs = {run.id: run for run in session.scalars(select(TaskRun).where(
             TaskRun.id.in_([row.run_id for row in rows])))}

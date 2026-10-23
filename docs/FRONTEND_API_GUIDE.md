@@ -146,6 +146,14 @@ retain their original run identities, and project events retain their saved
 sequence. Accepted instructions, pending effects, answered decisions, consumed
 decisions and successful experiments remain distinct records.
 
+The owner action panel reads `GET /projects/{ident}/decisions?status=actionable`.
+This filters pending decisions and accepted/rejected decisions not yet consumed
+before applying the newest-first page limit. Consumed history cannot displace
+these actions. The default limit remains 50 (maximum 200); this is a bounded
+action queue, not an unlimited history view. Omitting `status`, or requesting an
+individual status, retains the ordinary history query. Reading decisions never
+answers, consumes or resumes them.
+
 Ordinary context preview provides material/log locators, sizes and modification
 times without text. The explicit analysis captures bounded source text and
 redacted stdout/stderr before enqueue. A `complete: false` material has an unread
