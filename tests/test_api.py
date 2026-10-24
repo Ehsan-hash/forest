@@ -833,6 +833,22 @@ def case_unsafe_and_invalid_archive_rejected(client, app):
     assert len(ok(client.get("/api/projects"))) == 1
 
 
+def case_case_colliding_archive_paths_rejected(client, app):
+    p = create(client)
+    content = client.post(f"/api/projects/{p['id']}/export", json={}).content
+    source = zipfile.ZipFile(io.BytesIO(content))
+    manifest = json.loads(source.read("forest-project.json"))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as archive:
+        archive.writestr("forest-project.json", json.dumps(manifest))
+        archive.writestr("files/Readme.md", "UPPERCASE_NAME_CONTENT")
+        archive.writestr("files/README.md", "LOWERCASE_NAME_CONTENT")
+    rejected = client.post("/api/projects/import", files={"file": ("case.zip", out.getvalue(), "application/zip")})
+    assert rejected.status_code == 400, rejected.text
+    assert rejected.json()["detail"]["code"] == "INVALID_ARCHIVE"
+    assert len(ok(client.get("/api/projects"))) == 1
+
+
 def case_late_corrupt_archive_returns_invalid_archive_without_orphan_workspace(client, app):
     source = create(client)
     contents = {
