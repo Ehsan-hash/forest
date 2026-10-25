@@ -660,7 +660,7 @@ Known domain failures: `404` NOT_FOUND; `409` REVISION_CONFLICT.
 
 #### `POST /api/projects/import`
 
-multipart/form-data file with forest-project-v1 manifest. Validate graph and archive paths, reject symlinks/path traversal and >500 MiB decompressed archives. Create a new project with remapped graph/resource identifiers; preserve its selected provider when that ID exists in the current workspace. If the saved provider is unavailable, mark provider_selection_required and prevent provider-backed runs from silently falling back until the owner edits project settings. Active imported work is interrupted and execution is not replayed.
+multipart/form-data file with forest-project-v1 manifest. Validate graph and archive paths, reject symlinks/path traversal, more than `max_project_archive_members` ZIP entries (default `10000`, configured by `FOREST_MAX_PROJECT_ARCHIVE_MEMBERS`), and >500 MiB decompressed archives. The member count includes directories and entries outside `files/`; rejection returns `413 ARCHIVE_TOO_LARGE` before manifest access or project creation. The configured limit must be a positive integer. Create a new project with remapped graph/resource identifiers; preserve its selected provider when that ID exists in the current workspace. If the saved provider is unavailable, mark provider_selection_required and prevent provider-backed runs from silently falling back until the owner edits project settings. Active imported work is interrupted and execution is not replayed.
 
 Body: `multipart/form-data`: `Body_import_project_api_projects_import_post`; required.
 

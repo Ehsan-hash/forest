@@ -632,7 +632,13 @@ async def import_project(file:UploadFile=File(...)):
     from research.kernel import validate_graph,ArtifactResolver
     raw=await file.read(settings.max_upload_mb*1024*1024+1)
     if len(raw)>settings.max_upload_mb*1024*1024: error('UPLOAD_TOO_LARGE','Archive exceeds upload limit',413)
-    try: z=zipfile.ZipFile(io.BytesIO(raw)); manifest=json.loads(z.read('forest-project.json'))
+    try: z=zipfile.ZipFile(io.BytesIO(raw))
+    except Exception: error('INVALID_ARCHIVE','Expected a FOREST project ZIP')
+    member_infos=z.infolist()
+    if len(member_infos)>settings.max_project_archive_members:
+        error('ARCHIVE_TOO_LARGE',
+              f'Archive contains more than {settings.max_project_archive_members} members',413)
+    try: manifest=json.loads(z.read('forest-project.json'))
     except Exception: error('INVALID_ARCHIVE','Expected a FOREST project ZIP')
     if manifest.get('format')!='forest-project-v1': error('INVALID_ARCHIVE','Unknown archive format')
     orig=manifest.get('project')
@@ -640,14 +646,14 @@ async def import_project(file:UploadFile=File(...)):
     mode=orig.get('mode','assisted')
     if mode not in ('auto','assisted','manual'):
         error('INVALID_ARCHIVE','Project mode must be auto, assisted, or manual')
-    if sum(x.file_size for x in z.infolist())>500*1024*1024: error('ARCHIVE_TOO_LARGE','Uncompressed archive exceeds 500 MB',413)
-    for info in z.infolist():
+    if sum(x.file_size for x in member_infos)>500*1024*1024: error('ARCHIVE_TOO_LARGE','Uncompressed archive exceeds 500 MB',413)
+    for info in member_infos:
         if info.filename.startswith('/') or '..' in Path(info.filename).parts or (info.external_attr>>16)&0o170000==0o120000: error('UNSAFE_ARCHIVE','Archive contains unsafe paths or symbolic links')
     # A case-insensitive destination cannot hold both names; the second write
     # would silently replace the first. Reject the archive before importing (#361).
     from services.api.archive_paths import case_collision
     colliding = case_collision(
-        info.filename[6:] for info in z.infolist()
+        info.filename[6:] for info in member_infos
         if info.filename.startswith('files/') and not info.is_dir())
     if colliding:
         error('INVALID_ARCHIVE',
@@ -710,7 +716,7 @@ async def import_project(file:UploadFile=File(...)):
         validate_graph(graph)
         for branch in graph['branches']: ArtifactResolver(root,graph).branch_path(branch['id'])
         save_graph(s,p,graph,historical=True)
-        for info in z.infolist():
+        for info in member_infos:
             if not info.filename.startswith('files/') or info.is_dir(): continue
             try:
                 contents=z.read(info)

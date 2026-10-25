@@ -1,4 +1,5 @@
 from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from .config_paths import resolve_database_url
 
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     owner_token: str = ''
     worker_concurrency: int = 2
     max_upload_mb: int = 100
+    max_project_archive_members: int = Field(default=10000, gt=0)
 settings = Settings()
 if not settings.data_dir.is_absolute():
     settings.data_dir = (ROOT / settings.data_dir).resolve()
