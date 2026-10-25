@@ -117,6 +117,12 @@ def _png(value, request_id):
                     raise ValueError('Expected PNG')
                 width, height = image.size
                 image.verify()
+            # ``verify`` checks the PNG container but intentionally does not
+            # decode the pixel stream. Reopen the bytes because Pillow
+            # invalidates an image object after verification, then force the
+            # decoder to load every pixel before accepting the response.
+            with Image.open(io.BytesIO(content)) as image:
+                image.load()
     except (binascii.Error, ValueError, OSError, UnidentifiedImageError,
             Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise ProviderError('Image endpoint returned invalid PNG data', code='invalid_image_response', request_id=request_id, ambiguous=True) from None
