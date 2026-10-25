@@ -38,7 +38,10 @@ def infer_csv_column_types(frame):
         if not pd.api.types.is_string_dtype(series): continue
         values=series.dropna()
         if values.empty or values.str.contains(ZERO_PADDED_NUMERIC).any(): continue
-        try: frame[column]=pd.to_numeric(series)
+        # Keep non-finite numeric values compatible with JSON nulls without
+        # letting pandas erase categorical labels such as NA and N/A.
+        numeric=series.replace({'nan':float('nan'),'NaN':float('nan'),'-nan':float('nan'),'-NaN':float('nan')})
+        try: frame[column]=pd.to_numeric(numeric)
         except (TypeError,ValueError,OverflowError):
             if values.isin(('True','False')).all():
                 frame[column]=series.map({'True':True,'False':False})

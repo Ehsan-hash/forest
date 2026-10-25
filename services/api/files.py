@@ -316,7 +316,8 @@ def preview_file(ident:str,path:str,offset:int=Query(default=0,ge=0,le=10_000_00
     try:
         if suffix in ('.csv','.tsv'):
             separator='\t' if suffix=='.tsv' else ','
-            options={'sep':separator,'encoding':'utf-8-sig','on_bad_lines':'error','index_col':False,'dtype':str}
+            options={'sep':separator,'encoding':'utf-8-sig','on_bad_lines':'error','index_col':False,
+                     'dtype':str,'keep_default_na':False,'na_values':['']}
             with warnings.catch_warnings():
                 warnings.simplefilter('error',pd.errors.ParserWarning)
                 columns=[str(c) for c in pd.read_csv(p,nrows=0,**options).columns]

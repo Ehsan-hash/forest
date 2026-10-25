@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-from test_api import create, ok
+from test_api import add_node, create, ok
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -151,6 +151,36 @@ def case_large_integer_csv_cells_survive_preview(client):
          "long_integer": "100000000000000016", "blank_induced": "2.0", "score": 12.5},
     ], page
     root = Path(os.environ["FOREST_DATA_DIR"]) / "projects" / project["id"]
+    assert (root / path).read_bytes() == content
+
+
+def case_literal_na_tokens_survive_table_readers(client):
+    from services.api.db import Session, TaskRun
+
+    project = create(client)
+    content = b"sample,marker,score,passed\nS1,NA,9.5,True\nS2,N/A,10.5,False\nS3,none,,\nS4,,12.5,True\n"
+    expected = [
+        {"sample": "S1", "marker": "NA", "score": 9.5, "passed": True},
+        {"sample": "S2", "marker": "N/A", "score": 10.5, "passed": False},
+        {"sample": "S3", "marker": "none", "score": None, "passed": None},
+        {"sample": "S4", "marker": None, "score": 12.5, "passed": True},
+    ]
+    path = upload(client, project, "markers.csv", content)
+    assert ok(preview(client, project, path))["rows"] == expected
+    tsv = upload(client, project, "markers.tsv", content.replace(b",", b"\t"))
+    assert ok(preview(client, project, tsv))["rows"] == expected
+
+    node = add_node(client, project, config={"kind": "command", "command": [sys.executable, "-c", "pass"]})
+    run = ok(client.post(f"/api/nodes/{node['id']}/run", json={"request_id": "na-token-readback"}))
+    relative = run["output_path"] + "/markers.csv"
+    root = Path(os.environ["FOREST_DATA_DIR"]) / "projects" / project["id"]
+    output = root / relative
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(content)
+    with Session.begin() as session:
+        session.get(TaskRun, run["id"]).status = "completed"
+    assert ok(client.get(f"/api/data/{run['id']}/rows", params={"path": relative}))["rows"] == expected
+    assert output.read_bytes() == content
     assert (root / path).read_bytes() == content
 
 

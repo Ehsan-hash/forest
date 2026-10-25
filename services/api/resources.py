@@ -313,7 +313,8 @@ def data_rows(ident:str,path:str|None=None,offset:int=0,limit:int=100,filter:str
         pid=run.project_id if run else rec.project_id
         rel=path or (run.output_path+'/predictions.csv' if run else rec.data.get('path',''))
     p=safe_path(project_dir(pid),rel,True)
-    frame=pd.read_parquet(p) if p.suffix=='.parquet' else infer_csv_column_types(pd.read_csv(p,dtype=str))
+    frame=pd.read_parquet(p) if p.suffix=='.parquet' else infer_csv_column_types(
+        pd.read_csv(p,dtype=str,keep_default_na=False,na_values=['']))
     if filter:
         mask=frame.astype(str).apply(lambda col:col.str.contains(filter,case=False,regex=False)).any(axis=1); frame=frame[mask]
     if sort in frame.columns: frame=frame.sort_values(sort,ascending=not descending)
