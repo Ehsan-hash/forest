@@ -8,6 +8,35 @@ from pathlib import PurePosixPath
 SAMPLE_BYTES = 32768
 FOOTER_BYTES = 262144
 
+def _delimited_sample(sample, size, content, delimiter):
+    """Read a bounded header and rows without treating a prefix as complete."""
+    text=sample.decode('utf-8',errors='ignore')
+    if not text:
+        return [], [], 0, size==0
+    stream=io.StringIO(text,newline='')
+    reader=csv.reader(stream,delimiter=delimiter,strict=True)
+    try:
+        header=next(reader)
+    except StopIteration:
+        return [], [], 0, size==0
+    except csv.Error:
+        return [], [], None, False
+    consumed=stream.tell()
+    sample_complete=content is not None or len(sample)>=size
+    # csv.reader consumes an open quoted record through EOF. A newline before
+    # that EOF, or a full file read, proves that the first record is complete.
+    header_complete=sample_complete or consumed<len(text) or text[:consumed].endswith(('\n','\r'))
+    if not header_complete:
+        return [], [], None, False
+    rows=[]
+    try:
+        for row in reader:
+            rows.append([v[:240] for v in row[:100]])
+            if len(rows)==10: break
+    except csv.Error:
+        pass
+    return header, rows, len(header), True
+
 def inspect(fd, size, path, content):
     suffix=PurePosixPath(path).suffix.lower()
     result={'size_bytes':size, 'content_complete':content is not None}
@@ -16,14 +45,12 @@ def inspect(fd, size, path, content):
     try:
         if suffix in ('.csv','.tsv'):
             sample=content if content is not None else read_at(0,SAMPLE_BYTES)
-            # A prefix ending within a UTF-8 character is explicitly a sample.
-            text=sample.decode('utf-8',errors='ignore')
-            rows=[]; reader=csv.reader(io.StringIO(text,newline=''),delimiter='\t' if suffix=='.tsv' else ',')
-            for row in reader:
-                rows.append([v[:240] for v in row[:100]])
-                if len(rows)==11: break
-            result.update(format='delimited',columns=rows[0] if rows else [],sample_rows=rows[1:],
-                          sample_bytes=len(sample),sample_only=True,total_rows=None)
+            header, rows, total_columns, header_complete=_delimited_sample(
+                sample,size,content,'\t' if suffix=='.tsv' else ',')
+            result.update(format='delimited',columns=[v[:240] for v in header[:100]],sample_rows=rows,
+                          sample_bytes=len(sample),sample_only=True,total_rows=None,
+                          total_columns=total_columns,
+                          columns_truncated=not header_complete or len(header)>100)
         elif suffix=='.parquet':
             tail=read_at(max(0,size-8),8)
             if len(tail)!=8 or tail[4:]!=b'PAR1' or read_at(0,4)!=b'PAR1': raise ValueError()
@@ -55,4 +82,5 @@ def inspect(fd, size, path, content):
     for field in ('sample_rows','columns'):
         while result.get(field) and len(json.dumps(result,ensure_ascii=False).encode())>8192:
             result[field].pop(); result['metadata_fields_truncated']=True
+            if field=='columns': result['columns_truncated']=True
     return result
