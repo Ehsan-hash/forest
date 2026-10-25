@@ -73,9 +73,8 @@ def draft_from_saved_response(response_path, evidence, output_dir, *, origin_run
     if not isinstance(response, dict) or not isinstance(response.get('text'), str) or not isinstance(response.get('model'), str) or not isinstance(response.get('usage'), dict):
         raise ValueError('Saved response must contain recorded text, model and usage fields')
     draft = json.loads(response['text'])
-    from research.paper.tables import materialize_statistical_tables
-    draft = materialize_statistical_tables(draft, evidence)
-    validation = validate_draft(draft, evidence, expected_type)
+    if not isinstance(draft, dict):
+        raise ValueError('Saved response text must contain a manuscript object')
     original_context_available = original_evidence_path is not None and Path(original_evidence_path).is_file()
     if original_context_available:
         original = json.loads(Path(original_evidence_path).read_text())
@@ -92,7 +91,9 @@ def draft_from_saved_response(response_path, evidence, output_dir, *, origin_run
         if not isinstance(revision, dict) or not isinstance(revision.get('draft'), dict) or any(not isinstance(revision.get(key), str) or not revision[key].strip() for key in ('editor','reason')):
             raise ValueError('Draft revision requires draft, editor and reason fields')
         changes = draft_changes(draft, revision['draft'])
-        draft = materialize_statistical_tables(revision['draft'], evidence)
+        draft = revision['draft']
+    from research.paper.tables import materialize_statistical_tables
+    draft = materialize_statistical_tables(draft, evidence)
     validation = validate_manuscript_contract(draft, evidence, expected_type, required_figure_ids=required_figure_ids)
     provenance = {'mode': 'saved_response_revalidation', 'origin_run_id': origin_run_id,
                   'origin_response_path': origin_response_path, 'original_model': response['model'],
