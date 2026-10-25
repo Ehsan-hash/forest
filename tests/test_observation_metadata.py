@@ -86,6 +86,27 @@ def test_empty_and_complete_single_line_headers_are_valid_and_preserve_bytes(tmp
     assert single_envelope['metadata']['columns_truncated'] is False
 
 
+@pytest.mark.parametrize('suffix', ['.csv', '.tsv'])
+@pytest.mark.parametrize('size', [1, 262145])
+def test_undecodable_bytes_keep_header_total_unknown_for_complete_and_sampled_files(tmp_path, suffix, size):
+    root = tmp_path / 'workspace'
+    root.mkdir()
+    path = root / f'undecodable{suffix}'
+    payload = b'\xff' * size
+    path.write_bytes(payload)
+
+    data, envelope = regular_read(root, path.name)
+
+    metadata = envelope['metadata']
+    if size == 1:
+        assert data == payload
+    else:
+        assert data is None
+    assert metadata['total_columns'] is None
+    assert metadata['columns'] == []
+    assert metadata['columns_truncated'] is True
+
+
 @pytest.mark.parametrize('suffix,delimiter', [('.csv', ','), ('.tsv', '\t')])
 def test_metadata_json_pruning_marks_column_omission(tmp_path, suffix, delimiter):
     root = tmp_path / 'workspace'

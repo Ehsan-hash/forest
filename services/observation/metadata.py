@@ -12,7 +12,7 @@ def _delimited_sample(sample, size, content, delimiter):
     """Read a bounded header and rows without treating a prefix as complete."""
     text=sample.decode('utf-8',errors='ignore')
     if not text:
-        return [], [], 0, size==0
+        return ([], [], 0, True) if size==0 else ([], [], None, False)
     stream=io.StringIO(text,newline='')
     reader=csv.reader(stream,delimiter=delimiter,strict=True)
     try:
