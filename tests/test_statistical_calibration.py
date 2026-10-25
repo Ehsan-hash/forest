@@ -7,6 +7,7 @@ from pypdf import PdfReader
 from scipy import stats
 
 from research.figures.calibration import _build_calibration, render_calibration
+from research.figures.render import render_figure
 
 
 def predictions(datasets=('D1', 'D2'), seeds=(0, 1, 2), methods=('baseline', 'candidate')):
@@ -175,3 +176,101 @@ def test_saved_data_and_style_reproduce_exact_selected_statistics(tmp_path):
                                       json.loads(open(outputs['style']).read()))
     for field in ('per_seed_bins', 'aggregate_bins', 'scope', 'ece_summary', 'curve_segments'):
         assert saved[field] == repeated[field]
+
+
+def _render_calibration_entrypoint(entrypoint, output, source):
+    if entrypoint == 'direct':
+        return render_calibration(output, source)
+    return render_figure(output, source, kind='calibration')
+
+
+@pytest.mark.parametrize('entrypoint', ['direct', 'figure'])
+def test_csv_calibration_rejects_different_object_ids_like_json(tmp_path, entrypoint):
+    rows = [
+        ('D', 0, 'baseline', '001', 0, 0.1),
+        ('D', 0, 'baseline', '002', 1, 0.9),
+        ('D', 0, 'candidate', '1', 0, 0.2),
+        ('D', 0, 'candidate', '2', 1, 0.8),
+    ]
+    csv = tmp_path / 'mismatch.csv'
+    csv.write_text('dataset,seed,method,sample_id,y_true,probability\n' +
+                   ''.join(','.join(map(str, row)) + '\n' for row in rows))
+    json_source = tmp_path / 'mismatch.json'
+    json_source.write_text(json.dumps([
+        {'dataset': dataset, 'seed': seed, 'method': method, 'sample_id': sample_id,
+         'y_true': y_true, 'probability': probability}
+        for dataset, seed, method, sample_id, y_true, probability in rows
+    ]))
+    with pytest.raises(ValueError, match='same saved test-object set'):
+        _render_calibration_entrypoint(entrypoint, tmp_path / f'{entrypoint}-csv', csv)
+    with pytest.raises(ValueError, match='same saved test-object set'):
+        _render_calibration_entrypoint(entrypoint, tmp_path / f'{entrypoint}-json', json_source)
+
+
+@pytest.mark.parametrize('entrypoint', ['direct', 'figure'])
+@pytest.mark.parametrize('identity_column,identifiers', [
+    ('sample_id', ['001', 'NA']),
+    ('unit_id', ['0007', 'NA']),
+])
+def test_csv_calibration_preserves_identity_tokens_and_numeric_fields(tmp_path, entrypoint, identity_column, identifiers):
+    rows = []
+    for method, probabilities in [('baseline', [0.1, 0.9]), ('candidate', [0.2, 0.8])]:
+        for identifier, y_true, probability in zip(identifiers, [0, 1], probabilities):
+            rows.append({'dataset': 'D', 'seed': 0, 'method': method, identity_column: identifier,
+                         'y_true': y_true, 'probability': probability})
+    csv = tmp_path / f'{identity_column}.csv'
+    columns = ['dataset', 'seed', 'method', identity_column, 'y_true', 'probability']
+    csv.write_text(','.join(columns) + '\n' +
+                   ''.join(','.join(str(row[column]) for column in columns) + '\n' for row in rows))
+    outputs = _render_calibration_entrypoint(entrypoint, tmp_path / entrypoint, csv)
+    saved = json.loads(open(outputs['data']).read())
+    assert [row[identity_column] for row in saved] == identifiers + identifiers
+    assert [row['probability'] for row in saved] == [0.1, 0.9, 0.2, 0.8]
+    assert [row['y_true'] for row in saved] == [0, 1, 0, 1]
+
+
+def test_csv_figure_loader_keeps_numeric_measurements(tmp_path):
+    csv = tmp_path / 'bar.csv'
+    csv.write_text('dataset,method,brier\nD,A,0.125\n')
+    outputs = render_figure(tmp_path / 'bar-output', csv)
+    saved = json.loads(open(outputs['data']).read())
+    assert saved == [{'dataset': 'D', 'method': 'A', 'brier': 0.125}]
+
+
+@pytest.mark.parametrize('entrypoint', ['direct', 'figure'])
+def test_csv_calibration_rejects_mismatched_fallback_unit_ids(tmp_path, entrypoint):
+    csv = tmp_path / 'fallback-mismatch.csv'
+    csv.write_text(
+        'dataset,seed,method,sample_id,unit_id,y_true,probability\n'
+        'D,0,baseline,,baseline-1,0,0.1\n'
+        'D,0,candidate,,candidate-1,0,0.2\n'
+    )
+    with pytest.raises(ValueError, match='same saved test-object set'):
+        _render_calibration_entrypoint(entrypoint, tmp_path / entrypoint, csv)
+
+
+@pytest.mark.parametrize('entrypoint', ['direct', 'figure'])
+def test_csv_calibration_uses_matching_fallback_ids_and_marks_empty_ids_unverified(tmp_path, entrypoint):
+    matching = tmp_path / 'fallback-matching.csv'
+    matching.write_text(
+        'dataset,seed,method,sample_id,unit_id,y_true,probability\n'
+        'D,0,baseline,, 7 ,0,0.1\n'
+        'D,0,candidate,, 7 ,0,0.2\n'
+    )
+    outputs = _render_calibration_entrypoint(entrypoint, tmp_path / f'{entrypoint}-matching', matching)
+    report = json.loads(open(outputs['report']).read())
+    saved = json.loads(open(outputs['data']).read())
+    assert report['coverage']['object_id_available'] is True
+    assert report['coverage']['paired_method_object_sets_verified'] is True
+    assert [row['unit_id'] for row in saved] == [' 7 ', ' 7 ']
+
+    empty = tmp_path / 'fallback-empty.csv'
+    empty.write_text(
+        'dataset,seed,method,sample_id,unit_id,y_true,probability\n'
+        'D,0,baseline,,,0,0.1\n'
+        'D,0,candidate,,,0,0.2\n'
+    )
+    outputs = _render_calibration_entrypoint(entrypoint, tmp_path / f'{entrypoint}-empty', empty)
+    report = json.loads(open(outputs['report']).read())
+    assert report['coverage']['object_id_available'] is False
+    assert report['coverage']['paired_method_object_sets_verified'] is False
