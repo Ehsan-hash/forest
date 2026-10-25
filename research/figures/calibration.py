@@ -39,10 +39,19 @@ def _key(value):
         raise ValueError('Calibration identities must be finite JSON values') from exc
 
 
+def _object_identifier(row):
+    for key in ('sample_id', 'unit_id'):
+        value = row.get(key)
+        if value is not None and value != '':
+            return value
+    return None
+
+
 def _read(data):
     if isinstance(data, (str, Path)):
         path = Path(data)
-        data = json.loads(path.read_text()) if path.suffix.lower() == '.json' else pd.read_csv(path).to_dict('records')
+        data = json.loads(path.read_text()) if path.suffix.lower() == '.json' else pd.read_csv(
+            path, converters={'sample_id': str, 'unit_id': str}).to_dict('records')
     if isinstance(data, dict):
         data = data.get('predictions', data.get('rows'))
     if not isinstance(data, list) or not data:
@@ -64,7 +73,7 @@ def _read(data):
             raise ValueError('Saved probabilities must be finite numbers in [0,1]')
         if row['y_true'] not in (0, 1) or isinstance(row['y_true'], (str, dict, list)):
             raise ValueError('Reliability diagrams require binary labels')
-        identifier = row.get('sample_id', row.get('unit_id'))
+        identifier = _object_identifier(row)
         if identifier is not None:
             identity = (row['dataset'], row['method'], _key(row['seed']), _key(identifier))
             if identity in seen:
@@ -116,11 +125,11 @@ def _selection(rows, style):
                     missing.append({'dataset': dataset, 'method': method, 'seed': seed})
     if missing:
         raise ValueError('Calibration requires the complete selected dataset/seed/method grid: ' + json.dumps(missing))
-    if all(row.get('sample_id', row.get('unit_id')) is not None for row in selected):
+    if all(_object_identifier(row) is not None for row in selected):
         object_sets = defaultdict(dict)
         for row in selected:
             identity = (row['dataset'], _key(row['seed']))
-            object_sets[identity].setdefault(row['method'], set()).add(_key(row.get('sample_id', row.get('unit_id'))))
+            object_sets[identity].setdefault(row['method'], set()).add(_key(_object_identifier(row)))
         if any(len({tuple(sorted(objects)) for objects in values.values()}) != 1 for values in object_sets.values()):
             raise ValueError('Calibration method comparisons require the same saved test-object set within each dataset/seed')
     return selected, datasets, methods, scope
@@ -219,8 +228,8 @@ def _build_calibration(data, style=None):
               'empty_bins': 'Retained with zero counts; entirely empty bins break lines; uncertainty unavailable with fewer than two populated seeds',
               'count_estimand': 'Mean observations per bin across every supplied seed, including zero counts',
               'coverage': {'complete_selected_method_seed_grid': True,
-                           'object_id_available': all(row.get('sample_id', row.get('unit_id')) is not None for row in rows),
-                           'paired_method_object_sets_verified': all(row.get('sample_id', row.get('unit_id')) is not None for row in rows)},
+                           'object_id_available': all(_object_identifier(row) is not None for row in rows),
+                           'paired_method_object_sets_verified': all(_object_identifier(row) is not None for row in rows)},
               'vector_formats': ['pdf', 'svg']}
     segments = []
     for dataset in datasets:

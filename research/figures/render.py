@@ -40,7 +40,8 @@ def render_figure(output_dir, data, style=None, kind="bar"):
     style = dict(style or {})
     if isinstance(data, (str, Path)):
         source = Path(data)
-        data = json.loads(source.read_text()) if source.suffix == ".json" else pd.read_csv(source).to_dict("records")
+        data = json.loads(source.read_text()) if source.suffix == ".json" else pd.read_csv(
+            source, converters={"sample_id": str, "unit_id": str}).to_dict("records")
     if isinstance(data, dict) and 'statistical_results' in data:
         from research.figures.statistical import render_statistical_plot
         return render_statistical_plot(output, data, style, kind)
