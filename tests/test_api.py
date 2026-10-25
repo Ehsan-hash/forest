@@ -1727,6 +1727,50 @@ def case_zero_padded_csv_identifiers_survive_data_rows(client, app):
     assert [row['score'] for row in sorted_rows['rows']] == [10.5, 9.5], sorted_rows
 
 
+def case_large_integer_csv_cells_survive_data_rows(client, app):
+    from services.api.db import Session, TaskRun
+
+    project = create(client)
+    node = add_node(client, project, config={
+        'kind': 'command', 'command': [sys.executable, '-c', 'pass'],
+    })
+    run = ok(client.post(f"/api/nodes/{node['id']}/run", json={
+        'request_id': 'run-for-large-integer-csv',
+    }))
+    relative = run['output_path'] + '/measurements.csv'
+    root = Path(os.environ['FOREST_DATA_DIR']) / 'projects' / project['id']
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = (
+        'measurement,representable,signed,long_integer,blank_induced,score\n'
+        '9007199254740993,9007199254740992, -9007199254740993 ,100000000000000020,9007199254740993,9.5\n'
+        '1.0,1.0,1.0,1.0,,10.5\n'
+        '2.0,2.0,2.0,2.0,1.0,11.5\n'
+        '3.0,3.0,3.0,100000000000000016,2.0,12.5\n'
+    ).encode()
+    path.write_bytes(content)
+    with Session.begin() as session:
+        session.get(TaskRun, run['id']).status = 'completed'
+
+    rows = ok(client.get(f"/api/data/{run['id']}/rows", params={'path': relative}))
+    assert rows['rows'][0]['measurement'] == '9007199254740993', rows
+    assert rows['rows'][1]['measurement'] == '1.0', rows
+    assert rows['rows'][0]['representable'] == 9007199254740992.0, rows
+    assert rows['rows'][0]['signed'] == ' -9007199254740993 ', rows
+    assert rows['rows'][0]['long_integer'] == '100000000000000020', rows
+    assert rows['rows'][1]['long_integer'] == '1.0' and rows['rows'][2]['long_integer'] == '2.0', rows
+    assert rows['rows'][3]['long_integer'] == '100000000000000016', rows
+    assert rows['rows'][0]['blank_induced'] == '9007199254740993', rows
+    assert rows['rows'][1]['blank_induced'] is None, rows
+    assert rows['rows'][0]['score'] == 9.5 and rows['rows'][1]['score'] == 10.5, rows
+    for expected in ('9007199254740993', '100000000000000020', '100000000000000016'):
+        filtered = ok(client.get(f"/api/data/{run['id']}/rows", params={
+            'path': relative, 'filter': expected,
+        }))
+        assert filtered['total'] == 1 and filtered['rows'][0]['long_integer' if expected != '9007199254740993' else 'measurement'] == expected, filtered
+    assert path.read_bytes() == content
+
+
 def case_raw_data_float_precision(client, app):
     import math
     import pandas as pd

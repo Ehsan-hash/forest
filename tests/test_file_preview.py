@@ -127,6 +127,33 @@ def case_zero_padded_identifiers_survive_preview(client):
     assert page["rows"][0]["subject_id"] == "000123", page
 
 
+def case_large_integer_csv_cells_survive_preview(client):
+    project = create(client)
+    content = (
+        b"measurement,representable,signed,long_integer,blank_induced,score\n"
+        b"9007199254740993,9007199254740992, -9007199254740993 ,100000000000000020,9007199254740993,9.5\n"
+        b"1.0,1.0,1.0,1.0,,10.5\n"
+        b"2.0,2.0,2.0,2.0,1.0,11.5\n"
+        b"3.0,3.0,3.0,100000000000000016,2.0,12.5\n"
+    )
+    path = upload(client, project, "measurements.csv", content)
+    page = ok(preview(client, project, path))
+    assert page["columns"] == ["measurement", "representable", "signed", "long_integer", "blank_induced", "score"]
+    assert page["rows"] == [
+        {"measurement": "9007199254740993", "representable": 9007199254740992.0,
+         "signed": " -9007199254740993 ", "long_integer": "100000000000000020",
+         "blank_induced": "9007199254740993", "score": 9.5},
+        {"measurement": "1.0", "representable": 1.0, "signed": "1.0",
+         "long_integer": "1.0", "blank_induced": None, "score": 10.5},
+        {"measurement": "2.0", "representable": 2.0, "signed": "2.0",
+         "long_integer": "2.0", "blank_induced": "1.0", "score": 11.5},
+        {"measurement": "3.0", "representable": 3.0, "signed": "3.0",
+         "long_integer": "100000000000000016", "blank_induced": "2.0", "score": 12.5},
+    ], page
+    root = Path(os.environ["FOREST_DATA_DIR"]) / "projects" / project["id"]
+    assert (root / path).read_bytes() == content
+
+
 CASES = [name.removeprefix("case_") for name in list(globals()) if name.startswith("case_")]
 
 
