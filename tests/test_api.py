@@ -380,6 +380,86 @@ def case_library_title_fallback_requires_unidentified_records(client, app):
     assert len(ok(client.get("/api/library", params={"project_id": other_project["id"]}))) == 2
 
 
+def case_agent_import_stable_identifiers_preserve_sources(client, app):
+    from copy import deepcopy
+
+    from research.literature import agent_tools
+    from services.api.common import project_dir
+
+    records = {
+        "doi-alpha": {"title": "Shared agent title", "doi": "10.9999/forest435-alpha",
+                      "arxiv_id": None, "passages": [{"text": "AGENT ALPHA", "page": 1}]},
+        "doi-beta": {"title": "Shared agent title", "doi": "10.9999/forest435-beta",
+                     "arxiv_id": None, "passages": [{"text": "AGENT BETA", "page": 2}]},
+        "doi-alpha-update": {"title": "Updated agent title", "doi": "10.9999/forest435-alpha",
+                              "arxiv_id": None, "passages": [{"text": "AGENT ALPHA UPDATE", "page": 3}]},
+        "arxiv-v1": {"title": "Shared agent title", "doi": None, "arxiv_id": "2401.43500v1",
+                     "passages": [{"text": "AGENT ARXIV V1", "page": 4}]},
+        "arxiv-v2": {"title": "Version two agent title", "doi": None, "arxiv_id": "2401.43500v2",
+                     "passages": [{"text": "AGENT ARXIV V2", "page": 5}]},
+        "title-only": {"title": "Agent title fallback", "doi": None, "arxiv_id": None,
+                       "passages": [{"text": "AGENT TITLE ONLY", "page": 6}]},
+        "title-only-repeat": {"title": "  AGENT TITLE FALLBACK  ", "doi": None, "arxiv_id": None,
+                              "passages": [{"text": "AGENT TITLE REPEAT", "page": 7}]},
+    }
+
+    def fake_import(identifier, output_dir):
+        return deepcopy(records[identifier])
+
+    project = create(client)
+    other_project = create(client)
+    patch = pytest.MonkeyPatch()
+    try:
+        patch.setattr(agent_tools, "import_identifier", fake_import)
+
+        def import_agent(project_id, identifier, action_id):
+            return agent_tools.import_source(
+                project_id, project_dir(project_id), {"identifier": identifier}, action_id
+            )
+
+        alpha = import_agent(project["id"], "doi-alpha", "agent-alpha")
+        replay = import_agent(project["id"], "doi-alpha", "agent-alpha")
+        assert replay["replayed"] is True
+        beta = import_agent(project["id"], "doi-beta", "agent-beta")
+        assert alpha["source"]["id"] != beta["source"]["id"]
+        assert [row["data"]["text"] for row in ok(
+            client.get(f"/api/library/{alpha['source']['id']}/passages"))] == ["AGENT ALPHA"]
+        assert [row["data"]["text"] for row in ok(
+            client.get(f"/api/library/{beta['source']['id']}/passages"))] == ["AGENT BETA"]
+
+        alpha_update = import_agent(project["id"], "doi-alpha-update", "agent-alpha-update")
+        assert alpha_update["source"]["id"] == alpha["source"]["id"]
+        alpha_passages = [row["data"]["text"] for row in ok(
+            client.get(f"/api/library/{alpha['source']['id']}/passages"))]
+        assert alpha_passages == ["AGENT ALPHA", "AGENT ALPHA UPDATE"]
+        assert "AGENT BETA" not in alpha_passages
+
+        arxiv_v1 = import_agent(project["id"], "arxiv-v1", "agent-arxiv-v1")
+        arxiv_v2 = import_agent(project["id"], "arxiv-v2", "agent-arxiv-v2")
+        assert arxiv_v2["source"]["id"] == arxiv_v1["source"]["id"]
+        assert [row["data"]["text"] for row in ok(
+            client.get(f"/api/library/{arxiv_v1['source']['id']}/passages"))] == [
+                "AGENT ARXIV V1", "AGENT ARXIV V2"
+            ]
+
+        title_only = import_agent(project["id"], "title-only", "agent-title-only")
+        title_repeat = import_agent(project["id"], "title-only-repeat", "agent-title-repeat")
+        assert title_repeat["source"]["id"] == title_only["source"]["id"]
+        doi_same_title = import_agent(project["id"], "doi-beta", "agent-doi-after-title")
+        assert doi_same_title["source"]["id"] == beta["source"]["id"]
+        assert doi_same_title["source"]["id"] != title_only["source"]["id"]
+
+        isolated = import_agent(other_project["id"], "doi-alpha", "other-project-alpha")
+        assert isolated["source"]["id"] not in {
+            alpha["source"]["id"], beta["source"]["id"]
+        }
+
+        assert [row["data"]["text"] for row in ok(
+            client.get(f"/api/library/{alpha['source']['id']}/passages"))] == alpha_passages
+    finally:
+        patch.undo()
+
+
 def case_graph_receipts_cycles_and_schema(client, app):
     p = create(client)
     path = f"/api/projects/{p['id']}/graph/commands"

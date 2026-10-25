@@ -20,7 +20,7 @@ def search_library(body:dict=Body(...)):
     except Exception as exc: error('LITERATURE_SEARCH_FAILED',str(exc),502,'Try the other source or import a DOI.',True)
 @router.post('/api/library/import')
 def import_library(body:dict=Body(...)):
-    from research.literature.sources import import_identifier,extract_pdf
+    from research.literature.sources import import_identifier,extract_pdf,matches_publication
     pid=body['project_id']; folder=project_dir(pid)/'library'; folder.mkdir(parents=True,exist_ok=True)
     if body.get('paper'): paper=body['paper']
     elif body.get('identifier'):
@@ -33,18 +33,8 @@ def import_library(body:dict=Body(...)):
     with Session.begin() as s:
         get(s,Project,pid)
         for paper in rows:
-            # Stable identifiers take precedence; title fallback is for records
-            # where neither side has a DOI or arXiv identity.
-            def base_arxiv(value):
-                return re.sub(r'v\d+$','',value) if isinstance(value,str) and value else None
-            paper_doi=paper.get('doi')
-            paper_arxiv=base_arxiv(paper.get('arxiv_id'))
             old=next((r for r in s.scalars(select(SourcePaper).where(SourcePaper.project_id==pid))
-                      if ((paper_doi and paper_doi==r.data.get('doi'))
-                          or (paper_arxiv and paper_arxiv==base_arxiv(r.data.get('arxiv_id')))
-                          or (not paper_doi and not paper_arxiv
-                              and not r.data.get('doi') and not r.data.get('arxiv_id')
-                              and paper.get('title','').strip().lower()==r.title.strip().lower()))),None)
+                      if matches_publication(paper,r.data,r.title)),None)
             if old: saved.append(asdict(old)); continue
             r=SourcePaper(project_id=pid,title=paper.get('title','Imported paper'),data=paper,status='available'); s.add(r); s.flush()
             for passage in paper.get('passages',[]): s.add(SourcePassage(project_id=pid,title=r.title,data={'paper_id':r.id,**passage},status='available'))

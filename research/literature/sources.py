@@ -34,6 +34,26 @@ def _clean(text):
     return html.unescape(re.sub(r"<[^>]+>", "", text or "")).strip()
 
 
+def matches_publication(incoming: dict, existing_data: dict, existing_title: str) -> bool:
+    """Return whether two records identify the same publication."""
+    def base_arxiv(value):
+        return re.sub(r"v\d+$", "", value) if isinstance(value, str) and value else None
+
+    incoming_doi = incoming.get("doi")
+    incoming_arxiv = base_arxiv(incoming.get("arxiv_id"))
+    return bool(
+        (incoming_doi and incoming_doi == existing_data.get("doi"))
+        or (incoming_arxiv and incoming_arxiv == base_arxiv(existing_data.get("arxiv_id")))
+        or (
+            not incoming_doi
+            and not incoming_arxiv
+            and not existing_data.get("doi")
+            and not existing_data.get("arxiv_id")
+            and incoming.get("title", "").strip().lower() == existing_title.strip().lower()
+        )
+    )
+
+
 def _bib_escape(value):
     return str(value or "").replace("\\", "\\textbackslash{}").replace("&", r"\&").replace("%", r"\%").replace("_", r"\_").replace("#", r"\#").replace("{", "").replace("}", "")
 
