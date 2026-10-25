@@ -22,6 +22,7 @@ def effective_file_origin(origin, fallback):
     return origin or fallback
 
 ZERO_PADDED_NUMERIC=re.compile(r'^[+-]?0\d')
+INTEGER_LITERAL=re.compile(r'^[+-]?\d+$')
 
 def infer_csv_column_types(frame):
     """Restore numeric/boolean columns on a raw-text (dtype=str) CSV frame.
@@ -41,6 +42,20 @@ def infer_csv_column_types(frame):
         except (TypeError,ValueError,OverflowError):
             if values.isin(('True','False')).all():
                 frame[column]=series.map({'True':True,'False':False})
+            continue
+        converted=frame[column]
+        for original, value in zip(series, converted):
+            if not isinstance(original,str):
+                continue
+            integer=original.strip()
+            if not INTEGER_LITERAL.fullmatch(integer): continue
+            try:
+                changed=pd.isna(value) or int(value) != int(integer)
+            except (OverflowError,TypeError,ValueError):
+                changed=True
+            if changed:
+                frame[column]=series
+                break
     return frame
 
 def error(code,message,status=400,suggestion='',retryable=False):
