@@ -7,7 +7,7 @@ from sqlalchemy import select
 from services.api.db import Session,SourcePaper,SourcePassage,asdict
 from services.api.common import project_dir,emit
 from research.publication.quality import _official
-from .sources import import_identifier,download_pdf,extract_pdf
+from .sources import import_identifier,download_pdf,extract_pdf,matches_publication
 from .browser import read_page
 
 
@@ -71,7 +71,9 @@ def import_source(project_id,workspace,arguments,action_id):
         record['pdf_path']=str(path.relative_to(root.resolve()))
     record={**record,'origin_action_id':action_id,'trusted_instructions':False}
     with Session.begin() as session:
-        source=session.scalar(select(SourcePaper).where(SourcePaper.project_id==project_id,SourcePaper.title==record['title']))
+        source=next((candidate for candidate in session.scalars(
+            select(SourcePaper).where(SourcePaper.project_id==project_id)
+        ) if matches_publication(record,candidate.data,candidate.title)),None)
         if source is None:
             source=SourcePaper(project_id=project_id,title=record['title'],data=record,status='available');session.add(source);session.flush()
         else:
