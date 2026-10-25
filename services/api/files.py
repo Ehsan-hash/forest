@@ -135,6 +135,40 @@ def _restore_file_publication(path, backup, existed):
     if existed: backup.replace(path)
     else: path.unlink(missing_ok=True)
 
+def _invalidate_library_sources_for_file(s, project_id, path):
+    """Invalidate extracted library text when its backing PDF is replaced."""
+    root=project_dir(project_id).resolve()
+    published=path.resolve()
+
+    def matches(reference):
+        if not isinstance(reference,str) or not reference: return False
+        try:
+            candidate=Path(reference)
+            if not candidate.is_absolute(): candidate=root/candidate
+            candidate=candidate.resolve()
+        except (OSError,RuntimeError,ValueError):
+            return False
+        return candidate.is_relative_to(root) and candidate==published
+
+    for source in s.scalars(select(SourcePaper).where(SourcePaper.project_id==project_id)):
+        data=source.data if isinstance(source.data,dict) else {}
+        # Reindex uses pdf_path first, then fulltext_path. Invalidate only the
+        # same effective backing file so an inactive fallback cannot clear the
+        # current extraction.
+        if not matches(data.get('pdf_path') or data.get('fulltext_path')):
+            continue
+        for passage in s.scalars(select(SourcePassage).where(
+            SourcePassage.project_id==project_id
+        )):
+            if passage.data.get('paper_id')==source.id:
+                s.delete(passage)
+        updated={**data,'passages':[]}
+        if updated.get('reading_scope')=='fulltext':
+            updated['reading_scope']='metadata/abstract'
+        source.data=updated
+        source.revision+=1
+        touch_dependents(s,project_id,source.id)
+
 def _publish_file(ident,relative,path,temporary,backup,origin,expected_revision=None,content=None,overwrite=True,create_only=False):
     from services.worker.scheduler import _lock_project
     existed=False; published=False; flush_completed=False
@@ -171,6 +205,8 @@ def _publish_file(ident,relative,path,temporary,backup,origin,expected_revision=
                     if origin=='user_edited':
                         from .paper_state import sync_working_file_edit
                         sync_working_file_edit(s,ident,relative,content)
+                    if origin=='user_import':
+                        _invalidate_library_sources_for_file(s,ident,path)
                     touch_dependents(s,ident,relative)
                     managed_change(s,ident,relative,'owner_editor' if origin=='user_edited' else 'upload')
                     s.flush()

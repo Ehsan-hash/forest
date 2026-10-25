@@ -18,9 +18,31 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def pdf_bytes(text):
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=300, height=200)
+    font = DictionaryObject({
+        NameObject("/Type"): NameObject("/Font"),
+        NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/BaseFont"): NameObject("/Helvetica"),
+    })
+    page[NameObject("/Resources")] = DictionaryObject({
+        NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)}),
+    })
+    stream = DecodedStreamObject()
+    stream.set_data(f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode("ascii"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
 
 
 def ok(response, status=200):
@@ -120,6 +142,148 @@ def case_library_reindex_replaces_passage_rows(client, app):
         assert ok(client.get(endpoint + "/passages")) == []
     finally:
         monkeypatch.undo()
+
+
+def case_library_pdf_upload_invalidates_replaced_source(client, app):
+    from services.api.common import project_dir
+    from services.api.db import Session, SourcePaper, SourcePassage
+    from sqlalchemy import select
+
+    project = create(client)
+    upload_endpoint = f"/api/projects/{project['id']}/upload"
+    first_path = "library/source.pdf"
+    other_path = "library/other.pdf"
+    first_absolute_path = str(project_dir(project["id"]) / first_path)
+    first_upload = client.post(
+        upload_endpoint,
+        params={"directory": "library"},
+        files={"file": ("source.pdf", pdf_bytes("OLD PDF SENTINEL"))},
+    )
+    assert first_upload.status_code == 200, first_upload.text
+    other_upload = client.post(
+        upload_endpoint,
+        params={"directory": "library"},
+        files={"file": ("other.pdf", pdf_bytes("UNRELATED PDF SENTINEL"))},
+    )
+    assert other_upload.status_code == 200, other_upload.text
+
+    other_absolute_path = str(project_dir(project["id"]) / other_path)
+    source = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": "Replacement source", "pdf_path": first_absolute_path,
+                  "fulltext_path": other_absolute_path},
+    }))
+    unrelated = ok(client.post("/api/library/import", json={
+        "project_id": project["id"],
+        "paper": {"title": "Replacement source", "doi": "10.1234/unrelated",
+                  "fulltext_path": other_absolute_path},
+    }))
+    source_endpoint = f"/api/library/{source['id']}"
+    unrelated_endpoint = f"/api/library/{unrelated['id']}"
+    ok(client.post(source_endpoint + "/reindex"))
+    ok(client.post(unrelated_endpoint + "/reindex"))
+    assert [row["data"]["text"] for row in ok(client.get(source_endpoint + "/passages"))] == [
+        "OLD PDF SENTINEL"
+    ]
+    assert [row["data"]["text"] for row in ok(client.get(unrelated_endpoint + "/passages"))] == [
+        "UNRELATED PDF SENTINEL"
+    ]
+
+    other_project = create(client)
+    other_upload_endpoint = f"/api/projects/{other_project['id']}/upload"
+    other_project_upload = client.post(
+        other_upload_endpoint,
+        params={"directory": "library"},
+        files={"file": ("source.pdf", pdf_bytes("OTHER PROJECT SENTINEL"))},
+    )
+    assert other_project_upload.status_code == 200, other_project_upload.text
+    other_project_source = ok(client.post("/api/library/import", json={
+        "project_id": other_project["id"],
+        "paper": {"title": "Replacement source", "pdf_path": first_path},
+    }))
+    other_project_endpoint = f"/api/library/{other_project_source['id']}"
+    ok(client.post(other_project_endpoint + "/reindex"))
+    assert [row["data"]["text"] for row in ok(
+        client.get(other_project_endpoint + "/passages"))] == ["OTHER PROJECT SENTINEL"]
+
+    with Session() as session:
+        before = session.get(SourcePaper, source["id"])
+        unrelated_before = session.get(SourcePaper, unrelated["id"])
+        other_project_before = session.get(SourcePaper, other_project_source["id"])
+        source_revision = before.revision
+        unrelated_revision = unrelated_before.revision
+        other_project_revision = other_project_before.revision
+
+    replaced_other_pdf = pdf_bytes("REPLACED OTHER PDF SENTINEL")
+    other_replacement = client.post(
+        upload_endpoint,
+        params={"directory": "library"},
+        files={"file": ("other.pdf", replaced_other_pdf)},
+    )
+    assert other_replacement.status_code == 200, other_replacement.text
+    assert [row["data"]["text"] for row in ok(client.get(source_endpoint + "/passages"))] == [
+        "OLD PDF SENTINEL"
+    ]
+    assert ok(client.get(unrelated_endpoint + "/passages")) == []
+    assert [row["data"]["text"] for row in ok(
+        client.get(other_project_endpoint + "/passages"))] == ["OTHER PROJECT SENTINEL"]
+    with Session() as session:
+        after_inactive = session.get(SourcePaper, source["id"])
+        unrelated_after = session.get(SourcePaper, unrelated["id"])
+        other_project_after = session.get(SourcePaper, other_project_source["id"])
+        assert after_inactive.revision == source_revision
+        assert unrelated_after.revision == unrelated_revision + 1
+        assert other_project_after.revision == other_project_revision
+
+    replacement_pdf = pdf_bytes("NEW PDF SENTINEL")
+    replacement = client.post(
+        upload_endpoint,
+        params={"directory": "library"},
+        files={"file": ("source.pdf", replacement_pdf)},
+    )
+    assert replacement.status_code == 200, replacement.text
+    assert ok(client.get(source_endpoint + "/passages")) == []
+    assert ok(client.get(unrelated_endpoint + "/passages")) == []
+    with Session() as session:
+        after = session.get(SourcePaper, source["id"])
+        unrelated_after = session.get(SourcePaper, unrelated["id"])
+        assert after.revision == source_revision + 1
+        assert after.data["passages"] == []
+        assert unrelated_after.revision == unrelated_revision + 1
+        rows = list(session.scalars(select(SourcePassage).where(
+            SourcePassage.project_id == project["id"]
+        )))
+        assert [row.data["text"] for row in rows if row.data.get("paper_id") == source["id"]] == []
+
+    ok(client.post(source_endpoint + "/reindex"))
+    assert [row["data"]["text"] for row in ok(client.get(source_endpoint + "/passages"))] == [
+        "NEW PDF SENTINEL"
+    ]
+    with Session() as session:
+        current_revision = session.get(SourcePaper, source["id"]).revision
+        assert current_revision == source_revision + 2
+    downloaded_before_rejected = client.get(
+        f"/api/projects/{project['id']}/download", params={"path": first_path}
+    )
+    assert downloaded_before_rejected.status_code == 200
+    assert downloaded_before_rejected.content == replacement_pdf
+
+    rejected = client.post(
+        upload_endpoint,
+        params={"directory": "library", "overwrite": "false"},
+        files={"file": ("source.pdf", pdf_bytes("REJECTED PDF SENTINEL"))},
+    )
+    assert rejected.status_code == 409
+    downloaded_after_rejected = client.get(
+        f"/api/projects/{project['id']}/download", params={"path": first_path}
+    )
+    assert downloaded_after_rejected.status_code == 200
+    assert downloaded_after_rejected.content == replacement_pdf
+    assert [row["data"]["text"] for row in ok(client.get(source_endpoint + "/passages"))] == [
+        "NEW PDF SENTINEL"
+    ]
+    with Session() as session:
+        assert session.get(SourcePaper, source["id"]).revision == current_revision
 
 
 def case_library_stable_identifiers_preserve_distinct_sources(client, app):
