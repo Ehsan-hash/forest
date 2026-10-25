@@ -1261,6 +1261,62 @@ def case_actual_terminal(client, app):
         terminal.send_text('{"action":"close"}')
 
 
+def case_project_delete_closes_terminal_and_processes(client, app):
+    import shlex
+    import time
+    import psutil
+
+    project = create(client)
+    data_dir = Path(os.environ['FOREST_DATA_DIR'])
+    child_pid_path = data_dir / 'terminal-child.pid'
+    child_done_path = data_dir / 'terminal-child-done'
+    child_code = (
+        "import os, signal, time; "
+        "signal.signal(signal.SIGHUP, signal.SIG_IGN); "
+        f"open({str(child_pid_path)!r}, 'w').write(str(os.getpid())); "
+        "print('__TERMINAL_CHILD_STARTED__', flush=True); "
+        "time.sleep(0.6); "
+        "print('__TERMINAL_CHILD_STILL_RUNNING__', flush=True); "
+        "time.sleep(30); "
+        f"open({str(child_done_path)!r}, 'w').write('completed')"
+    )
+
+    with client.websocket_connect(f"/ws/projects/{project['id']}/terminal") as terminal:
+        terminal.send_text(f"{shlex.quote(sys.executable)} -c {shlex.quote(child_code)} &\n")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not child_pid_path.exists():
+            time.sleep(0.01)
+        assert child_pid_path.is_file(), 'Terminal child process did not start'
+
+        terminal.send_text("printf '__TERMINAL_SHELL_READY__\\n'\n")
+        output = ''
+        deadline = time.monotonic() + 5
+        while '__TERMINAL_SHELL_READY__' not in output and time.monotonic() < deadline:
+            output += terminal.receive_text()
+        assert '__TERMINAL_SHELL_READY__' in output, 'Terminal shell did not remain interactive'
+
+        ok(client.delete(f"/api/projects/{project['id']}"))
+        assert client.get(f"/api/projects/{project['id']}").status_code == 404
+        close_event = terminal.receive()
+        assert close_event['type'] == 'websocket.close', (
+            f"Terminal did not receive a close event after project deletion: {close_event}"
+        )
+
+    child_pid = int(child_pid_path.read_text())
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        try:
+            child = psutil.Process(child_pid)
+            if child.status() == psutil.STATUS_ZOMBIE:
+                break
+        except psutil.NoSuchProcess:
+            break
+        time.sleep(0.02)
+    else:
+        pytest.fail(f'Terminal child process {child_pid} survived project deletion')
+    assert not child_done_path.exists(), 'Terminal child continued after project deletion'
+
+
 def case_terminal_run_controls_do_not_signal_retained_processes(client, app):
     import signal
     import time

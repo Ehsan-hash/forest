@@ -48,9 +48,11 @@ async def lifespan(app):
     try:
         yield
     finally:
-        observer.close()
-    from .terminal import close_all
-    close_all()
+        try:
+            observer.close()
+        finally:
+            from .terminal import close_all
+            await close_all()
 app=FastAPI(title='FOREST Research API',version='0.1.0',lifespan=lifespan)
 TRUSTED_HOSTS={'localhost','127.0.0.1','::1','testserver'}
 def authorized(request):
@@ -159,7 +161,16 @@ def edit_project(ident:str,body:dict=Body(...)):
         receipt=record_change(s,p,observed,{key:value for key,value in body.items() if key not in ('request_id','expected_revision')},body.get('request_id'))
         return {**asdict(p),**({'intervention':receipt} if receipt else {})}
 @app.delete('/api/projects/{ident}')
-def delete_project(ident:str):
+async def delete_project(ident:str):
+    from starlette.concurrency import run_in_threadpool
+    from .terminal import close_project, reopen_project
+    try:
+        await close_project(ident)
+        return await run_in_threadpool(_delete_project_sync, ident)
+    finally:
+        reopen_project(ident)
+
+def _delete_project_sync(ident:str):
     from runners.local import stop_group
     with Session.begin() as s:
         if s.bind.dialect.name=='sqlite': s.execute(sql_text('BEGIN IMMEDIATE'))
