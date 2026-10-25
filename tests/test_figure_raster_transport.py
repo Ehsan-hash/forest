@@ -8,6 +8,8 @@ from email.parser import BytesParser
 import base64
 import io
 import json
+import struct
+import zlib
 
 import httpx
 from PIL import Image
@@ -15,12 +17,30 @@ import pytest
 
 from research.agents.provider import ModelClient, ProviderError
 from research.figures import images
+from research.figures.model_workflow import image_content
 
 
 def png_bytes(color='white'):
     stream = io.BytesIO()
     Image.new('RGB', (16, 12), color).save(stream, format='PNG')
     return stream.getvalue()
+
+
+def corrupt_idat_png(value):
+    data = bytearray(value)
+    offset = 8
+    while offset < len(data):
+        length = struct.unpack('>I', data[offset:offset + 4])[0]
+        chunk_type = bytes(data[offset + 4:offset + 8])
+        if chunk_type == b'IDAT' and length:
+            payload = bytearray(data[offset + 8:offset + 8 + length])
+            payload[len(payload) // 2] ^= 0xFF
+            data[offset + 8:offset + 8 + length] = payload
+            crc = zlib.crc32(chunk_type + payload) & 0xFFFFFFFF
+            data[offset + 8 + length:offset + 12 + length] = struct.pack('>I', crc)
+            return bytes(data)
+        offset += 12 + length
+    raise AssertionError('PNG fixture did not contain an IDAT chunk')
 
 
 def client_and_events():
@@ -195,6 +215,41 @@ def test_edit_invalid_output_never_creates_an_image(tmp_path, endpoint, value):
     assert caught.value.ambiguous and caught.value.request_id == 'unit-image-request'
     assert [event['phase'] for event in events] == ['before', 'after']
     assert not list((tmp_path / 'outputs').rglob('*.png'))
+
+
+@pytest.mark.parametrize('asset', [False, True])
+def test_corrupt_idat_is_rejected_before_registration(tmp_path, endpoint, asset):
+    valid = png_bytes()
+    response = {
+        'id': 'unit-image-response',
+        'data': [{'b64_json': base64.b64encode(corrupt_idat_png(valid)).decode()}],
+        'usage': {'input_tokens': 17, 'output_tokens': 31},
+    }
+    requests = endpoint(value=response)
+    client, events = client_and_events()
+    output = tmp_path / 'outputs'
+    with pytest.raises(ProviderError) as caught:
+        if asset:
+            images.generate_image_asset(client, output, 'Mechanism.')
+        else:
+            images.generate_image_candidates(client, output, 'Mechanism.', ['Overview.', 'Detail.'])
+    assert caught.value.code == 'invalid_image_response'
+    assert caught.value.ambiguous and caught.value.request_id == 'unit-image-request'
+    assert len(requests) == 1
+    assert [event['phase'] for event in events] == ['before', 'after']
+    assert not (output / 'candidate_manifest.json').exists()
+    assert not list(output.rglob('*.png'))
+
+
+def test_valid_png_reaches_review_handoff_pixels(tmp_path, endpoint):
+    endpoint()
+    client, _ = client_and_events()
+    bundle = images.generate_image_candidates(client, tmp_path / 'outputs', 'Mechanism.',
+                                              ['Overview.', 'Detail.'])
+    message = image_content(client, [bundle['candidates'][0]['outputs']['png']], 'Inspect.')
+    assert message['content'][0] == {'type': 'text', 'text': 'Inspect.'}
+    image_part = message['content'][1]['image_url']
+    assert image_part['url'].startswith('data:image/png;base64,')
 
 
 @pytest.mark.parametrize('error,ambiguous', [(httpx.ConnectError, False), (httpx.ReadTimeout, True)])
