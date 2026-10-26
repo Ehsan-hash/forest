@@ -61,6 +61,9 @@ def test_incomplete_usage_and_one_charged_recovery_are_retained():
     assert prepare_output_recovery(state, error, {}, allowed)
     assert state['output_recovery']['strategy'] == 'split_into_smaller_actions'
     assert set(model_turn_tools(state, allowed)) == {'read_file', 'write_file', 'write_file_chunk'}
+    assert model_turn_tools(state, ['finish']) == []
+    assert model_turn_tools(state, []) == []
+    assert model_turn_tools(empty_state(), ['finish']) == ['finish']
     assert not any(item.get('type') == 'function_call' for item in responses_input(state['messages']))
     assert budget_reason(state, {'agent_budget': {'cost': .3}})
     assert budget_reason(state, {'agent_budget': {'steps': 1}}) is None
