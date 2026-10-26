@@ -9,6 +9,7 @@ import argparse
 import os
 import re
 import shutil
+import tempfile
 import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -57,9 +58,33 @@ def source_files(root=ROOT):
 
 
 def package(destination,root=ROOT):
-    files=list(source_files(root)); destination=Path(destination); destination.parent.mkdir(parents=True,exist_ok=True)
-    with zipfile.ZipFile(destination,'w',zipfile.ZIP_DEFLATED) as archive:
-        for path in files: archive.write(path,'forest/'+path.relative_to(root).as_posix())
+    files=list(source_files(root)); destination=Path(destination)
+    try:
+        destination.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        if any(destination.samefile(path) for path in files):
+            raise ValueError('Archive destination cannot alias an eligible source file: ' + str(destination))
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    temporary = None
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=destination.parent,
+            prefix='.' + destination.name + '.',
+            suffix='.tmp',
+        )
+        temporary = Path(temporary_name)
+        os.close(descriptor)
+        with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED) as archive:
+            for path in files: archive.write(path,'forest/'+path.relative_to(root).as_posix())
+        os.replace(temporary, destination)
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
     return len(files)
 
 

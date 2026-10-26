@@ -7,6 +7,7 @@ import zipfile
 
 import pytest
 
+from scripts import package_source
 from scripts.release import create_source
 from scripts.package_source import source_tree as export_source_tree
 
@@ -105,6 +106,131 @@ def test_source_archive_includes_cli_and_excludes_directory_binding(source_tree,
     with zipfile.ZipFile(destination) as archive:
         assert 'forest/forest_cli/main.py' in archive.namelist()
         assert not any('.forest/' in name for name in archive.namelist())
+
+
+def test_packaging_cli_uses_default_output_directory(source_tree):
+    result = subprocess.run(
+        [sys.executable, str(source_tree / 'scripts' / 'package_source.py')],
+        cwd=source_tree.parent, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    destination = source_tree / 'output' / 'forest-source.zip'
+    with zipfile.ZipFile(destination) as archive:
+        assert archive.testzip() is None
+        assert 'forest/README.md' in archive.namelist()
+
+
+@pytest.mark.parametrize('relative_source', ['README.md', 'scripts/package_source.py'])
+def test_packaging_rejects_direct_source_destination_without_changing_source(source_tree, relative_source):
+    source = source_tree / relative_source
+    before = source.read_bytes()
+    with pytest.raises(ValueError, match='eligible source file'):
+        package_source.package(source, source_tree)
+    assert source.read_bytes() == before
+
+
+def test_packaging_cli_rejects_source_destination_without_changing_source(source_tree):
+    destination = source_tree / 'README.md'
+    before = destination.read_bytes()
+    result = run_packager('package_source.py', source_tree, destination)
+    assert result.returncode != 0
+    assert destination.read_bytes() == before
+
+
+@pytest.mark.parametrize('alias_kind', ['symlink', 'hardlink'])
+def test_packaging_rejects_source_alias_without_changing_source(source_tree, tmp_path, alias_kind):
+    source = source_tree / 'README.md'
+    alias = tmp_path / 'source.zip'
+    if alias_kind == 'symlink':
+        alias.symlink_to(source)
+    else:
+        alias.hardlink_to(source)
+    before = source.read_bytes()
+    with pytest.raises(ValueError, match='eligible source file'):
+        package_source.package(alias, source_tree)
+    assert source.read_bytes() == before
+    assert alias.read_bytes() == before
+
+
+def test_packaging_replaces_existing_archive_after_success(source_tree, tmp_path):
+    destination = tmp_path / 'source.zip'
+    destination.write_bytes(b'previous delivery')
+    expected = list(package_source.source_files(source_tree))
+    count = package_source.package(destination, source_tree)
+    assert count == len(expected)
+    with zipfile.ZipFile(destination) as archive:
+        assert archive.testzip() is None
+        assert set(archive.namelist()) == {
+            'forest/' + path.relative_to(source_tree).as_posix() for path in expected
+        }
+
+
+@pytest.mark.parametrize('preexisting', [False, True], ids=['absent', 'existing'])
+def test_packaging_write_failure_preserves_destination_and_source(
+    source_tree, tmp_path, monkeypatch, preexisting,
+):
+    destination = tmp_path / 'source.zip'
+    if preexisting:
+        destination.write_bytes(b'previous complete archive')
+    before_destination = destination.read_bytes() if preexisting else None
+    before_siblings = {path.name for path in destination.parent.iterdir()}
+    before_sources = {
+        path.relative_to(source_tree): path.read_bytes()
+        for path in package_source.source_files(source_tree)
+    }
+
+    original_write = package_source.zipfile.ZipFile.write
+    writes = 0
+
+    def fail_write(self, *args, **kwargs):
+        nonlocal writes
+        writes += 1
+        if writes > 1:
+            raise OSError('injected write failure')
+        return original_write(self, *args, **kwargs)
+
+    monkeypatch.setattr(package_source.zipfile.ZipFile, 'write', fail_write)
+    with pytest.raises(OSError, match='injected write failure'):
+        package_source.package(destination, source_tree)
+
+    assert writes > 1
+    assert {path.name for path in destination.parent.iterdir()} == before_siblings
+    assert (destination.read_bytes() if preexisting else None) == before_destination
+    assert destination.exists() is preexisting
+    assert {
+        path.relative_to(source_tree): path.read_bytes()
+        for path in package_source.source_files(source_tree)
+    } == before_sources
+
+
+@pytest.mark.parametrize('preexisting', [False, True], ids=['absent', 'existing'])
+def test_packaging_replace_failure_cleans_temporary_archive_and_preserves_destination(
+    source_tree, tmp_path, monkeypatch, preexisting,
+):
+    destination = tmp_path / 'source.zip'
+    if preexisting:
+        destination.write_bytes(b'previous complete archive')
+    before_destination = destination.read_bytes() if preexisting else None
+    before_siblings = {path.name for path in destination.parent.iterdir()}
+    before_sources = {
+        path.relative_to(source_tree): path.read_bytes()
+        for path in package_source.source_files(source_tree)
+    }
+
+    def fail_replace(*args, **kwargs):
+        raise OSError('injected replace failure')
+
+    monkeypatch.setattr(package_source.os, 'replace', fail_replace)
+    with pytest.raises(OSError, match='injected replace failure'):
+        package_source.package(destination, source_tree)
+
+    assert {path.name for path in destination.parent.iterdir()} == before_siblings
+    assert (destination.read_bytes() if preexisting else None) == before_destination
+    assert destination.exists() is preexisting
+    assert {
+        path.relative_to(source_tree): path.read_bytes()
+        for path in package_source.source_files(source_tree)
+    } == before_sources
 
 
 @pytest.mark.parametrize('token', [
