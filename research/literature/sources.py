@@ -84,13 +84,22 @@ def bibtex(records: list[dict]) -> str:
     entries = []
     for i, record in enumerate(records):
         authors = _author_names(record.get("authors"))
-        entry_type = "book" if str(record.get("type") or "").lower() in (
+        publication_type = str(record.get("type") or "").lower()
+        if publication_type == "proceedings-article":
+            entry_type = "inproceedings"
+        elif publication_type in (
             "book", "edited-book", "monograph", "reference-book", "ebook", "edbook"
-        ) else "article"
+        ):
+            entry_type = "book"
+        else:
+            entry_type = "article"
         first_author = authors[0] if authors else "source"
         surname = first_author.split(",", 1)[0].split()[-1]
         key = record.get("citation_key") or re.sub(r"[^a-zA-Z0-9]", "", surname) + str(record.get("year") or "nd") + str(i)
         fields = {"title": record.get("title"), "author": " and ".join(authors), "year": record.get("year"), "doi": record.get("doi"), "url": record.get("url"), "journal": record.get("journal"), "volume": record.get("volume"), "number": record.get("number"), "pages": record.get("pages")}
+        if entry_type == "inproceedings":
+            fields.pop("journal", None)
+            fields["booktitle"] = record.get("journal")
         if entry_type == "book":
             fields.pop("journal", None)
             fields["publisher"] = record.get("publisher")

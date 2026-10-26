@@ -2295,6 +2295,51 @@ def case_library_import_exports_books_with_persisted_publication_type(client, ap
     assert article.fields["pages"] == "4-9"
 
 
+def case_library_import_exports_crossref_proceedings_with_persisted_publication_type(client, app):
+    import httpx
+    from pybtex.database import parse_string
+    from research.literature import sources
+    from services.api.db import Session, SourcePaper
+
+    project = create(client)
+    metadata = {
+        "type": "proceedings-article", "title": ["A Conference Paper"],
+        "author": [{"given": "Alex", "family": "Researcher"}],
+        "container-title": ["Proceedings of the Example Conference"],
+        "published": {"date-parts": [[2024]]},
+        "DOI": "10.1234/forest399", "URL": "https://doi.org/10.1234/forest399",
+        "volume": "7", "issue": "2", "page": "10-18",
+    }
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(sources, "_get", lambda *args, **kwargs: httpx.Response(
+            200, json={"message": metadata}))
+        saved = ok(client.post("/api/library/import", json={
+            "project_id": project["id"], "identifier": "10.1234/forest399",
+        }))
+
+    assert saved["data"]["type"] == "proceedings-article"
+    assert saved["data"]["journal"] == "Proceedings of the Example Conference"
+    with Session() as session:
+        persisted = session.get(SourcePaper, saved["id"])
+        assert persisted.data["type"] == "proceedings-article"
+        assert persisted.data["journal"] == "Proceedings of the Example Conference"
+
+    response = client.get("/api/library/export-bibtex", params={"project_id": project["id"]})
+    assert response.status_code == 200, response.text
+    entries = parse_string(response.text, "bibtex").entries.values()
+    exported = next(item for item in entries if item.fields["title"] == "A Conference Paper")
+    assert exported.type == "inproceedings"
+    assert exported.fields["booktitle"] == "Proceedings of the Example Conference"
+    assert "journal" not in exported.fields
+    assert exported.persons["author"][0].last_names == ["Researcher"]
+    assert exported.fields["year"] == "2024"
+    assert exported.fields["doi"] == "10.1234/forest399"
+    assert exported.fields["url"] == "https://doi.org/10.1234/forest399"
+    assert exported.fields["volume"] == "7"
+    assert exported.fields["number"] == "2"
+    assert exported.fields["pages"] == "10-18"
+
+
 def case_graph_command_shape_validation(client, app):
     from fastapi.testclient import TestClient
     from services.api.db import Session, CommandReceipt, TaskRun
