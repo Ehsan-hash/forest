@@ -47,16 +47,18 @@ def index(content: bytes, path: str):
                     else: visit(child, prefix)
             visit(tree)
         elif suffix in ('.md', '.markdown'):
-            headings = []; fenced = False
-            fence = ''
+            headings = []; fence_char = None; fence_length = 0
             for n, line in enumerate(lines):
-                stripped = line.lstrip()
-                if stripped.startswith(('```', '~~~')):
-                    marker = stripped[:3]
-                    if not fenced: fenced=True; fence=marker
-                    elif marker == fence: fenced=False
+                body = line[:-2] if line.endswith('\r\n') else line[:-1] if line.endswith(('\r', '\n')) else line
+                if fence_char is not None:
+                    closing = re.match(r'^ {0,3}([' + re.escape(fence_char) + r']+)[ \t]*$', body)
+                    if closing and len(closing[1]) >= fence_length:
+                        fence_char = None; fence_length = 0
                     continue
-                if fenced: continue
+                opening = re.match(r'^ {0,3}(?P<marker>`{3,}|~{3,})(?P<info>.*)$', body)
+                if opening and not (opening['marker'][0] == '`' and '`' in opening['info']):
+                    fence_char = opening['marker'][0]; fence_length = len(opening['marker'])
+                    continue
                 m = re.match(r'^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$', line)
                 if m: headings.append((n, len(m[1]), m[2]))
                 elif n and re.match(r'^ {0,3}(=+|-+)\s*$', line) and lines[n-1].strip():
