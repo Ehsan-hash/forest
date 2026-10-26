@@ -1,4 +1,5 @@
 """Real backup/restore and opt-in Docker isolation qualification."""
+import io
 import getpass
 import json
 import os
@@ -7,12 +8,13 @@ import signal
 import sqlite3
 import subprocess
 import sys
+import tarfile
 import time
 import uuid
 
 import pytest
 
-from scripts.backup import create_backup, restore_backup
+from scripts.backup import create_backup, restore_backup, unpack_backup
 from scripts.install import prepare_secrets
 from scripts.release import portable_path
 
@@ -29,6 +31,66 @@ def seed_sqlite(directory):
     (directory / 'projects/project-1/result.txt').write_text('Editable measured artifact\n')
     (directory / 'secrets.json').write_text('{"private":"should not be exported"}')
     return 'sqlite:///' + str(database)
+
+
+def _backup_archive(path, database, data_members, manifest_files=None):
+    manifest = {
+        'format': 'forest-backup-v1',
+        'database_backend': 'sqlite',
+        'database_file': 'database.sqlite3',
+        'files': manifest_files if manifest_files is not None else [
+            name.removeprefix('data/') for name, _ in data_members
+        ],
+    }
+    with tarfile.open(path, 'w:gz') as archive:
+        for name, content in [
+            ('manifest.json', json.dumps(manifest).encode()),
+            ('database.sqlite3', database),
+            *data_members,
+        ]:
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            archive.addfile(info, io.BytesIO(content))
+
+
+@pytest.mark.parametrize('aliases,manifest_files', [
+    ([('data/duplicate.txt', b'FIRST'), ('data/duplicate.txt', b'SECOND')], ['duplicate.txt']),
+    ([('data/victim.txt', b'FIRST'), ('data/x/../victim.txt', b'SECOND')], ['victim.txt']),
+    ([('data/caf\u00e9.txt', b'FIRST'), ('data/cafe\u0301.txt', b'SECOND')], ['café.txt']),
+])
+def test_unpack_backup_rejects_destination_collisions_before_extraction(
+    tmp_path, aliases, manifest_files, monkeypatch
+):
+    source = tmp_path / 'source'
+    seed_sqlite(source)
+    archive = tmp_path / 'colliding.tar.gz'
+    _backup_archive(archive, (source / 'forest.db').read_bytes(), aliases, manifest_files)
+    extracted = []
+    original_extractall = tarfile.TarFile.extractall
+
+    def record_extractall(bundle, *args, **kwargs):
+        extracted.append(bundle)
+        return original_extractall(bundle, *args, **kwargs)
+
+    monkeypatch.setattr(tarfile.TarFile, 'extractall', record_extractall)
+
+    with pytest.raises(ValueError, match='colliding backup archive'):
+        with unpack_backup(archive):
+            raise AssertionError('colliding archive was extracted')
+    assert extracted == []
+
+
+def test_unpack_backup_accepts_complete_fixture_and_preserves_bytes(tmp_path):
+    source = tmp_path / 'source'
+    seed_sqlite(source)
+    archive = tmp_path / 'valid.tar.gz'
+    data = b'Editable measured artifact\n'
+    _backup_archive(archive, (source / 'forest.db').read_bytes(), [('data/projects/project-1/result.txt', data)])
+
+    with unpack_backup(archive) as (stage, manifest):
+        assert manifest['files'] == ['projects/project-1/result.txt']
+        assert (stage / 'database.sqlite3').read_bytes() == (source / 'forest.db').read_bytes()
+        assert (stage / 'data/projects/project-1/result.txt').read_bytes() == data
 
 
 def test_sqlite_backup_restore_and_verification(tmp_path):

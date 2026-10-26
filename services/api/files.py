@@ -649,15 +649,15 @@ async def import_project(file:UploadFile=File(...)):
     if sum(x.file_size for x in member_infos)>500*1024*1024: error('ARCHIVE_TOO_LARGE','Uncompressed archive exceeds 500 MB',413)
     for info in member_infos:
         if info.filename.startswith('/') or '..' in Path(info.filename).parts or (info.external_attr>>16)&0o170000==0o120000: error('UNSAFE_ARCHIVE','Archive contains unsafe paths or symbolic links')
-    # A case-insensitive destination cannot hold both names; the second write
-    # would silently replace the first. Reject the archive before importing (#361).
+    # Multiple archive members must not resolve to one destination; the later
+    # write would silently replace the first. Reject before creating a project.
     from services.api.archive_paths import case_collision
     colliding = case_collision(
         info.filename[6:] for info in member_infos
         if info.filename.startswith('files/') and not info.is_dir())
     if colliding:
         error('INVALID_ARCHIVE',
-              f'Archive contains paths that differ only by case: {colliding[0]!r} and {colliding[1]!r}')
+              f'Archive contains members that target the same destination: {colliding[0]!r} and {colliding[1]!r}')
     from services.interventions.history import validate_history
     from services.research_evolution.history import validate_evolution
     from services.interventions.origin_history import validate_origins,import_origins,relocate_permission_config

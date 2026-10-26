@@ -21,6 +21,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from services.api.archive_paths import case_collision
 SECRET_NAMES = {'secrets.json', 'owner-token', 'owner_token', 'database_password', '.env'}
 
 
@@ -167,13 +168,19 @@ def unpack_backup(archive):
     with tempfile.TemporaryDirectory(prefix='forest-restore-stage-') as temporary:
         stage = Path(temporary).resolve()
         with tarfile.open(archive, 'r:gz') as bundle:
-            seen = set()
+            names = []
             for member in bundle.getmembers():
                 name = member.name
                 target = (stage / name).resolve()
-                if name in seen or '\\' in name or not target.is_relative_to(stage) or not (member.isfile() or member.isdir()):
-                    raise ValueError('Unsafe or duplicate backup archive member: ' + name)
-                seen.add(name)
+                if '\\' in name or not target.is_relative_to(stage) or not (member.isfile() or member.isdir()):
+                    raise ValueError('Unsafe or colliding backup archive member: ' + name)
+                names.append(name)
+            colliding = case_collision(names)
+            if colliding:
+                raise ValueError(
+                    'Unsafe or colliding backup archive members: '
+                    + repr(colliding[0]) + ' and ' + repr(colliding[1])
+                )
             bundle.extractall(stage, filter='data')
         manifest = json.loads((stage / 'manifest.json').read_text())
         if manifest.get('format') != 'forest-backup-v1':
