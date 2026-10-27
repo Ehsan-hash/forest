@@ -385,7 +385,15 @@ def validate_replanning(plan,before,after,runs,control,health,goal):
                   'Submission Reviewer','Layout Reviewer','Visual Selector','Figure Designer'}
     def scientific(node):
         from research.agents.research_path import task_signature
-        return task_signature(node)
+        signature=task_signature(node)
+        # Execution time is an operational budget, not a scientific route
+        # change. Keep the shared task identity unchanged for recovery and
+        # completion checks, while excluding timeout-only edits from this
+        # replanning gate.
+        config=signature.get('config')
+        if isinstance(config,dict):
+            config.pop('timeout',None)
+        return signature
     def productive(node):
         cfg=node.get('config',{})
         return (not node.get('archived') and node.get('branch_id') in active and
