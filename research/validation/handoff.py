@@ -247,6 +247,23 @@ class _Unavailable(ValueError):
     pass
 
 
+class _DuplicateJSONKey(ValueError):
+    """A JSON object repeats a key after JSON escape decoding."""
+
+    def __init__(self, key):
+        super().__init__(f'Duplicate JSON object key after decoding: {key!r}')
+
+
+def _reject_duplicate_json_keys(pairs):
+    """Build one JSON object while rejecting every repeated decoded key."""
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise _DuplicateJSONKey(key)
+        value[key] = item
+    return value
+
+
 def _file(workspace, relative):
     root = Path(workspace).resolve()
     if not root.is_dir():
@@ -454,7 +471,7 @@ def _data_contract(check, producer, verifier):
     """Check schema, literal units and sample partitioning of actual CSV/JSON."""
     path = _file(producer, check['source'])
     if path.suffix.lower() == '.json':
-        records = json.loads(path.read_text())
+        records = json.loads(path.read_text(), object_pairs_hook=_reject_duplicate_json_keys)
         if not isinstance(records, list): raise ValueError('Raw JSON data must be an array of records')
         columns = sorted({name for row in records if isinstance(row,dict) for name in row})
         handle = None; rows = iter(records)
@@ -472,7 +489,7 @@ def _data_contract(check, producer, verifier):
     if missing or extra: issue({'check': 'schema_columns', 'missing': missing, 'extra': extra})
     identities = set(); partitions = {}; counts = defaultdict(int); nullable_counts = defaultdict(int); row_count = 0
     try:
-        units = json.loads(_file(producer, check['units_file']).read_text())
+        units = json.loads(_file(producer, check['units_file']).read_text(), object_pairs_hook=_reject_duplicate_json_keys)
         expected_units = {name: schema['unit'] for name, schema in schemas.items() if schema['type'] != 'string'}
         if not isinstance(units, dict) or not isinstance(units.get('units'), dict) or any(units['units'].get(name) != unit for name, unit in expected_units.items()):
             issue({'check': 'declared_units', 'expected': expected_units, 'actual': units.get('units') if isinstance(units, dict) else None})
@@ -610,6 +627,9 @@ def check_contract(contract, producer_workspace: Path, verifier_workspace: Path)
         except (_Unavailable, OSError, UnicodeError, json.JSONDecodeError, csv.Error) as exc:
             result = {'status': 'inconclusive', 'reason': str(exc),
                       'verification_scope': 'Requested actual-file check could not be completed'}
+        except _DuplicateJSONKey as exc:
+            result = {'status': 'rejected', 'reason': str(exc),
+                      'verification_scope': 'Raw JSON data-contract objects must not contain duplicate keys after JSON escape decoding'}
         except ValueError as exc:
             # A computation that cannot establish the selected arithmetic scope
             # is unavailable; finite contradictory receipts are handled above.

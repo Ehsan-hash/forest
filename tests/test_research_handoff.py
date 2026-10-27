@@ -82,6 +82,113 @@ def test_json_raw_schema_preserves_large_integer_identities_and_nullable_values(
     assert rejected['checks'][0]['issues'][0]['check'] == 'column_type'
 
 
+def _json_data_contract(source='data.json', units_file='units.json', **options):
+    return {'id': 'json-duplicate-keys', 'kind': 'data_contract', 'source': source, 'units_file': units_file,
+        'columns': {'id': {'type': 'string', 'nullable': False},
+                    'measurement': {'type': 'integer', 'nullable': False, 'unit': 'dimensionless'},
+                    'split': {'type': 'string', 'nullable': False},
+                    'value': {'type': 'number', 'nullable': True, 'unit': 'kg'}},
+        'identity_columns': ['id', 'measurement'],
+        'split': {'column': 'split', 'identity_columns': ['id'], 'expected_counts': {'train': 1}}, **options}
+
+
+@pytest.mark.parametrize('label,record,expected_key', [
+    ('conflicting identity', '{"id":"s1","id":"s2","measurement":0,"split":"train","value":1}', 'id'),
+    ('equal measurement', '{"id":"s1","measurement":0,"measurement":0,"split":"train","value":1}', 'measurement'),
+    ('escaped equivalent identity', '{"\\u0069d":"s1","id":"s1","measurement":0,"split":"train","value":1}', 'id'),
+])
+def test_json_data_contract_rejects_duplicate_decoded_dataset_keys_without_changing_bytes(workspaces, label, record, expected_key):
+    producer, verifier = workspaces
+    (producer / 'data.json').write_text('[' + record + ']')
+    write_json(producer / 'units.json', {'units': {'measurement': 'dimensionless', 'value': 'kg'}})
+    before = {path: path.read_bytes() for path in (producer / 'data.json', producer / 'units.json')}
+
+    result = check_contract(contract(_json_data_contract()), producer, verifier)
+
+    assert result['verification_status'] == 'rejected', label
+    assert result['checks'][0]['status'] == 'rejected'
+    assert expected_key in result['checks'][0]['reason']
+    assert 'duplicate' in result['checks'][0]['reason'].lower()
+    assert {path: path.read_bytes() for path in before} == before
+
+
+@pytest.mark.parametrize('record', [
+    '{"id":"s1","measurement":0,"split":"train","value":1,"ignored":{"nested":1,"nested":1}}',
+    '{"id":"s1","measurement":0,"split":"train","value":1,"ignored":[{"nested":1,"nested":1}]}',
+])
+def test_json_data_contract_rejects_nested_duplicate_keys_in_ignored_values(workspaces, record):
+    producer, verifier = workspaces
+    (producer / 'data.json').write_text('[' + record + ']')
+    write_json(producer / 'units.json', {'units': {'measurement': 'dimensionless', 'value': 'kg'}})
+
+    result = check_contract(contract(_json_data_contract(allow_extra_columns=True)), producer, verifier)
+
+    assert result['verification_status'] == 'rejected'
+    assert 'nested' in result['checks'][0]['reason']
+
+
+@pytest.mark.parametrize('source,units', [
+    ('data.json', '{"units":{"measurement":"dimensionless","value":"kg"},"units":{"measurement":"dimensionless","value":"kg"}}'),
+    ('data.json', '{"units":{"measurement":"dimensionless","value":"kg","value":"kg"}}'),
+    ('data.csv', '{"units":{"measurement":"dimensionless","value":"kg"},"units":{"measurement":"dimensionless","value":"kg"}}'),
+    ('data.csv', '{"units":{"measurement":"dimensionless","value":"kg","value":"kg"}}'),
+])
+def test_data_contract_rejects_duplicate_outer_or_inner_units_keys_for_json_and_csv(workspaces, source, units):
+    producer, verifier = workspaces
+    if source.endswith('.json'):
+        (producer / source).write_text('[{"id":"s1","measurement":0,"split":"train","value":1}]')
+    else:
+        (producer / source).write_text('id,measurement,split,value\ns1,0,train,1\n')
+    (producer / 'units.json').write_text(units)
+
+    result = check_contract(contract(_json_data_contract(source=source)), producer, verifier)
+
+    assert result['verification_status'] == 'rejected'
+    assert 'Duplicate JSON object key' in result['checks'][0]['reason']
+
+
+def test_json_data_contract_accepts_independent_objects_reusing_column_names(workspaces):
+    producer, verifier = workspaces
+    (producer / 'data.json').write_text(
+        '[{"id":"s1","measurement":0,"split":"train","value":1},'
+        '{"id":"s2","measurement":0,"split":"train","value":2}]')
+    write_json(producer / 'units.json', {'units': {'measurement': 'dimensionless', 'value': 'kg'}})
+    check = _json_data_contract()
+    check['split']['expected_counts'] = {'train': 2}
+
+    result = check_contract(contract(check), producer, verifier)
+
+    assert result['verification_status'] == 'accepted', result
+
+
+@pytest.mark.parametrize('target', ['data.json', 'units.json'])
+def test_data_contract_malformed_json_remains_inconclusive(workspaces, target):
+    producer, verifier = workspaces
+    (producer / 'data.json').write_text('[{"id":"s1","measurement":0,"split":"train","value":1}]')
+    write_json(producer / 'units.json', {'units': {'measurement': 'dimensionless', 'value': 'kg'}})
+    (producer / target).write_text('{malformed')
+
+    result = check_contract(contract(_json_data_contract()), producer, verifier)
+
+    assert result['verification_status'] == 'inconclusive'
+    assert result['checks'][0]['status'] == 'inconclusive'
+
+
+def test_duplicate_data_contract_rejection_preserves_neighboring_check_results(workspaces):
+    producer, verifier = workspaces
+    for directory in workspaces:
+        write_json(directory / 'metrics.json', {'score': 4})
+    (producer / 'data.json').write_text('[{"id":"s1","id":"s2","measurement":0,"split":"train","value":1}]')
+    write_json(producer / 'units.json', {'units': {'measurement': 'dimensionless', 'value': 'kg'}})
+
+    result = check_contract(contract(numeric(), _json_data_contract()), producer, verifier)
+
+    assert result['verification_status'] == 'rejected'
+    assert [check['status'] for check in result['checks']] == ['accepted', 'rejected']
+    assert result['checks'][0]['kind'] == 'numeric_compare'
+    assert 'Duplicate JSON object key' in result['checks'][1]['reason']
+
+
 def test_raw_contract_retains_total_failures_with_bounded_diagnostics(workspaces):
     producer, verifier = workspaces
     (producer/'data.csv').write_text('id,split,value\n'+'same,train,invalid\n'*1000)
