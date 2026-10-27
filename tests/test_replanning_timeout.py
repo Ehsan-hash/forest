@@ -36,31 +36,32 @@ def _graph(config=None, *, instructions="Run the baseline computation.", inputs=
 
 
 def _plan(*, stop="failed", evidence="run-1", commands=None):
+    evidence_ids = evidence if isinstance(evidence, list) else [evidence]
     return {
         "action": "continue",
         "rationale": "The repeated route failure requires a changed executable method.",
-        "evidence_run_ids": [evidence],
+        "evidence_run_ids": evidence_ids,
         "replanning": {
             "reason": "The current route repeatedly failed.",
             "new_direction": "Use a changed executable baseline method.",
             "goal_alignment": "Continue measuring the current scientific goal.",
             "stop_node_ids": [stop],
-            "evidence_run_ids": [evidence],
+            "evidence_run_ids": evidence_ids,
         },
         "commands": commands or [],
     }
 
 
-def _validate(before, after, plan=None, control=None):
+def _validate(before, after, plan=None, control=None, runs=None, health=None):
     from research.planning.loop import validate_replanning
 
     return validate_replanning(
         plan or _plan(),
         before,
         after,
-        [{"id": "run-1", "node_id": "failed", "status": "failed"}],
+        runs or [{"id": "run-1", "node_id": "failed", "status": "failed"}],
         control or {"replan_required": True, "route_replan_node_ids": ["failed"]},
-        {"signals": []},
+        health or {"signals": []},
         before["goal"],
     )
 
@@ -124,6 +125,110 @@ def test_agent_instruction_edit_is_admissible():
     assert report["changed_scientific_node_ids"] == ["failed"]
 
 
+def _timeout_runs(error="Configured process timeout exceeded", *, node_id="failed", node_revision=2, timeout=10, status="failed"):
+    return [{
+        "id": f"run-{index}", "node_id": node_id, "node_revision": node_revision,
+        "created_at": str(index), "kind": "command", "status": status,
+        "config": {
+            "kind": "command", "command": ["python", "baseline.py"], "timeout": timeout,
+            "research_task_identity": {
+                "instructions": "Run the baseline computation.",
+                "config": {"kind": "command", "command": ["python", "baseline.py"], "timeout": timeout},
+                "inputs": [],
+            },
+        },
+        "error": error,
+    } for index in range(3)]
+
+
+def _repeated_failure_health(run_ids, *, node_id="failed"):
+    return {"replan_required": True, "signals": [{
+        "kind": "repeated_failure", "node_ids": [node_id], "run_ids": run_ids,
+    }]}
+
+
+def test_actual_repeated_process_timeouts_admit_only_a_higher_timeout_repair():
+    from research.planning.route_review import route_health
+
+    before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
+    runs = _timeout_runs()
+    for run in runs:
+        run["config"]["research_activity"] = "counterexample_check"
+    health = route_health(before, runs)
+    assert health["replan_required"]
+    assert any(signal["kind"] == "repeated_failure" for signal in health["signals"])
+    assert any(signal["kind"] == "excessive_counterexample_checks" for signal in health["signals"])
+    after = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 120})
+    report = _validate(before, after, plan=_plan(evidence=[run["id"] for run in runs]), runs=runs, health=health)
+    assert report["changed_scientific_node_ids"] == []
+    assert report["repaired_timeout_node_ids"] == ["failed"]
+
+
+@pytest.mark.parametrize("error", [
+    "Configured process timeout exceeded",
+    "Command exceeded 10s; output is available at /tmp/forest-command.log",
+    "Task exceeded its 10s budget",
+])
+def test_supported_timeout_receipts_are_causal_but_generic_errors_are_not(error):
+    before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
+    runs = _timeout_runs(error)
+    after = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 120})
+    report = _validate(before, after, plan=_plan(evidence=[run["id"] for run in runs]), runs=runs,
+                       health=_repeated_failure_health([run["id"] for run in runs]))
+    assert report["repaired_timeout_node_ids"] == ["failed"]
+
+    generic = _timeout_runs("The command failed with exit code 1")
+    with pytest.raises(ValueError, match="materially changed"):
+        _validate(before, after, plan=_plan(evidence=[run["id"] for run in generic]), runs=generic,
+                  health=_repeated_failure_health([run["id"] for run in generic]))
+
+
+@pytest.mark.parametrize("new_timeout", [5, float("inf"), float("nan")])
+def test_timeout_repair_rejects_decrease_and_nonfinite_limits(new_timeout):
+    before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
+    runs = _timeout_runs()
+    after = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": new_timeout})
+    with pytest.raises(ValueError, match="materially changed"):
+        _validate(before, after, plan=_plan(evidence=[run["id"] for run in runs]), runs=runs,
+                  health=_repeated_failure_health([run["id"] for run in runs]))
+
+
+@pytest.mark.parametrize("mutation", ["wrong_node", "old_revision", "old_timeout", "successful"])
+def test_timeout_repair_rejects_stale_wrong_or_successful_evidence(mutation):
+    before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
+    runs = _timeout_runs()
+    if mutation == "wrong_node":
+        runs[0]["node_id"] = "other"
+    elif mutation == "old_revision":
+        runs[0]["node_revision"] = 1
+    elif mutation == "old_timeout":
+        runs[0]["config"]["timeout"] = 5
+    else:
+        runs[0]["status"] = "completed"
+    after = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 120})
+    with pytest.raises(ValueError, match="materially changed"):
+        _validate(before, after, plan=_plan(evidence=[run["id"] for run in runs]), runs=runs,
+                  health=_repeated_failure_health([run["id"] for run in runs]))
+
+
+def test_timeout_repair_rejects_uncited_and_competing_route_evidence():
+    before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
+    runs = _timeout_runs()
+    after = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 120})
+    ids = [run["id"] for run in runs]
+    with pytest.raises(ValueError, match="materially changed"):
+        _validate(before, after, plan=_plan(evidence=[ids[0]]), runs=runs,
+                  health=_repeated_failure_health(ids))
+    competing = _repeated_failure_health(ids)
+    unrelated = {"id": "completed-observation", "node_id": "failed", "node_revision": 2,
+                 "status": "completed", "config": {"kind": "command", "timeout": 10},
+                 "metrics": {"score": 1}}
+    competing["signals"].append({"kind": "excessive_counterexample_checks", "node_ids": ["failed"],
+                                  "run_ids": [unrelated["id"]]})
+    with pytest.raises(ValueError, match="materially changed"):
+        _validate(before, after, plan=_plan(evidence=ids + [unrelated["id"]]), runs=runs + [unrelated], health=competing)
+
+
 def test_timeout_remains_editable_when_replanning_gate_is_off():
     before = _graph(config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10})
     after = deepcopy(before)
@@ -136,7 +241,10 @@ def test_scientific_timeout_normalization_does_not_mutate_inputs_or_shared_ident
     from research.agents.research_path import task_signature
 
     before = _graph(
-        config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10},
+        config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10,
+                "research_task_identity": {"instructions": "Run the baseline computation.",
+                    "config": {"kind": "command", "command": ["python", "baseline.py"], "timeout": 10},
+                    "inputs": []}},
         inputs=[{"node_id": "source", "path": "metrics.json", "destination": "input.json"}],
     )
     after = deepcopy(before)
@@ -173,8 +281,9 @@ assert tmp.parent == scenario_root and data.parent == scenario_root and mpl.pare
 assert len({str(database), str(data), str(tmp), str(mpl)}) == 4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from services.api.common import graph_from_db
-from services.api.db import Project, Session, TaskRun, migrate, uid
+from services.api.db import Hypothesis, Project, Session, TaskRun, migrate, uid
 from services.api.main import app
 from research.planning.loop import apply_plan
 
@@ -262,6 +371,78 @@ with Session() as session:
     assert node["config"]["command"] == ["python", "revised.py"]
     assert persisted.config["controller"]["replan_required"] is False
     assert persisted.config["controller"]["phase"] == "EXECUTE"
+
+# A separate persisted project proves that an actual repeated timeout cause
+# admits the operational repair and records no scientific change.
+response = client.post("/api/projects", json={
+    "name": "Causal timeout repair", "goal": "Measure the baseline computation",
+    "mode": "manual", "config": {"controller": {"status": "running"}},
+})
+assert response.status_code == 200, response.text
+causal_project = response.json()
+causal_pid = causal_project["id"]
+causal_graph = client.get("/api/projects/" + causal_pid + "/graph").json()
+causal_branch = causal_graph["branches"][0]
+causal_node_id = "causal-timeout-node"
+node_response = client.post("/api/projects/" + causal_pid + "/graph/commands", json={
+    "request_id": uid(), "expected_revision": causal_graph["revision"],
+    "operation": "add_node", "params": {
+        "id": causal_node_id, "branch_id": causal_branch["id"], "type": "experiment",
+        "title": "Baseline computation", "instructions": "Run the baseline computation.",
+        "config": {"kind": "command", "command": ["python", "baseline.py"], "timeout": 10},
+    },
+})
+assert node_response.status_code == 200, node_response.text
+with Session.begin() as session:
+    persisted = session.get(Project, causal_pid)
+    persisted.config = {**persisted.config, "controller": {
+        "status": "running", "phase": "PLAN", "replan_required": True,
+        "route_replan_node_ids": [causal_node_id],
+    }}
+    causal_ids = []
+    for index in range(3):
+        failed = TaskRun(
+            project_id=causal_pid, node_id=causal_node_id, branch_id=causal_branch["id"],
+            request_id=uid(), kind="command", status="failed",
+            config={"kind": "command", "command": ["python", "baseline.py"], "timeout": 10,
+                    "research_task_identity": {"instructions": "Run the baseline computation.",
+                        "config": {"kind": "command", "command": ["python", "baseline.py"], "timeout": 10},
+                        "inputs": []}},
+            node_revision=0, output_path="runs/failed-" + str(index),
+            error="Configured process timeout exceeded",
+            resource={"evidence_label": "FIXTURE", "synthetic": True},
+        )
+        session.add(failed)
+        session.flush()
+        causal_ids.append(failed.id)
+with Session() as session:
+    causal_revision = session.get(Project, causal_pid).revision
+causal_plan = {
+    "action": "continue",
+    "rationale": "The recorded process timeout failures require a larger operational limit.",
+    "evidence_run_ids": causal_ids,
+    "replanning": {
+        "reason": "The current process limit caused each recorded failure.",
+        "new_direction": "Resume the same computation with a higher operational limit.",
+        "goal_alignment": "Preserve the current scientific computation without changing its method.",
+        "stop_node_ids": [causal_node_id], "evidence_run_ids": causal_ids,
+    },
+    "commands": [{"operation": "edit_node", "targets": [causal_node_id], "params": {
+        "config": {"kind": "command", "command": ["python", "baseline.py"], "timeout": 120},
+    }}],
+}
+causal_result = apply_plan(causal_pid, "causal-timeout-plan", causal_plan, causal_revision)
+assert causal_result["action"] == "continue" and causal_result["applied_commands"] == 1
+with Session() as session:
+    persisted = session.get(Project, causal_pid)
+    current = graph_from_db(session, persisted)
+    node = next(item for item in current["nodes"] if item["id"] == causal_node_id)
+    assert node["config"]["timeout"] == 120
+    assert persisted.config["controller"]["replan_required"] is False
+    assert persisted.config["controller"]["phase"] == "EXECUTE"
+    decision = session.scalars(select(Hypothesis).where(Hypothesis.project_id == causal_pid).order_by(Hypothesis.created_at.desc())).first()
+    assert decision.data["replanning"]["changed_scientific_node_ids"] == []
+    assert decision.data["replanning"]["repaired_timeout_node_ids"] == [causal_node_id]
 client.close()
 '''
     env = {
