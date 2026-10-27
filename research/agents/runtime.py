@@ -597,7 +597,12 @@ def assemble_model_request(state, workspace, config, client, allowed):
             client.config.get('output_stage') or client.config.get('research_stage'))
     state.setdefault('context_management', {})['transport_input_characters'] = message_chars(messages)
     if state.get('context_management', {}).get('next_required'):
-        request_tools = ['read_context_segment']
+        if 'read_context_segment' in request_tools:
+            request_tools = ['read_context_segment']
+        elif state.get('output_recovery', {}).get('pending'):
+            request_tools = []
+        else:
+            request_tools = ['read_context_segment']
     return messages, request_tools
 
 
@@ -981,6 +986,17 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
     def action_result(content, action):
         state['messages'].append({'role': 'user', 'content': content,
                                   **({'native_call_id': action['call_id']} if action.get('call_id') else {})})
+    def finish_blocked_during_recovery(action):
+        recovery = state.get('output_recovery', {})
+        if action.get('tool') != 'finish' or not recovery.get('pending'):
+            return False
+        from services.interventions.controls import discard_decision
+        discard_decision(run_id, action['id'])
+        action_result(json.dumps({'action_discarded': True,
+                                  'reason': 'Output recovery cannot finish until a non-finish continuation action is executed'}), action)
+        state['pending_action'] = None
+        save()
+        return True
     pending_submission_action = state.get('pending_action')
     if pending_submission_action:
         with Session() as session:
@@ -1176,6 +1192,19 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             request_messages, request_tools = assemble_model_request(state, workspace, config, client, tool.allowed)
             save()  # Persist the exact context/retrieval decision before transport.
             if not request_tools:
+                if state.get('output_recovery', {}).get('pending'):
+                    reason = ('Output recovery is paused because no actionable continuation tool is enabled; '
+                              'restore a non-finish tool permission before resuming')
+                    state.update(status='waiting_input')
+                    save()
+                    with Session.begin() as s:
+                        from services.worker.scheduler import _lock_project
+                        project_id = get(s, TaskRun, run_id).project_id
+                        _lock_project(s, project_id)
+                        current = get(s, TaskRun, run_id, for_update=True)
+                        current.resource = {**current.resource,
+                                            'blocked_reason': 'output_recovery_no_enabled_tools'}
+                    raise AgentYield(status='waiting_input', reason=reason)
                 raise ValueError('Output recovery requires the existing file-write permission; no enabled continuation tool remains')
             if client.api == 'codex_cli':
                 client.config['_forest_action_schema'] = json_action_schema(request_tools)
@@ -1302,9 +1331,6 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                     action = {**action, 'call_id': call_id}
                 state['pending_action'] = {**action, 'id': str(uuid.uuid4()),
                                            'observed_graph_revision': request_context['observed_graph_revision']}
-                if state.get('output_recovery', {}).get('pending'):
-                    state['output_recovery']['pending'] = False
-                    state['output_recovery']['continued_step'] = len(state['transcript'])
                 if state.get('progress_recovery', {}).get('pending'):
                     state['progress_recovery']['pending'] = False
                     state['progress_recovery']['continued_step'] = len(state['transcript'])
@@ -1328,6 +1354,8 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
             save()  # The public decision and exact intent exist before any effect.
         action = state['pending_action']
         name, args = action['tool'], action['arguments']
+        if finish_blocked_during_recovery(action):
+            continue
         with Session() as s:
             live = get(s, TaskRun, run_id)
             fresh_revision = get(s, Project, live.project_id).revision
@@ -1350,6 +1378,8 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                 consume_decision(decision['id'])
             state['pending_action'] = None; save(); continue
         action = approved; name, args = action['tool'], action['arguments']
+        if finish_blocked_during_recovery(action):
+            continue
         state['pending_action'] = action; save()
         if name == 'finish':
             state['transcript'][-1]['executed_action'] = deepcopy(action)
@@ -1390,8 +1420,9 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
         source_names = list(request_sources([], workspace, workspace))
         state['action_source_basis'] = {path: facts.get('semantic_source', facts.get('artifact_id'))
             for path, facts in artifact_manifest(state, workspace, list(set(required_outputs(config) + source_names))).items()}
-        result = rejected_action(state, name, args) or tool.execute(
-            name, args, action['id'], observed_revision=action.get('observed_graph_revision'))
+        rejected = rejected_action(state, name, args)
+        result = rejected or tool.execute(name, args, action['id'],
+                                          observed_revision=action.get('observed_graph_revision'))
         if result.get('action_discarded'):
             from services.interventions.controls import discard_decision
             discard_decision(run_id,action['id'])
@@ -1415,6 +1446,9 @@ finish requires {"tool":"finish","arguments":{"summary":"observed outcome","arti
                 live.resource = {**live.resource, 'blocked_reason': 'execution_reconciliation',
                                  'reconciliation_job': result.get('process_id')}
             raise AgentYield(status='waiting_input', reason='Executor request, configuration, receipt or original artifact requires reconciliation before further execution')
+        if rejected is None and not result.get('action_discarded') and state.get('output_recovery', {}).get('pending'):
+            state['output_recovery']['pending'] = False
+            state['output_recovery']['continued_step'] = len(state['transcript'])
         if error_event:
             state['transcript'][-1]['error_recovery'] = deepcopy(error_event)
         if error_outcome == 'diagnose':

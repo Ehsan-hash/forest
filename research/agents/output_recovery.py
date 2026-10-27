@@ -82,6 +82,5 @@ def prepare_output_recovery(state, error, config, allowed, *, messages=None, out
 def model_turn_tools(state, allowed):
     """Recovery calls remain authorized but cannot finish on a truncated turn."""
     if state.get('output_recovery', {}).get('pending'):
-        actionable = [name for name in allowed if name != 'finish']
-        return actionable or list(allowed)
+        return [name for name in allowed if name != 'finish']
     return list(allowed)
