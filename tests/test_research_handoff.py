@@ -217,6 +217,37 @@ def test_actual_numeric_files_are_compared_with_pointer_receipts(workspaces):
     assert 'implementation independence' in receipt['verification_scope']
 
 
+@pytest.mark.parametrize('duplicate_side', ['producer', 'verifier'])
+def test_numeric_compare_rejects_conflicting_duplicate_metric_keys_in_either_artifact(workspaces, duplicate_side):
+    producer, verifier = workspaces
+    duplicate = '{"metric":999,"metric":1}'
+    (producer / 'metrics.json').write_text(duplicate if duplicate_side == 'producer' else '{"metric":1}')
+    (verifier / 'metrics.json').write_text(duplicate if duplicate_side == 'verifier' else '{"metric":1}')
+
+    result = check_contract(contract(numeric()), producer, verifier)
+
+    assert result['verification_status'] == 'rejected'
+    assert result['checks'][0]['status'] == 'rejected'
+    assert 'metric' in result['checks'][0]['reason']
+    assert 'numeric_compare' in result['checks'][0]['verification_scope']
+
+
+@pytest.mark.parametrize('duplicate_side', ['producer', 'verifier'])
+def test_numeric_compare_rejects_nested_escaped_duplicate_keys_outside_selected_pointer(workspaces, duplicate_side):
+    producer, verifier = workspaces
+    duplicate = '{"metric":1,"ignored":{"nested":1,"\\u006eested":2}}'
+    valid = '{"metric":1,"ignored":{"nested":1}}'
+    (producer / 'metrics.json').write_text(duplicate if duplicate_side == 'producer' else valid)
+    (verifier / 'metrics.json').write_text(duplicate if duplicate_side == 'verifier' else valid)
+
+    result = check_contract(contract(numeric(pointers=['/metric'])), producer, verifier)
+
+    assert result['verification_status'] == 'rejected'
+    assert result['checks'][0]['status'] == 'rejected'
+    assert 'nested' in result['checks'][0]['reason']
+    assert 'numeric_compare' in result['checks'][0]['verification_scope']
+
+
 def test_editing_an_actual_repeat_changes_current_verdict(workspaces):
     producer, verifier = workspaces
     write_json(producer / 'metrics.json', {'score': 10})

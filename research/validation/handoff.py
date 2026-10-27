@@ -350,7 +350,8 @@ def _compare_values(check, pointers, original, repeated):
 def _numeric(check, producer, verifier):
     source, repeated = _file(producer, check['source']), _file(verifier, check['repeat'])
     _different(source, repeated)
-    original, repeat = json.loads(source.read_text()), json.loads(repeated.read_text())
+    original = json.loads(source.read_text(), object_pairs_hook=_reject_duplicate_json_keys)
+    repeat = json.loads(repeated.read_text(), object_pairs_hook=_reject_duplicate_json_keys)
     pointers = check.get('pointers')
     if pointers is None:
         pointers = sorted(set(dict(_leaf_numbers(original))) | set(dict(_leaf_numbers(repeat))))
@@ -629,7 +630,7 @@ def check_contract(contract, producer_workspace: Path, verifier_workspace: Path)
                       'verification_scope': 'Requested actual-file check could not be completed'}
         except _DuplicateJSONKey as exc:
             result = {'status': 'rejected', 'reason': str(exc),
-                      'verification_scope': 'Raw JSON data-contract objects must not contain duplicate keys after JSON escape decoding'}
+                      'verification_scope': f'Actual JSON artifacts for the {configured["kind"]} check must not contain duplicate keys after JSON escape decoding'}
         except ValueError as exc:
             # A computation that cannot establish the selected arithmetic scope
             # is unavailable; finite contradictory receipts are handled above.
