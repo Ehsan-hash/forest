@@ -33,7 +33,10 @@ def paired_csv(path, *, unit_column, baseline_column, candidate_column,
     with (Path(path).open(newline='') if input_stream is None else
           nullcontext(input_stream)) as stream:
         rows = csv.DictReader(stream)
-        if not {unit_column, baseline_column, candidate_column} <= set(rows.fieldnames or []):
+        fieldnames = rows.fieldnames or []
+        if len(fieldnames) != len(set(fieldnames)):
+            raise ValueError('Duplicate CSV column names')
+        if not {unit_column, baseline_column, candidate_column} <= set(fieldnames):
             raise ValueError('Observed CSV is missing requested pairing or score columns')
         for row in rows:
             unit = row[unit_column]
