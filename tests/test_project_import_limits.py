@@ -162,3 +162,34 @@ def test_member_limit_counts_manifest_metadata_before_manifest_read_and_malforme
     assert malformed.status_code == 400, malformed.text
     assert malformed.json()['detail']['code'] == 'INVALID_ARCHIVE'
     assert _project_ids() == before_ids
+
+
+@pytest.mark.parametrize('collision', [
+    [('files/archive.txt', b'FIRST'), ('files/archive.txt', b'SECOND')],
+    [('files/alias/./result.txt', b'FIRST'), ('files/alias/result.txt', b'SECOND')],
+    [('files/caf\u00e9.txt', b'FIRST'), ('files/cafe\u0301.txt', b'SECOND')],
+])
+def test_destination_collisions_are_rejected_before_project_creation(api, collision):
+    source = api.post('/api/projects', json={'name': 'Archive destination collision source'})
+    assert source.status_code == 200, source.text
+    exported = api.post(f"/api/projects/{source.json()['id']}/export", json={})
+    assert exported.status_code == 200, exported.text
+    entries = [
+        (name, content)
+        for name, content in _archive_entries(exported.content)
+        if not name.startswith('files/')
+    ]
+    before_ids = _project_ids()
+    from services.api.config import settings
+
+    projects_root = settings.data_dir / 'projects'
+    before_dirs = {path.name for path in projects_root.iterdir() if path.is_dir()}
+    rejected = api.post(
+        '/api/projects/import',
+        files={'file': ('destination-collision.zip', _archive_with_entries(entries + collision), 'application/zip')},
+    )
+
+    assert rejected.status_code == 400, rejected.text
+    assert rejected.json()['detail']['code'] == 'INVALID_ARCHIVE'
+    assert _project_ids() == before_ids
+    assert {path.name for path in projects_root.iterdir() if path.is_dir()} == before_dirs
