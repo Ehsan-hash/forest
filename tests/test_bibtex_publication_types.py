@@ -23,6 +23,21 @@ def crossref_book(publication_type="edited-book"):
     }
 
 
+def crossref_proceedings():
+    return {
+        "type": "proceedings-article",
+        "title": ["A Conference Paper"],
+        "author": [{"given": "Alex", "family": "Researcher"}],
+        "container-title": ["Proceedings of the Example Conference"],
+        "published": {"date-parts": [[2024]]},
+        "DOI": "10.1234/conference-paper",
+        "URL": "https://doi.org/10.1234/conference-paper",
+        "volume": "7",
+        "issue": "2",
+        "page": "10-18",
+    }
+
+
 @pytest.mark.parametrize("publication_type", [
     "book", "edited-book", "monograph", "reference-book",
 ])
@@ -49,6 +64,25 @@ def test_authored_book_keeps_its_author_and_publisher():
     assert exported.type == "book"
     assert exported.persons["author"][0].last_names == ["Author"]
     assert exported.fields["publisher"] == "Example Press"
+
+
+def test_crossref_proceedings_articles_export_as_inproceedings_with_booktitle():
+    record = sources._crossref(crossref_proceedings())
+
+    assert record["type"] == "proceedings-article"
+    assert record["journal"] == "Proceedings of the Example Conference"
+    exported = entry(record["bibtex"])
+
+    assert exported.type == "inproceedings"
+    assert exported.fields["booktitle"] == "Proceedings of the Example Conference"
+    assert "journal" not in exported.fields
+    assert exported.persons["author"][0].last_names == ["Researcher"]
+    assert exported.fields["year"] == "2024"
+    assert exported.fields["doi"] == "10.1234/conference-paper"
+    assert exported.fields["url"] == "https://doi.org/10.1234/conference-paper"
+    assert exported.fields["volume"] == "7"
+    assert exported.fields["number"] == "2"
+    assert exported.fields["pages"] == "10-18"
 
 
 @pytest.mark.parametrize("publication_type", [None, "journal-article", "unrecognized"])
@@ -116,3 +150,23 @@ def test_doi_import_writes_book_metadata_and_bibtex(tmp_path, monkeypatch):
     assert record["type"] == "edited-book"
     assert json.loads((tmp_path / "metadata.json").read_text())["type"] == "edited-book"
     assert entry((tmp_path / "references.bib").read_text()).type == "book"
+
+
+def test_doi_import_writes_proceedings_metadata_and_bibtex(tmp_path, monkeypatch):
+    requested = []
+
+    def get(url, *args, **kwargs):
+        requested.append(url)
+        return httpx.Response(200, json={"message": crossref_proceedings()})
+
+    monkeypatch.setattr(sources, "_get", get)
+    record = sources.import_identifier("10.1234/conference-paper", tmp_path)
+
+    assert requested == ["https://api.crossref.org/works/10.1234%2Fconference-paper"]
+    metadata = json.loads((tmp_path / "metadata.json").read_text())
+    assert metadata["type"] == "proceedings-article"
+    assert metadata["journal"] == "Proceedings of the Example Conference"
+    exported = entry((tmp_path / "references.bib").read_text())
+    assert exported.type == "inproceedings"
+    assert exported.fields["booktitle"] == "Proceedings of the Example Conference"
+    assert "journal" not in exported.fields
