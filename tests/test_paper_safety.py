@@ -148,6 +148,112 @@ def case_span_review_and_legacy_edit_protection(client):
     assert publish(pid, run, bundle(pid, 'new', 'New generated. '))['publication'] == 'proposed'
 
 
+def case_span_offsets_apply_selected_repeated_occurrences(client):
+    from services.api.db import Session, Review
+    from services.api.common import project_dir
+    from research.paper.writing import validate_revision_proposal
+    pid = project(client)
+    publish(pid, enqueue_generation(pid), bundle(pid, 'initial', 'Initial. '))
+    paper = ok(client.get('/api/papers/' + pid))
+    source = 'Keep neighbor. marker here. Keep neighbor. marker there.'
+    paper = ok(client.patch('/api/papers/' + pid, json={
+        'expected_revision': paper['revision'], 'data': {'source': source}}))
+    selections = [
+        ([0], 'Keep neighbor. marker plus marker here. Keep neighbor. marker there.'),
+        ([1], 'Keep neighbor. marker here. Keep neighbor. second replacement there.'),
+        ([1, 0], 'Keep neighbor. marker plus marker here. Keep neighbor. second replacement there.'),
+    ]
+    for indices, expected in selections:
+        paper = ok(client.get('/api/papers/' + pid))
+        if paper['data']['source'] != source:
+            paper = ok(client.patch('/api/papers/' + pid, json={
+                'expected_revision': paper['revision'], 'data': {'source': source}}))
+        first = source.index('marker')
+        second = source.index('marker', first + 1)
+        proposal = validate_revision_proposal(source, {'edits': [
+            {'original': 'marker', 'replacement': 'marker plus marker', 'start': first},
+            {'original': 'marker', 'replacement': 'second replacement', 'start': second},
+        ]})
+        with Session.begin() as session:
+            review = Review(project_id=pid, title='Repeated span proposal', data={
+                'paper_id': paper['id'], 'paper_revision': paper['revision'], 'edits': proposal['edits']}, status='proposed')
+            session.add(review); session.flush(); review_id = review.id
+        applied = ok(client.post('/api/reviews/' + review_id + '/apply', json={
+            'expected_revision': paper['revision'], 'indices': indices}))
+        assert applied['data']['source'] == expected
+        assert applied['revision'] == paper['revision'] + 1
+        assert applied['status'] == 'needs_update'
+        assert (project_dir(pid) / 'paper' / 'paper.tex').read_text() == expected
+        assert ok(client.get('/api/reviews/' + review_id))['status'] == 'applied'
+
+    current = ok(client.get('/api/papers/' + pid))
+    before_file = (project_dir(pid) / 'paper' / 'paper.tex').read_text()
+    first = source.index('marker')
+    second = source.index('marker', first + 1)
+    proposal = validate_revision_proposal(source, {'edits': [
+        {'original': 'marker', 'replacement': 'marker plus marker', 'start': first},
+        {'original': 'marker', 'replacement': 'second replacement', 'start': second},
+    ]})
+    with Session.begin() as session:
+        stale = Review(project_id=pid, title='Stale saved span proposal', data={
+            'paper_id': current['id'], 'paper_revision': current['revision'] - 1,
+            'edits': proposal['edits']}, status='proposed')
+        session.add(stale); session.flush(); stale_id = stale.id
+    rejected = client.post('/api/reviews/' + stale_id + '/apply', json={
+        'expected_revision': current['revision'], 'indices': [0]})
+    assert rejected.status_code == 409
+    assert ok(client.get('/api/papers/' + pid))['data']['source'] == current['data']['source']
+    assert ok(client.get('/api/papers/' + pid))['revision'] == current['revision']
+    assert (project_dir(pid) / 'paper' / 'paper.tex').read_text() == before_file
+    assert ok(client.get('/api/reviews/' + stale_id))['status'] == 'proposed'
+
+
+def case_span_selection_validation_is_atomic(client):
+    from services.api.db import Session, Review
+    from services.api.common import project_dir
+    pid = project(client)
+    publish(pid, enqueue_generation(pid), bundle(pid, 'initial', 'Initial. '))
+    paper = ok(client.get('/api/papers/' + pid))
+    source = 'Repeated marker. Keep neighbor. Repeated marker.'
+    paper = ok(client.patch('/api/papers/' + pid, json={
+        'expected_revision': paper['revision'], 'data': {'source': source}}))
+    file_path = project_dir(pid) / 'paper' / 'paper.tex'
+    before_file = file_path.read_text()
+    first = source.index('marker')
+    second = source.index('marker', first + 1)
+    cases = [
+        ([{'original': 'marker', 'replacement': 'changed', 'start': 'bad', 'end': first + 6}], [0], 409),
+        ([{'original': 'marker', 'replacement': 'changed', 'start': len(source), 'end': len(source) + 6}], [0], 409),
+        ([{'original': 'marker', 'replacement': 'changed', 'start': first + 1, 'end': first + 7}], [0], 409),
+        ([{'original': 'Repeated marker', 'replacement': 'changed', 'start': 0, 'end': 15},
+          {'original': 'marker', 'replacement': 'changed', 'start': first, 'end': first + 6}], [0, 1], 409),
+        ([{'original': 'marker', 'replacement': 'changed', 'start': first, 'end': first + 6}], [0, 0], 422),
+    ]
+    for edits, indices, status in cases:
+        with Session.begin() as session:
+            review = Review(project_id=pid, title='Invalid span proposal', data={
+                'paper_id': paper['id'], 'paper_revision': paper['revision'], 'edits': edits}, status='proposed')
+            session.add(review); session.flush(); review_id = review.id
+        rejected = client.post('/api/reviews/' + review_id + '/apply', json={
+            'expected_revision': paper['revision'], 'indices': indices})
+        assert rejected.status_code == status
+        assert ok(client.get('/api/papers/' + pid))['data']['source'] == source
+        assert ok(client.get('/api/papers/' + pid))['revision'] == paper['revision']
+        assert file_path.read_text() == before_file
+        assert ok(client.get('/api/reviews/' + review_id))['status'] == 'proposed'
+    with Session.begin() as session:
+        stale = Review(project_id=pid, title='Stale span proposal', data={
+            'paper_id': paper['id'], 'paper_revision': paper['revision'], 'edits': [
+                {'original': 'marker', 'replacement': 'changed', 'start': first, 'end': first + 6}]}, status='proposed')
+        session.add(stale); session.flush(); stale_id = stale.id
+    rejected = client.post('/api/reviews/' + stale_id + '/apply', json={
+        'expected_revision': paper['revision'] - 1, 'indices': [0]})
+    assert rejected.status_code == 409
+    assert ok(client.get('/api/papers/' + pid))['data']['source'] == source
+    assert file_path.read_text() == before_file
+    assert ok(client.get('/api/reviews/' + stale_id))['status'] == 'proposed'
+
+
 def case_files_and_paper_studio_share_edit_protection(client):
     pid = project(client)
     publish(pid, enqueue_generation(pid), bundle(pid, 'initial', 'Initial. '))

@@ -690,10 +690,28 @@ def apply_revision(ident:str,body:dict=Body(...)):
         if review.data.get('kind')=='paper_generation':
             apply_generation_review(s,review,p,indices); return asdict(p)
         if not indices or any(type(i) is not int or i<0 or i>=len(review.data.get('edits',[])) for i in indices): error('INVALID_SELECTION','Select valid proposed edits',422)
+        if len(indices)!=len(set(indices)): error('INVALID_SELECTION','Select each proposed edit only once',422)
+        resolved=[]
         for i in indices:
             item=review.data['edits'][i]
-            if source.count(item['original'])!=1: error('AMBIGUOUS_SPAN','The original passage must occur exactly once',409)
-            source=source.replace(item['original'],item['replacement'],1)
+            if not isinstance(item,dict): error('AMBIGUOUS_SPAN','Each proposed edit must be an object',409)
+            original=item.get('original'); replacement=item.get('replacement')
+            if not isinstance(original,str) or not original or not isinstance(replacement,str):
+                error('AMBIGUOUS_SPAN','Each proposed edit must include a nonempty original and string replacement',409)
+            has_start='start' in item; has_end='end' in item
+            if has_start or has_end:
+                start=item.get('start'); end=item.get('end')
+                if (type(start) is not int or type(end) is not int or start<0 or end<=start
+                        or end>len(source) or source[start:end]!=original):
+                    error('AMBIGUOUS_SPAN','The proposed edit offsets do not match the current source',409)
+            else:
+                if source.count(original)!=1: error('AMBIGUOUS_SPAN','The original passage must occur exactly once',409)
+                start=source.index(original); end=start+len(original)
+            if any(start<other_end and end>other_start for other_start,other_end,_,_ in resolved):
+                error('AMBIGUOUS_SPAN','Proposed edits overlap',409)
+            resolved.append((start,end,original,replacement))
+        for start,end,_,replacement in sorted(resolved,reverse=True):
+            source=source[:start]+replacement+source[end:]
         p.data={**p.data,'source':source,'manually_edited':True,'content_origin':'review_applied'}; p.revision+=1; p.status='needs_update'; review.status='applied'; write_working_source(p); emit(s,p.project_id,'paper_changed',{'id':p.id}); return asdict(p)
 
 @router.post('/api/projects/{ident}/runs/selected')
